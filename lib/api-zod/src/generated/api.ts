@@ -57,7 +57,9 @@ export const ListSignalsResponseItem = zod.object({
   "url": zod.string(),
   "sourceType": zod.string(),
   "publishedAt": zod.coerce.date(),
-  "excerpt": zod.string()
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['verified']),
+  "verifiedAt": zod.coerce.date()
 })),
   "contacts": zod.array(zod.object({
   "id": zod.number(),
@@ -109,7 +111,9 @@ export const GetSignalResponse = zod.object({
   "url": zod.string(),
   "sourceType": zod.string(),
   "publishedAt": zod.coerce.date(),
-  "excerpt": zod.string()
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['verified']),
+  "verifiedAt": zod.coerce.date()
 })),
   "contacts": zod.array(zod.object({
   "id": zod.number(),
@@ -166,7 +170,9 @@ export const ReviewSignalResponse = zod.object({
   "url": zod.string(),
   "sourceType": zod.string(),
   "publishedAt": zod.coerce.date(),
-  "excerpt": zod.string()
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['verified']),
+  "verifiedAt": zod.coerce.date()
 })),
   "contacts": zod.array(zod.object({
   "id": zod.number(),
@@ -187,6 +193,115 @@ export const ReviewSignalResponse = zod.object({
   "dialogueDraft": zod.string().optional(),
   "reviewReason": zod.string().nullish(),
   "reviewComment": zod.string().nullish()
+})
+
+
+/**
+ * @summary Add and verify a public source to a signal
+ */
+export const AddSignalEvidenceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AddSignalEvidenceBody = zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string()
+})
+
+export const AddSignalEvidenceResponse = zod.object({
+  "id": zod.number(),
+  "company": zod.object({
+  "name": zod.string(),
+  "employees": zod.number(),
+  "industry": zod.string(),
+  "domain": zod.string()
+}),
+  "signalType": zod.string(),
+  "strength": zod.enum(['A', 'B', 'C']),
+  "status": zod.enum(['til_vurdering', 'godkjent', 'avvist', 'allerede_kjent', 'følg_videre']),
+  "summary": zod.string(),
+  "rationale": zod.string().optional(),
+  "publishedAt": zod.coerce.date().optional(),
+  "freshnessDays": zod.number().optional(),
+  "evidence": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['verified']),
+  "verifiedAt": zod.coerce.date()
+})),
+  "contacts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "title": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "linkedinUrl": zod.string().nullish(),
+  "confidence": zod.enum(['bekreftet', 'fra_crm', 'fra_sales_navigator', 'ikke_verifisert']),
+  "rationale": zod.string().optional()
+})),
+  "crm": zod.object({
+  "status": zod.string(),
+  "matchCount": zod.number(),
+  "note": zod.string().nullish()
+}),
+  "suggestedOpening": zod.string().optional(),
+  "dialogueDraft": zod.string().optional(),
+  "reviewReason": zod.string().nullish(),
+  "reviewComment": zod.string().nullish()
+})
+
+
+/**
+ * @summary Import selected accounts from a baseline or CRM workbook
+ */
+export const ImportSignalsBody = zod.object({
+  "signals": zod.array(zod.object({
+  "companyName": zod.string(),
+  "employees": zod.number(),
+  "industry": zod.string(),
+  "domain": zod.string(),
+  "signalType": zod.string(),
+  "strength": zod.enum(['A', 'B', 'C']),
+  "summary": zod.string(),
+  "rationale": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "evidence": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string()
+})),
+  "contacts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "title": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "linkedinUrl": zod.string().nullish(),
+  "confidence": zod.enum(['bekreftet', 'fra_crm', 'fra_sales_navigator', 'ikke_verifisert']),
+  "rationale": zod.string().optional()
+})),
+  "crm": zod.object({
+  "status": zod.string(),
+  "matchCount": zod.number(),
+  "note": zod.string().nullish()
+}),
+  "suggestedOpening": zod.string(),
+  "dialogueDraft": zod.string()
+}))
+})
+
+export const ImportSignalsResponse = zod.object({
+  "imported": zod.number(),
+  "skipped": zod.number(),
+  "warnings": zod.array(zod.string()).optional()
 })
 
 

@@ -5,10 +5,8 @@
  * WeMe Signalpilot API
  * OpenAPI spec version: 0.1.0
  */
+import type { SignalImportInput } from './signalImportInput';
 
-export interface SignalCrm {
-  status: string;
-  matchCount: number;
-  /** @nullable */
-  note?: string | null;
-}
+export type ImportSignalsBody = {
+  signals: SignalImportInput[];
+};

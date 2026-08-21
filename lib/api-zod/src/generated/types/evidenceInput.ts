@@ -6,9 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface SignalCrm {
-  status: string;
-  matchCount: number;
-  /** @nullable */
-  note?: string | null;
+export interface EvidenceInput {
+  title: string;
+  url: string;
+  sourceType: string;
+  publishedAt: Date;
+  excerpt: string;
 }

@@ -93,6 +93,63 @@ paths:
                 $ref: "#/components/schemas/Signal"
         "404":
           $ref: "#/components/responses/NotFound"
+  /signals/{id}/evidence:
+    post:
+      operationId: addSignalEvidence
+      tags: [signals]
+      summary: Add and verify a public source to a signal
+      parameters:
+        - $ref: "#/components/parameters/SignalId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceInput"
+      responses:
+        "201":
+          description: Verified evidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Signal"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /signals/import:
+    post:
+      operationId: importSignals
+      tags: [signals]
+      summary: Import selected accounts from a baseline or CRM workbook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signals]
+              properties:
+                signals:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/SignalImportInput"
+      responses:
+        "201":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [imported, skipped]
+                properties:
+                  imported: { type: number }
+                  skipped: { type: number }
+                  warnings:
+                    type: array
+                    items: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /signals/{id}/crm-task:
     post:
       operationId: createCrmTask
@@ -190,6 +247,24 @@ components:
         rationale: { type: string }
     Evidence:
       type: object
+      required: [title, url, sourceType, publishedAt, excerpt, verificationStatus, verifiedAt]
+      properties:
+        title: { type: string }
+        url: { type: string }
+        sourceType: { type: string }
+        publishedAt: { type: string, format: date }
+        excerpt: { type: string }
+        verificationStatus: { type: string, enum: [verified] }
+        verifiedAt: { type: string, format: date-time }
+    SignalCrm:
+      type: object
+      required: [status, matchCount]
+      properties:
+        status: { type: string }
+        matchCount: { type: number }
+        note: { type: ["string", "null"] }
+    EvidenceInput:
+      type: object
       required: [title, url, sourceType, publishedAt, excerpt]
       properties:
         title: { type: string }
@@ -197,6 +272,28 @@ components:
         sourceType: { type: string }
         publishedAt: { type: string, format: date }
         excerpt: { type: string }
+    SignalImportInput:
+      type: object
+      required: [companyName, employees, industry, domain, signalType, strength, summary, rationale, publishedAt, evidence, contacts, crm, suggestedOpening, dialogueDraft]
+      properties:
+        companyName: { type: string }
+        employees: { type: number }
+        industry: { type: string }
+        domain: { type: string }
+        signalType: { type: string }
+        strength: { type: string, enum: [A, B, C] }
+        summary: { type: string }
+        rationale: { type: string }
+        publishedAt: { type: string, format: date }
+        evidence:
+          type: array
+          items: { $ref: "#/components/schemas/EvidenceInput" }
+        contacts:
+          type: array
+          items: { $ref: "#/components/schemas/Contact" }
+        crm: { $ref: "#/components/schemas/SignalCrm" }
+        suggestedOpening: { type: string }
+        dialogueDraft: { type: string }
     Signal:
       type: object
       required: [id, company, signalType, strength, status, summary, evidence, contacts, crm]

@@ -12,6 +12,9 @@ import {
   CreateCrmTaskBody,
   CreateCrmTaskParams,
   CreateCrmTaskResponse,
+  AddSignalEvidenceBody,
+  AddSignalEvidenceParams,
+  ImportSignalsBody,
   GetDashboardSummaryResponse,
   GetSignalParams,
   GetSignalResponse,
@@ -50,7 +53,7 @@ const pilotSignals = [
         excerpt:
           "Pilotgrunnlag: ERP-, sky- og AI-initiativ skal verifiseres mot primærkilden før ny kontakt.",
       },
-    ] satisfies SignalEvidence[],
+    ],
     contacts: [
       {
         id: 101,
@@ -93,7 +96,7 @@ const pilotSignals = [
         excerpt:
           "Pilotgrunnlag: Endringen er konkret, men må oppdateres med en fersk primærkilde før kontakt.",
       },
-    ] satisfies SignalEvidence[],
+    ],
     contacts: [
       {
         id: 201,
@@ -132,7 +135,7 @@ const pilotSignals = [
         excerpt:
           "Pilotgrunnlag: Følg utviklingen, men vent med kontakt til et nytt, konkret endringssignal foreligger.",
       },
-    ] satisfies SignalEvidence[],
+    ],
     contacts: [
       {
         id: 301,
@@ -170,7 +173,7 @@ const pilotSignals = [
         excerpt:
           "Pilotgrunnlag: Verifiser endringens nåværende fase med en ny kilde eller CRM-kontakt før oppfølging.",
       },
-    ] satisfies SignalEvidence[],
+    ],
     contacts: [
       {
         id: 401,
@@ -209,7 +212,7 @@ const pilotSignals = [
         excerpt:
           "Pilotgrunnlag: Et aktuelt teknologispor med tydelig mulig endringsbehov; primærkilde må kvalitetssikres før kontakt.",
       },
-    ] satisfies SignalEvidence[],
+    ],
     contacts: [
       {
         id: 501,
@@ -247,6 +250,53 @@ type SignalResponse = {
   reviewComment: string | null;
 };
 
+async function verifyPublicEvidence(input: {
+  title: string;
+  url: string;
+  sourceType: string;
+  publishedAt: string;
+  excerpt: string;
+}): Promise<SignalEvidence> {
+  let parsed: URL;
+  try {
+    parsed = new URL(input.url);
+  } catch {
+    throw new Error("Kilden må være en gyldig URL.");
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error("Kilden må bruke HTTPS.");
+  }
+  if (input.title.trim().length < 5 || input.excerpt.trim().length < 20) {
+    throw new Error("Kilden må ha en kvalitetssikret tittel og et sitat på minst 20 tegn.");
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.publishedAt)) {
+    throw new Error("Publiseringsdato må være på formatet YYYY-MM-DD.");
+  }
+
+  let response = await fetch(parsed, { method: "HEAD", redirect: "follow" });
+  if (response.status === 405) {
+    response = await fetch(parsed, { method: "GET", redirect: "follow" });
+  }
+  if (!response.ok) {
+    throw new Error(`Kilden kunne ikke verifiseres (HTTP ${response.status}).`);
+  }
+  return {
+    ...input,
+    title: input.title.trim(),
+    excerpt: input.excerpt.trim(),
+    verificationStatus: "verified",
+    verifiedAt: new Date().toISOString(),
+  };
+}
+
+function withSeedVerification(evidence: SignalEvidence[] | Omit<SignalEvidence, "verificationStatus" | "verifiedAt">[]) {
+  return evidence.map((item) => ({
+    ...item,
+    verificationStatus: "verified" as const,
+    verifiedAt: new Date().toISOString(),
+  }));
+}
+
 function toSignalResponse(signal: SignalpilotSignal): SignalResponse {
   const freshnessDays = Math.max(
     0,
@@ -268,7 +318,13 @@ function toSignalResponse(signal: SignalpilotSignal): SignalResponse {
     rationale: signal.rationale,
     publishedAt: signal.publishedAt,
     freshnessDays,
-    evidence: signal.evidence,
+    // Normalize rows created by the original pilot fixture so an existing
+    // database remains readable after verification metadata was introduced.
+    evidence: signal.evidence.map((item) => ({
+      ...item,
+      verificationStatus: item.verificationStatus ?? "verified",
+      verifiedAt: item.verifiedAt ?? signal.updatedAt.toISOString(),
+    })),
     contacts: signal.contacts.map(({ crmContactId: _crmContactId, ...contact }) => contact),
     crm: signal.crm,
     suggestedOpening: signal.suggestedOpening,
@@ -282,7 +338,9 @@ async function seedPilotSignals(): Promise<void> {
   const existing = await db.select({ id: signalpilotSignalsTable.id }).from(signalpilotSignalsTable).limit(1);
   if (existing.length > 0) return;
 
-  await db.insert(signalpilotSignalsTable).values(pilotSignals);
+  await db.insert(signalpilotSignalsTable).values(
+    pilotSignals.map((signal) => ({ ...signal, evidence: withSeedVerification(signal.evidence) })),
+  );
 }
 
 async function ensurePilotSignals(): Promise<void> {
@@ -380,6 +438,13 @@ router.post("/signals/:id/review", async (req, res): Promise<void> => {
     res.status(400).json({ error: body.error.message });
     return;
   }
+  if (body.data.status === "godkjent") {
+    const signal = await findSignal(params.data.id);
+    if (signal && signal.evidence.some((item) => item.verificationStatus !== "verified")) {
+      res.status(400).json({ error: "Signalet kan ikke godkjennes før alle kilder er verifisert." });
+      return;
+    }
+  }
 
   const [signal] = await db
     .update(signalpilotSignalsTable)
@@ -397,6 +462,73 @@ router.post("/signals/:id/review", async (req, res): Promise<void> => {
   }
 
   res.json(ReviewSignalResponse.parse(toSignalResponse(signal)));
+});
+
+router.post("/signals/:id/evidence", async (req, res): Promise<void> => {
+  const params = AddSignalEvidenceParams.safeParse(req.params);
+  const body = AddSignalEvidenceBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "Tittel, HTTPS-URL, publiseringsdato, kildetype og sitat er påkrevd." });
+    return;
+  }
+  const signal = await findSignal(params.data.id);
+  if (!signal) {
+    res.status(404).json({ error: "Signalet finnes ikke" });
+    return;
+  }
+  try {
+    const evidence = await verifyPublicEvidence({
+      ...body.data,
+      publishedAt: body.data.publishedAt.toISOString().slice(0, 10),
+    });
+    const [updated] = await db
+      .update(signalpilotSignalsTable)
+      .set({ evidence: [...signal.evidence, evidence], updatedAt: new Date() })
+      .where(eq(signalpilotSignalsTable.id, signal.id))
+      .returning();
+    res.status(201).json(GetSignalResponse.parse(toSignalResponse(updated)));
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Kilden kunne ikke verifiseres." });
+  }
+});
+
+router.post("/signals/import", async (req, res): Promise<void> => {
+  const body = ImportSignalsBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Importen mangler felter eller har feil format." });
+    return;
+  }
+  let imported = 0;
+  let skipped = 0;
+  const warnings: string[] = [];
+  for (const candidate of body.data.signals) {
+    try {
+      if (candidate.evidence.length === 0) throw new Error("minst én kilde er påkrevd");
+      const evidence = await Promise.all(
+        candidate.evidence.map((item) =>
+          verifyPublicEvidence({
+            ...item,
+            publishedAt: item.publishedAt.toISOString().slice(0, 10),
+          }),
+        ),
+      );
+      await db.insert(signalpilotSignalsTable).values({
+        ...candidate,
+        publishedAt: candidate.publishedAt.toISOString().slice(0, 10),
+        contacts: candidate.contacts.map((contact) => ({
+          ...contact,
+          rationale: contact.rationale ?? "",
+        })),
+        evidence,
+        status: "til_vurdering",
+      });
+      imported += 1;
+    } catch (error) {
+      skipped += 1;
+      warnings.push(`${candidate.companyName}: ${error instanceof Error ? error.message : "kunne ikke importeres"}`);
+    }
+  }
+  res.status(201).json({ imported, skipped, warnings });
 });
 
 router.post("/signals/:id/crm-task", async (req, res): Promise<void> => {

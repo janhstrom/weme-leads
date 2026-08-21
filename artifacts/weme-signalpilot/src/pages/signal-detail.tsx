@@ -4,6 +4,7 @@ import {
   useGetSignal, 
   useReviewSignal, 
   useCreateCrmTask, 
+  useAddSignalEvidence,
   SignalReviewInputStatus, 
   getGetDashboardSummaryQueryKey,
   getListSignalsQueryKey,
@@ -25,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   ArrowLeft, Building2, Calendar, Link as LinkIcon, 
   CheckCircle2, XCircle, Clock, CheckSquare,
-  MessageSquare, User, Briefcase, Zap, Globe, FileText, Send
+  MessageSquare, User, Briefcase, Zap, Globe, FileText, Send, Plus
 } from "lucide-react";
 import { StrengthBadge, StatusBadge } from "./dashboard";
 
@@ -143,7 +144,12 @@ export default function SignalDetailPage() {
                   <a key={i} href={ev.url} target="_blank" rel="noopener noreferrer" className="block p-4 rounded-xl border border-border bg-card hover:border-primary/50 transition-colors group">
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-semibold text-sm group-hover:text-primary transition-colors">{ev.title}</h4>
-                      <Badge variant="secondary" className="text-[10px] uppercase font-mono">{ev.sourceType}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-[10px] uppercase font-mono">{ev.sourceType}</Badge>
+                        <Badge variant="outline" className="text-[10px] text-green-700 border-green-200 bg-green-50">
+                          <CheckCircle2 className="w-3 h-3 mr-1" /> Verifisert
+                        </Badge>
+                      </div>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2 italic border-l-2 border-primary/30 pl-3 my-3">"{ev.excerpt}"</p>
                     <div className="flex items-center text-xs text-muted-foreground font-mono">
@@ -154,6 +160,7 @@ export default function SignalDetailPage() {
                   </a>
                 ))}
               </div>
+              <EvidenceForm signal={signal} />
             </section>
             
           </div>
@@ -217,6 +224,52 @@ export default function SignalDetailPage() {
         </div>
         
       </div>
+    </div>
+  );
+}
+
+function EvidenceForm({ signal }: { signal: Signal }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: "", url: "", sourceType: "Selskapsnyhet", publishedAt: "", excerpt: "" });
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const mutation = useAddSignalEvidence({
+    mutation: {
+      onSuccess: (updated) => {
+        queryClient.setQueryData(getGetSignalQueryKey(signal.id), updated);
+        queryClient.invalidateQueries({ queryKey: getListSignalsQueryKey() });
+        setForm({ title: "", url: "", sourceType: "Selskapsnyhet", publishedAt: "", excerpt: "" });
+        setOpen(false);
+        toast({ title: "Kilde verifisert", description: "Kilden er lagret som aktiv primærkilde." });
+      },
+      onError: (error) => toast({ title: "Kilden ble ikke godkjent", description: error instanceof Error ? error.message : "Kontroller URL og feltene.", variant: "destructive" }),
+    },
+  });
+  const update = (field: keyof typeof form, value: string) => setForm((current) => ({ ...current, [field]: value }));
+  return (
+    <div className="mt-4">
+      {!open ? (
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)}><Plus className="w-4 h-4 mr-2" /> Legg inn verifisert kilde</Button>
+      ) : (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3"><CardTitle className="text-sm">Ny offentlig primærkilde</CardTitle><CardDescription>Kun direkte HTTPS-kilder med tittel, dato og sitat blir lagret.</CardDescription></CardHeader>
+          <CardContent className="space-y-3">
+            {([
+              ["title", "Kvalitetssikret tittel"],
+              ["url", "Direkte URL (https://...)"],
+              ["sourceType", "Kildetype"],
+              ["publishedAt", "Publiseringsdato"],
+            ] as const).map(([field, label]) => (
+              <input key={field} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" type={field === "publishedAt" ? "date" : "text"} placeholder={label} value={form[field]} onChange={(event) => update(field, event.target.value)} />
+            ))}
+            <textarea className="w-full min-h-20 rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Sitat fra kilden (minst 20 tegn)" value={form.excerpt} onChange={(event) => update("excerpt", event.target.value)} />
+            <div className="flex gap-2">
+              <Button onClick={() => mutation.mutate({ id: signal.id, data: form })} disabled={mutation.isPending || Object.values(form).some((value) => !value.trim())}>{mutation.isPending ? "Verifiserer..." : "Verifiser og lagre"}</Button>
+              <Button variant="ghost" onClick={() => setOpen(false)} disabled={mutation.isPending}>Avbryt</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

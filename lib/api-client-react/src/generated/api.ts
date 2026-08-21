@@ -25,7 +25,10 @@ import type {
   CrmTaskResult,
   DashboardSummary,
   ErrorResponse,
+  EvidenceInput,
   HealthStatus,
+  ImportSignals201,
+  ImportSignalsBody,
   ListSignalsParams,
   NotFoundResponse,
   Signal,
@@ -444,6 +447,149 @@ export const useReviewSignal = <TError = ErrorType<NotFoundResponse>,
         TContext
       > => {
       return useMutation(getReviewSignalMutationOptions(options));
+    }
+
+export const getAddSignalEvidenceUrl = (id: number,) => {
+
+
+
+
+  return `/api/signals/${id}/evidence`
+}
+
+/**
+ * @summary Add and verify a public source to a signal
+ */
+export const addSignalEvidence = async (id: number,
+    evidenceInput: EvidenceInput, options?: Parameters<typeof customFetch>[1]): Promise<Signal> => {
+
+  return customFetch<Signal>(getAddSignalEvidenceUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(evidenceInput)
+  }
+);}
+
+
+
+
+
+export const getAddSignalEvidenceMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addSignalEvidence>>, TError,{id: number;data: BodyType<EvidenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addSignalEvidence>>, TError,{id: number;data: BodyType<EvidenceInput>}, TContext> => {
+
+const mutationKey = ['addSignalEvidence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addSignalEvidence>>, {id: number;data: BodyType<EvidenceInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addSignalEvidence(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddSignalEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof addSignalEvidence>>>
+    export type AddSignalEvidenceMutationBody = BodyType<EvidenceInput>
+    export type AddSignalEvidenceMutationError = ErrorType<BadRequestResponse | NotFoundResponse>
+
+    /**
+ * @summary Add and verify a public source to a signal
+ */
+export const useAddSignalEvidence = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addSignalEvidence>>, TError,{id: number;data: BodyType<EvidenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addSignalEvidence>>,
+        TError,
+        {id: number;data: BodyType<EvidenceInput>},
+        TContext
+      > => {
+      return useMutation(getAddSignalEvidenceMutationOptions(options));
+    }
+
+export const getImportSignalsUrl = () => {
+
+
+
+
+  return `/api/signals/import`
+}
+
+/**
+ * @summary Import selected accounts from a baseline or CRM workbook
+ */
+export const importSignals = async (importSignalsBody: ImportSignalsBody, options?: Parameters<typeof customFetch>[1]): Promise<ImportSignals201> => {
+
+  return customFetch<ImportSignals201>(getImportSignalsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(importSignalsBody)
+  }
+);}
+
+
+
+
+
+export const getImportSignalsMutationOptions = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importSignals>>, TError,{data: BodyType<ImportSignalsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importSignals>>, TError,{data: BodyType<ImportSignalsBody>}, TContext> => {
+
+const mutationKey = ['importSignals'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importSignals>>, {data: BodyType<ImportSignalsBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importSignals(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportSignalsMutationResult = NonNullable<Awaited<ReturnType<typeof importSignals>>>
+    export type ImportSignalsMutationBody = BodyType<ImportSignalsBody>
+    export type ImportSignalsMutationError = ErrorType<BadRequestResponse>
+
+    /**
+ * @summary Import selected accounts from a baseline or CRM workbook
+ */
+export const useImportSignals = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importSignals>>, TError,{data: BodyType<ImportSignalsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importSignals>>,
+        TError,
+        {data: BodyType<ImportSignalsBody>},
+        TContext
+      > => {
+      return useMutation(getImportSignalsMutationOptions(options));
     }
 
 export const getCreateCrmTaskUrl = (id: number,) => {

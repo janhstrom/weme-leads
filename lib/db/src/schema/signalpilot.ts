@@ -17,6 +17,8 @@ export type SignalEvidence = {
   sourceType: string;
   publishedAt: string;
   excerpt: string;
+  verificationStatus: "verified";
+  verifiedAt: string;
 };
 
 export type SignalContact = {

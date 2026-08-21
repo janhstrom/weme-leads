@@ -5,6 +5,7 @@
  * WeMe Signalpilot API
  * OpenAPI spec version: 0.1.0
  */
+import type { EvidenceVerificationStatus } from './evidenceVerificationStatus';
 
 export interface Evidence {
   title: string;
@@ -12,4 +13,6 @@ export interface Evidence {
   sourceType: string;
   publishedAt: Date;
   excerpt: string;
+  verificationStatus: EvidenceVerificationStatus;
+  verifiedAt: Date;
 }

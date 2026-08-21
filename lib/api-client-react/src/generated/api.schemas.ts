@@ -37,12 +37,62 @@ export interface Contact {
   rationale?: string;
 }
 
+export type EvidenceVerificationStatus = typeof EvidenceVerificationStatus[keyof typeof EvidenceVerificationStatus];
+
+
+export const EvidenceVerificationStatus = {
+  verified: 'verified',
+} as const;
+
 export interface Evidence {
   title: string;
   url: string;
   sourceType: string;
   publishedAt: string;
   excerpt: string;
+  verificationStatus: EvidenceVerificationStatus;
+  verifiedAt: string;
+}
+
+export interface SignalCrm {
+  status: string;
+  matchCount: number;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface EvidenceInput {
+  title: string;
+  url: string;
+  sourceType: string;
+  publishedAt: string;
+  excerpt: string;
+}
+
+export type SignalImportInputStrength = typeof SignalImportInputStrength[keyof typeof SignalImportInputStrength];
+
+
+export const SignalImportInputStrength = {
+  A: 'A',
+  B: 'B',
+  C: 'C',
+} as const;
+
+export interface SignalImportInput {
+  companyName: string;
+  employees: number;
+  industry: string;
+  domain: string;
+  signalType: string;
+  strength: SignalImportInputStrength;
+  summary: string;
+  rationale: string;
+  publishedAt: string;
+  evidence: EvidenceInput[];
+  contacts: Contact[];
+  crm: SignalCrm;
+  suggestedOpening: string;
+  dialogueDraft: string;
 }
 
 export type SignalCompany = {
@@ -72,7 +122,7 @@ export const SignalStatus = {
   følg_videre: 'følg_videre',
 } as const;
 
-export type SignalCrm = {
+export type SignalCrmProperty = {
   status: string;
   matchCount: number;
   /** @nullable */
@@ -91,7 +141,7 @@ export interface Signal {
   freshnessDays?: number;
   evidence: Evidence[];
   contacts: Contact[];
-  crm: SignalCrm;
+  crm: SignalCrmProperty;
   suggestedOpening?: string;
   dialogueDraft?: string;
   /** @nullable */
@@ -177,5 +227,15 @@ export type ListSignalsParams = {
 status?: StatusParameter;
 strength?: StrengthParameter;
 search?: SearchParameter;
+};
+
+export type ImportSignalsBody = {
+  signals: SignalImportInput[];
+};
+
+export type ImportSignals201 = {
+  imported: number;
+  skipped: number;
+  warnings?: string[];
 };
 
