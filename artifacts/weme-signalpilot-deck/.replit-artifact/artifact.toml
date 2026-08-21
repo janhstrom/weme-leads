@@ -1,0 +1,28 @@
+kind = "slides"
+previewPath = "/weme-signalpilot-deck/"
+title = "WeMe Signalpilot"
+description = "En kort intern presentasjon av WeMe Signalpilot: hvorfor løsningen trengs, hvordan arbeidsflyten fungerer, hva som er bygget og veien til operativ bruk."
+version = "1.0.0"
+id = "artifacts/weme-signalpilot-deck"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/weme-signalpilot-deck/" ]
+localPort = 22578
+
+[services.development]
+run = "pnpm --filter @workspace/weme-signalpilot-deck run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/weme-signalpilot-deck", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/weme-signalpilot-deck/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22578"
+BASE_PATH = "/weme-signalpilot-deck/"

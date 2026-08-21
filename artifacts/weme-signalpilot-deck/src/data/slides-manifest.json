@@ -1,0 +1,42 @@
+[
+  {
+    "id": "8f3d1c32-6d72-4c84-8c52-12c91d5b8b01",
+    "position": 1,
+    "filepath": "src/pages/slides/Title.tsx",
+    "title": "WeMe Signalpilot",
+    "description": "Fra statiske lister til ferske, verifiserte kundesignaler.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "6d2e4f77-bf79-46e6-8d86-1c5b55b5d102",
+    "position": 2,
+    "filepath": "src/pages/slides/Why.tsx",
+    "title": "Hvorfor Signalpilot?",
+    "description": "Hvorfor statiske lister og CRM ikke er nok.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "b4c93c1a-1ee5-42bd-9d73-0e12ea5b9303",
+    "position": 3,
+    "filepath": "src/pages/slides/Workflow.tsx",
+    "title": "Arbeidsflyten",
+    "description": "Fra konto-univers til godkjent CRM-oppgave.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "4b8ad74f-ef12-49d0-9f4b-2ad6b22f6404",
+    "position": 4,
+    "filepath": "src/pages/slides/Ready.tsx",
+    "title": "Førsteversjonen er klar",
+    "description": "Hva som allerede er bygget i v1.",
+    "speakerNotes": ""
+  },
+  {
+    "id": "a1f0c9d4-04ef-4e04-90a0-c18a8f3f4505",
+    "position": 5,
+    "filepath": "src/pages/slides/Next.tsx",
+    "title": "Veien fra pilot til operativ bruk",
+    "description": "Prioriterte steg fra fixture til verifisert arbeidsflyt.",
+    "speakerNotes": ""
+  }
+]
