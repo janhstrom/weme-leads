@@ -3,20 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: WeMe Signalpilot API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: dashboard
+  - name: signals
+  - name: crm
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +25,253 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get signal dashboard summary
+      responses:
+        "200":
+          description: Signal summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /signals:
+    get:
+      operationId: listSignals
+      tags: [signals]
+      summary: List signals
+      parameters:
+        - $ref: "#/components/parameters/Status"
+        - $ref: "#/components/parameters/Strength"
+        - $ref: "#/components/parameters/Search"
+      responses:
+        "200":
+          description: Signals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Signal"
+  /signals/{id}:
+    get:
+      operationId: getSignal
+      tags: [signals]
+      summary: Get a signal
+      parameters:
+        - $ref: "#/components/parameters/SignalId"
+      responses:
+        "200":
+          description: Signal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Signal"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /signals/{id}/review:
+    post:
+      operationId: reviewSignal
+      tags: [signals]
+      summary: Review a signal
+      parameters:
+        - $ref: "#/components/parameters/SignalId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignalReviewInput"
+      responses:
+        "200":
+          description: Reviewed signal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Signal"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /signals/{id}/crm-task:
+    post:
+      operationId: createCrmTask
+      tags: [crm]
+      summary: Create a CRM note and task for an approved signal
+      parameters:
+        - $ref: "#/components/parameters/SignalId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrmTaskInput"
+      responses:
+        "201":
+          description: CRM task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmTaskResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          description: CRM service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
+  parameters:
+    SignalId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    Status:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum: [til_vurdering, godkjent, avvist, allerede_kjent, følg_videre]
+    Strength:
+      name: strength
+      in: query
+      schema:
+        type: string
+        enum: [A, B, C]
+    Search:
+      name: search
+      in: query
+      schema:
+        type: string
+  responses:
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
-
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    Contact:
+      type: object
+      required: [id, name, title, confidence]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        title: { type: string }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        linkedinUrl: { type: ["string", "null"] }
+        confidence:
+          type: string
+          enum: [bekreftet, fra_crm, fra_sales_navigator, ikke_verifisert]
+        rationale: { type: string }
+    Evidence:
+      type: object
+      required: [title, url, sourceType, publishedAt, excerpt]
+      properties:
+        title: { type: string }
+        url: { type: string, format: uri }
+        sourceType: { type: string }
+        publishedAt: { type: string, format: date }
+        excerpt: { type: string }
+    Signal:
+      type: object
+      required: [id, company, signalType, strength, status, summary, evidence, contacts, crm]
+      properties:
+        id: { type: integer }
+        company:
+          type: object
+          required: [name, employees, industry, domain]
+          properties:
+            name: { type: string }
+            employees: { type: integer }
+            industry: { type: string }
+            domain: { type: string }
+        signalType: { type: string }
+        strength:
+          type: string
+          enum: [A, B, C]
+        status:
+          type: string
+          enum: [til_vurdering, godkjent, avvist, allerede_kjent, følg_videre]
+        summary: { type: string }
+        rationale: { type: string }
+        publishedAt: { type: string, format: date }
+        freshnessDays: { type: integer }
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/Evidence"
+        contacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contact"
+        crm:
+          type: object
+          required: [status, matchCount]
+          properties:
+            status: { type: string }
+            matchCount: { type: integer }
+            note: { type: ["string", "null"] }
+        suggestedOpening: { type: string }
+        dialogueDraft: { type: string }
+        reviewReason: { type: ["string", "null"] }
+        reviewComment: { type: ["string", "null"] }
+    SignalReviewInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [godkjent, avvist, allerede_kjent, følg_videre]
+        reason:
+          type: ["string", "null"]
+        comment:
+          type: ["string", "null"]
+    CrmTaskInput:
+      type: object
+      required: [contactId, dueDate]
+      properties:
+        contactId: { type: integer }
+        dueDate: { type: string, format: date }
+    CrmTaskResult:
+      type: object
+      required: [signalId, crmContactId, crmNoteCreated, crmTaskCreated]
+      properties:
+        signalId: { type: integer }
+        crmContactId: { type: integer }
+        crmNoteCreated: { type: boolean }
+        crmTaskCreated: { type: boolean }
+        taskId: { type: ["integer", "null"] }
+    DashboardSummary:
+      type: object
+      required: [total, pending, approved, highPriority, crmTasks]
+      properties:
+        total: { type: integer }
+        pending: { type: integer }
+        approved: { type: integer }
+        highPriority: { type: integer }
+        crmTasks: { type: integer }

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "WeMe Signalpilot"
+description = "En enkel arbeidsflate for å oppdage, vurdere og følge opp offentlige endringssignaler hos WeMe sine pilotkontoer, med CRM-oppgaver og læring fra selgerens feedback."
+version = "1.0.0"
+id = "artifacts/weme-signalpilot"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25186
+
+[services.development]
+run = "pnpm --filter @workspace/weme-signalpilot run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/weme-signalpilot", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/weme-signalpilot/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25186"
+BASE_PATH = "/"

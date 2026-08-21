@@ -1,0 +1,44 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "3GG77kljzQTeCdHRXWlhN"
+uri = "file://.conversation/.agents/outputs/WeMe_signalpilot_baseline.xlsx"
+type = "table"
+title = "WeMe signalpilot – datafundament"
+description = "Et ryddet kontounivers med Sales Navigator-match, 30 pilotkontoer, uavklarte matcher og en forklarbar signalmodell."
+logical_id = "6c1817ba-6847-45e7-a89b-b08d6f4c18bb"
+content_hash = "sha256:861a25be96451411a45c82c346e7495ce21ca41f44d989e8ccf9f4ab74ff9fcd"
+size = 91950
+mtime_ms = 1787346800189
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/conversation:8b86d0ca-8781-4557-8fff-ad9293b0eaeb/6c1817ba-6847-45e7-a89b-b08d6f4c18bb/972acec2-df26-4801-9349-0b1b59dce308"
+storage_version_token = "1787346858343388"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "9DO9RBBojz2JINI-YwXF1"
+uri = "file://.conversation/.agents/outputs/WeMe_crm_signalpilot_audit.xlsx"
+type = "table"
+title = "WeMe CRM-audit for signalpilot"
+description = "Lesebasert CRM-match mot Sales Navigator med statusfordeling og en selskapsvis kontrollkø. Ingen CRM-data er endret."
+logical_id = "00293319-c333-4857-acd1-c85bf3ff1945"
+content_hash = "sha256:c7c1c7aee6d8d35eba739b558ea3d9dd14e98c76ff94711db4ecbc8464539bf5"
+size = 14253
+mtime_ms = 1787347341435
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/conversation:8b86d0ca-8781-4557-8fff-ad9293b0eaeb/00293319-c333-4857-acd1-c85bf3ff1945/e4795928-b8b0-4364-b085-8781b8e85b07"
+storage_version_token = "1787347460717625"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "gOZVcRL_QD6BckCGbld9h"
+uri = "file://.conversation/.agents/outputs/WeMe_signalpilot_v1_spec.md"
+type = "text"
+title = "WeMe signalpilot v1 – oppdatert spesifikasjon"
+description = "Oppdatert med kontaktbrief, anbefalt persona, dialogutkast og feedback på signal, kontakt og kontaktvinkel."
+logical_id = "5d804b16-1f80-4cfc-a3e6-35e8245ff848"
+content_hash = "sha256:db79e6d5e0df41b61adb12dcec4e87cdc0bebb7d00b088c0a7622b40ce2920c9"
+size = 5982
+mtime_ms = 1787349104443
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/conversation:8b86d0ca-8781-4557-8fff-ad9293b0eaeb/5d804b16-1f80-4cfc-a3e6-35e8245ff848/a67ceaa2-cae8-423a-beb2-22168b01d71d"
+storage_version_token = "1787349109230745"
+content_type = "text/markdown"
