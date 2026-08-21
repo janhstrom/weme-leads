@@ -10,7 +10,7 @@ export default function Title() {
         className="absolute inset-0 h-full w-full object-cover opacity-80"
       />
       <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(22,34,53,0.98)_0%,rgba(22,34,53,0.78)_42%,rgba(22,34,53,0.2)_100%)]" />
-      <div className="absolute left-[7vw] top-[7vh] flex items-center gap-[1vw] text-[1.45vw] font-body font-medium tracking-[0.12em] uppercase text-[#f4f0e8]/70">
+      <div className="absolute left-[7vw] top-[7vh] flex items-center gap-[1vw] text-[1.5vw] font-body font-medium tracking-[0.12em] uppercase text-[#f4f0e8]/70">
         <span className="h-[0.8vw] w-[0.8vw] rounded-full bg-accent" />
         WeMe · intern prosjektpresentasjon
       </div>
@@ -22,11 +22,11 @@ export default function Title() {
         <p className="mt-[4vh] max-w-[43vw] font-body text-[2.1vw] leading-[1.18] text-[#f4f0e8]/85">
           Fra statiske lister til ferske, verifiserte kundesignaler
         </p>
-        <p className="mt-[2vh] max-w-[38vw] font-body text-[1.45vw] leading-[1.35] text-[#f4f0e8]/65">
+        <p className="mt-[2vh] max-w-[38vw] font-body text-[1.5vw] leading-[1.35] text-[#f4f0e8]/65">
           En lett arbeidsflate for å finne riktig tidspunkt, riktig kontakt og riktig inngang.
         </p>
       </div>
-      <div className="absolute bottom-[7vh] right-[7vw] font-body text-[1.25vw] tracking-[0.08em] text-[#f4f0e8]/55">
+      <div className="absolute bottom-[7vh] right-[7vw] font-body text-[1.5vw] tracking-[0.08em] text-[#f4f0e8]/55">
         SIGNALPILOT / V1
       </div>
     </div>
