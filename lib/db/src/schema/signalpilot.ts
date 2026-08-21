@@ -37,6 +37,11 @@ export type SignalCrm = {
   status: string;
   matchCount: number;
   note?: string | null;
+  writeStatus?: "not_started" | "pending" | "completed" | "partial" | "failed";
+  crmContactId?: number | null;
+  noteCreatedAt?: string | Date | null;
+  taskCreatedAt?: string | Date | null;
+  taskId?: number | null;
 };
 
 export const signalpilotSignalsTable = pgTable("signalpilot_signals", {

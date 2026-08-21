@@ -23,6 +23,9 @@ import {
   ReviewSignalBody,
   ReviewSignalParams,
   ReviewSignalResponse,
+  SearchCrmContactsQueryParams,
+  VerifySignalCrmContactBody,
+  VerifySignalCrmContactParams,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -242,7 +245,7 @@ type SignalResponse = {
   publishedAt: string;
   freshnessDays: number;
   evidence: SignalEvidence[];
-  contacts: Omit<SignalContact, "crmContactId">[];
+  contacts: SignalContact[];
   crm: SignalCrm;
   suggestedOpening: string;
   dialogueDraft: string;
@@ -325,7 +328,7 @@ function toSignalResponse(signal: SignalpilotSignal): SignalResponse {
       verificationStatus: item.verificationStatus ?? "verified",
       verifiedAt: item.verifiedAt ?? signal.updatedAt.toISOString(),
     })),
-    contacts: signal.contacts.map(({ crmContactId: _crmContactId, ...contact }) => contact),
+    contacts: signal.contacts,
     crm: signal.crm,
     suggestedOpening: signal.suggestedOpening,
     dialogueDraft: signal.dialogueDraft,
@@ -561,6 +564,10 @@ router.post("/signals/:id/crm-task", async (req, res): Promise<void> => {
     });
     return;
   }
+  if (signal.crm.writeStatus === "completed") {
+    res.status(400).json({ error: "Notat og oppgave er allerede synkronisert til CRM for denne kontakten." });
+    return;
+  }
 
   const apiKey = process.env.WEME_CRM_API_KEY;
   if (!apiKey) {
@@ -583,6 +590,10 @@ router.post("/signals/:id/crm-task", async (req, res): Promise<void> => {
   };
 
   try {
+    await db
+      .update(signalpilotSignalsTable)
+      .set({ crm: { ...signal.crm, writeStatus: "pending", crmContactId: contact.crmContactId }, updatedAt: new Date() })
+      .where(eq(signalpilotSignalsTable.id, signal.id));
     const headers = {
       "Content-Type": "application/json",
       "X-API-Key": apiKey,
@@ -594,6 +605,10 @@ router.post("/signals/:id/crm-task", async (req, res): Promise<void> => {
     });
     if (!noteResponse.ok) {
       req.log.warn({ status: noteResponse.status }, "CRM note request failed");
+      await db
+        .update(signalpilotSignalsTable)
+        .set({ crm: { ...signal.crm, writeStatus: "failed", crmContactId: contact.crmContactId }, updatedAt: new Date() })
+        .where(eq(signalpilotSignalsTable.id, signal.id));
       res.status(502).json({ error: "CRM kunne ikke opprette notatet. Ingen oppgave ble opprettet." });
       return;
     }
@@ -605,6 +620,18 @@ router.post("/signals/:id/crm-task", async (req, res): Promise<void> => {
     });
     if (!taskResponse.ok) {
       req.log.warn({ status: taskResponse.status }, "CRM task request failed");
+      await db
+        .update(signalpilotSignalsTable)
+        .set({
+          crm: {
+            ...signal.crm,
+            writeStatus: "partial",
+            crmContactId: contact.crmContactId,
+            noteCreatedAt: new Date().toISOString(),
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(signalpilotSignalsTable.id, signal.id));
       res.status(502).json({
         error: "CRM-notatet ble opprettet, men CRM kunne ikke opprette oppgaven. Sjekk CRM før du prøver igjen.",
       });
@@ -612,9 +639,21 @@ router.post("/signals/:id/crm-task", async (req, res): Promise<void> => {
     }
 
     const taskPayload = (await taskResponse.json().catch(() => null)) as { id?: number } | null;
+    const completedAt = new Date().toISOString();
     await db
       .update(signalpilotSignalsTable)
-      .set({ crmTaskCreated: true })
+      .set({
+        crmTaskCreated: true,
+        crm: {
+          ...signal.crm,
+          writeStatus: "completed",
+          crmContactId: contact.crmContactId,
+          noteCreatedAt: completedAt,
+          taskCreatedAt: completedAt,
+          taskId: taskPayload?.id ?? null,
+        },
+        updatedAt: new Date(),
+      })
       .where(eq(signalpilotSignalsTable.id, signal.id));
 
     res.status(201).json(
@@ -628,6 +667,151 @@ router.post("/signals/:id/crm-task", async (req, res): Promise<void> => {
     );
   } catch (error) {
     req.log.error({ err: error }, "CRM connection failed");
+    res.status(502).json({ error: "CRM-tilkoblingen feilet. Prøv igjen senere." });
+  }
+});
+
+type CrmContactPayload = {
+  id?: number | string;
+  name?: string;
+  full_name?: string;
+  title?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  company_name?: string | null;
+  company_domain?: string | null;
+  company?: { name?: string | null; domain?: string | null };
+};
+
+function crmContactCandidate(payload: CrmContactPayload) {
+  const id = Number(payload.id);
+  return {
+    id,
+    name: payload.name ?? payload.full_name ?? "Uten navn",
+    title: payload.title ?? "",
+    email: payload.email ?? null,
+    phone: payload.phone ?? null,
+    companyName: payload.company_name ?? payload.company?.name ?? null,
+    companyDomain: payload.company_domain ?? payload.company?.domain ?? null,
+  };
+}
+
+function crmContactList(payload: unknown): CrmContactPayload[] {
+  if (Array.isArray(payload)) return payload as CrmContactPayload[];
+  if (payload && typeof payload === "object") {
+    const value = payload as { contacts?: unknown; data?: unknown; results?: unknown };
+    for (const candidate of [value.contacts, value.data, value.results]) {
+      if (Array.isArray(candidate)) return candidate as CrmContactPayload[];
+    }
+  }
+  return [];
+}
+
+router.get("/crm/contacts/search", async (req, res): Promise<void> => {
+  const query = SearchCrmContactsQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: "Søk og selskapsdomene er påkrevd." });
+    return;
+  }
+  const apiKey = process.env.WEME_CRM_API_KEY;
+  if (!apiKey) {
+    res.status(502).json({ error: "CRM-tilkoblingen er ikke konfigurert." });
+    return;
+  }
+
+  const crmBaseUrl = process.env.WEME_CRM_BASE_URL ?? "https://crm.weme.eco/api/agent";
+  const searchUrl = new URL(`${crmBaseUrl}/contacts`);
+  searchUrl.searchParams.set("search", query.data.query);
+  searchUrl.searchParams.set("domain", query.data.companyDomain);
+
+  try {
+    const response = await fetch(searchUrl, { headers: { Accept: "application/json", "X-API-Key": apiKey } });
+    if (!response.ok) {
+      req.log.warn({ status: response.status }, "CRM contact search failed");
+      res.status(502).json({ error: "CRM kunne ikke søke etter kontakter." });
+      return;
+    }
+    const candidates = crmContactList(await response.json())
+      .map(crmContactCandidate)
+      .filter((contact) => Number.isFinite(contact.id) && contact.id > 0);
+    res.json(candidates);
+  } catch (error) {
+    req.log.error({ err: error }, "CRM contact search connection failed");
+    res.status(502).json({ error: "CRM-tilkoblingen feilet. Prøv igjen senere." });
+  }
+});
+
+router.post("/signals/:id/crm-contact", async (req, res): Promise<void> => {
+  const params = VerifySignalCrmContactParams.safeParse(req.params);
+  const body = VerifySignalCrmContactBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "Signal-, kontakt- og CRM-ID er påkrevd." });
+    return;
+  }
+  const signal = await findSignal(params.data.id);
+  if (!signal) {
+    res.status(404).json({ error: "Signalet finnes ikke" });
+    return;
+  }
+  const contact = signal.contacts.find((item) => item.id === body.data.contactId);
+  if (!contact) {
+    res.status(400).json({ error: "Kontakten finnes ikke på dette signalet." });
+    return;
+  }
+  const apiKey = process.env.WEME_CRM_API_KEY;
+  if (!apiKey) {
+    res.status(502).json({ error: "CRM-tilkoblingen er ikke konfigurert." });
+    return;
+  }
+
+  const crmBaseUrl = process.env.WEME_CRM_BASE_URL ?? "https://crm.weme.eco/api/agent";
+  try {
+    const response = await fetch(`${crmBaseUrl}/contacts/${body.data.crmContactId}`, {
+      headers: { Accept: "application/json", "X-API-Key": apiKey },
+    });
+    if (!response.ok) {
+      res.status(400).json({ error: "CRM-kontakten kunne ikke verifiseres." });
+      return;
+    }
+    const candidate = crmContactCandidate((await response.json()) as CrmContactPayload);
+    const expectedDomain = signal.domain.toLowerCase().replace(/^www\./, "");
+    const actualDomain = candidate.companyDomain?.toLowerCase().replace(/^www\./, "");
+    if (!actualDomain || actualDomain !== expectedDomain) {
+      res.status(400).json({ error: "CRM-kontakten tilhører ikke riktig selskap." });
+      return;
+    }
+
+    const contacts = signal.contacts.map((item) =>
+      item.id === contact.id
+        ? {
+            ...item,
+            crmContactId: candidate.id,
+            name: candidate.name,
+            title: candidate.title || item.title,
+            email: candidate.email,
+            phone: candidate.phone,
+            confidence: "fra_crm" as const,
+          }
+        : item,
+    );
+    const [updated] = await db
+      .update(signalpilotSignalsTable)
+      .set({
+        contacts,
+        crm: {
+          ...signal.crm,
+          status: "Verifisert CRM-match",
+          matchCount: 1,
+          crmContactId: candidate.id,
+          writeStatus: signal.crm.writeStatus ?? "not_started",
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(signalpilotSignalsTable.id, signal.id))
+      .returning();
+    res.json(GetSignalResponse.parse(toSignalResponse(updated)));
+  } catch (error) {
+    req.log.error({ err: error }, "CRM contact verification failed");
     res.status(502).json({ error: "CRM-tilkoblingen feilet. Prøv igjen senere." });
   }
 });

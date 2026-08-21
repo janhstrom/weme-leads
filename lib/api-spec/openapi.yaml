@@ -180,6 +180,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /crm/contacts/search:
+    get:
+      operationId: searchCrmContacts
+      tags: [crm]
+      summary: Search CRM contacts without writing
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema: { type: string, minLength: 2 }
+        - name: companyDomain
+          in: query
+          required: true
+          schema: { type: string, minLength: 3 }
+      responses:
+        "200":
+          description: CRM contact candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CrmContactCandidate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "502": { $ref: "#/components/responses/BadRequest" }
+  /signals/{id}/crm-contact:
+    post:
+      operationId: verifySignalCrmContact
+      tags: [crm]
+      summary: Verify and attach a CRM contact to a signal
+      parameters:
+        - $ref: "#/components/parameters/SignalId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CrmContactSelectionInput" }
+      responses:
+        "200":
+          description: Signal with verified CRM contact
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Signal" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadRequest" }
 components:
   parameters:
     SignalId:
@@ -236,6 +281,7 @@ components:
       required: [id, name, title, confidence]
       properties:
         id: { type: number }
+        crmContactId: { type: ["number", "null"] }
         name: { type: string }
         title: { type: string }
         email: { type: ["string", "null"] }
@@ -263,6 +309,11 @@ components:
         status: { type: string }
         matchCount: { type: number }
         note: { type: ["string", "null"] }
+        writeStatus: { type: string, enum: [not_started, pending, completed, partial, failed] }
+        crmContactId: { type: ["number", "null"] }
+        noteCreatedAt: { type: ["string", "null"], format: date-time }
+        taskCreatedAt: { type: ["string", "null"], format: date-time }
+        taskId: { type: ["number", "null"] }
     EvidenceInput:
       type: object
       required: [title, url, sourceType, publishedAt, excerpt]
@@ -327,12 +378,7 @@ components:
           items:
             $ref: "#/components/schemas/Contact"
         crm:
-          type: object
-          required: [status, matchCount]
-          properties:
-            status: { type: string }
-            matchCount: { type: number }
-            note: { type: ["string", "null"] }
+          $ref: "#/components/schemas/SignalCrm"
         suggestedOpening: { type: string }
         dialogueDraft: { type: string }
         reviewReason: { type: ["string", "null"] }
@@ -363,6 +409,23 @@ components:
         crmNoteCreated: { type: boolean }
         crmTaskCreated: { type: boolean }
         taskId: { type: ["number", "null"] }
+    CrmContactCandidate:
+      type: object
+      required: [id, name, title, email, phone, companyName, companyDomain]
+      properties:
+        id: { type: number }
+        name: { type: string }
+        title: { type: string }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        companyName: { type: ["string", "null"] }
+        companyDomain: { type: ["string", "null"] }
+    CrmContactSelectionInput:
+      type: object
+      required: [contactId, crmContactId]
+      properties:
+        contactId: { type: number }
+        crmContactId: { type: number }
     DashboardSummary:
       type: object
       required: [total, pending, approved, highPriority, crmTasks]

@@ -8,7 +8,7 @@
 import type { Contact } from './contact';
 import type { Evidence } from './evidence';
 import type { SignalCompany } from './signalCompany';
-import type { SignalCrmProperty } from './signalCrmProperty';
+import type { SignalCrm } from './signalCrm';
 import type { SignalStatus } from './signalStatus';
 import type { SignalStrength } from './signalStrength';
 
@@ -24,7 +24,7 @@ export interface Signal {
   freshnessDays?: number;
   evidence: Evidence[];
   contacts: Contact[];
-  crm: SignalCrmProperty;
+  crm: SignalCrm;
   suggestedOpening?: string;
   dialogueDraft?: string;
   /** @nullable */

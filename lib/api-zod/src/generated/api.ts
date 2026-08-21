@@ -63,6 +63,7 @@ export const ListSignalsResponseItem = zod.object({
 })),
   "contacts": zod.array(zod.object({
   "id": zod.number(),
+  "crmContactId": zod.number().nullish(),
   "name": zod.string(),
   "title": zod.string(),
   "email": zod.string().nullish(),
@@ -74,7 +75,12 @@ export const ListSignalsResponseItem = zod.object({
   "crm": zod.object({
   "status": zod.string(),
   "matchCount": zod.number(),
-  "note": zod.string().nullish()
+  "note": zod.string().nullish(),
+  "writeStatus": zod.enum(['not_started', 'pending', 'completed', 'partial', 'failed']).optional(),
+  "crmContactId": zod.number().nullish(),
+  "noteCreatedAt": zod.coerce.date().nullish(),
+  "taskCreatedAt": zod.coerce.date().nullish(),
+  "taskId": zod.number().nullish()
 }),
   "suggestedOpening": zod.string().optional(),
   "dialogueDraft": zod.string().optional(),
@@ -117,6 +123,7 @@ export const GetSignalResponse = zod.object({
 })),
   "contacts": zod.array(zod.object({
   "id": zod.number(),
+  "crmContactId": zod.number().nullish(),
   "name": zod.string(),
   "title": zod.string(),
   "email": zod.string().nullish(),
@@ -128,7 +135,12 @@ export const GetSignalResponse = zod.object({
   "crm": zod.object({
   "status": zod.string(),
   "matchCount": zod.number(),
-  "note": zod.string().nullish()
+  "note": zod.string().nullish(),
+  "writeStatus": zod.enum(['not_started', 'pending', 'completed', 'partial', 'failed']).optional(),
+  "crmContactId": zod.number().nullish(),
+  "noteCreatedAt": zod.coerce.date().nullish(),
+  "taskCreatedAt": zod.coerce.date().nullish(),
+  "taskId": zod.number().nullish()
 }),
   "suggestedOpening": zod.string().optional(),
   "dialogueDraft": zod.string().optional(),
@@ -176,6 +188,7 @@ export const ReviewSignalResponse = zod.object({
 })),
   "contacts": zod.array(zod.object({
   "id": zod.number(),
+  "crmContactId": zod.number().nullish(),
   "name": zod.string(),
   "title": zod.string(),
   "email": zod.string().nullish(),
@@ -187,7 +200,12 @@ export const ReviewSignalResponse = zod.object({
   "crm": zod.object({
   "status": zod.string(),
   "matchCount": zod.number(),
-  "note": zod.string().nullish()
+  "note": zod.string().nullish(),
+  "writeStatus": zod.enum(['not_started', 'pending', 'completed', 'partial', 'failed']).optional(),
+  "crmContactId": zod.number().nullish(),
+  "noteCreatedAt": zod.coerce.date().nullish(),
+  "taskCreatedAt": zod.coerce.date().nullish(),
+  "taskId": zod.number().nullish()
 }),
   "suggestedOpening": zod.string().optional(),
   "dialogueDraft": zod.string().optional(),
@@ -237,6 +255,7 @@ export const AddSignalEvidenceResponse = zod.object({
 })),
   "contacts": zod.array(zod.object({
   "id": zod.number(),
+  "crmContactId": zod.number().nullish(),
   "name": zod.string(),
   "title": zod.string(),
   "email": zod.string().nullish(),
@@ -248,7 +267,12 @@ export const AddSignalEvidenceResponse = zod.object({
   "crm": zod.object({
   "status": zod.string(),
   "matchCount": zod.number(),
-  "note": zod.string().nullish()
+  "note": zod.string().nullish(),
+  "writeStatus": zod.enum(['not_started', 'pending', 'completed', 'partial', 'failed']).optional(),
+  "crmContactId": zod.number().nullish(),
+  "noteCreatedAt": zod.coerce.date().nullish(),
+  "taskCreatedAt": zod.coerce.date().nullish(),
+  "taskId": zod.number().nullish()
 }),
   "suggestedOpening": zod.string().optional(),
   "dialogueDraft": zod.string().optional(),
@@ -280,6 +304,7 @@ export const ImportSignalsBody = zod.object({
 })),
   "contacts": zod.array(zod.object({
   "id": zod.number(),
+  "crmContactId": zod.number().nullish(),
   "name": zod.string(),
   "title": zod.string(),
   "email": zod.string().nullish(),
@@ -291,7 +316,12 @@ export const ImportSignalsBody = zod.object({
   "crm": zod.object({
   "status": zod.string(),
   "matchCount": zod.number(),
-  "note": zod.string().nullish()
+  "note": zod.string().nullish(),
+  "writeStatus": zod.enum(['not_started', 'pending', 'completed', 'partial', 'failed']).optional(),
+  "crmContactId": zod.number().nullish(),
+  "noteCreatedAt": zod.coerce.date().nullish(),
+  "taskCreatedAt": zod.coerce.date().nullish(),
+  "taskId": zod.number().nullish()
 }),
   "suggestedOpening": zod.string(),
   "dialogueDraft": zod.string()
@@ -323,6 +353,96 @@ export const CreateCrmTaskResponse = zod.object({
   "crmNoteCreated": zod.boolean(),
   "crmTaskCreated": zod.boolean(),
   "taskId": zod.number().nullish()
+})
+
+
+/**
+ * @summary Search CRM contacts without writing
+ */
+export const searchCrmContactsQueryQueryMin = 2;
+
+export const searchCrmContactsQueryCompanyDomainMin = 3;
+
+
+
+export const SearchCrmContactsQueryParams = zod.object({
+  "query": zod.coerce.string().min(searchCrmContactsQueryQueryMin),
+  "companyDomain": zod.coerce.string().min(searchCrmContactsQueryCompanyDomainMin)
+})
+
+export const SearchCrmContactsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "title": zod.string(),
+  "email": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "companyName": zod.string().nullable(),
+  "companyDomain": zod.string().nullable()
+})
+export const SearchCrmContactsResponse = zod.array(SearchCrmContactsResponseItem)
+
+
+/**
+ * @summary Verify and attach a CRM contact to a signal
+ */
+export const VerifySignalCrmContactParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const VerifySignalCrmContactBody = zod.object({
+  "contactId": zod.number(),
+  "crmContactId": zod.number()
+})
+
+export const VerifySignalCrmContactResponse = zod.object({
+  "id": zod.number(),
+  "company": zod.object({
+  "name": zod.string(),
+  "employees": zod.number(),
+  "industry": zod.string(),
+  "domain": zod.string()
+}),
+  "signalType": zod.string(),
+  "strength": zod.enum(['A', 'B', 'C']),
+  "status": zod.enum(['til_vurdering', 'godkjent', 'avvist', 'allerede_kjent', 'følg_videre']),
+  "summary": zod.string(),
+  "rationale": zod.string().optional(),
+  "publishedAt": zod.coerce.date().optional(),
+  "freshnessDays": zod.number().optional(),
+  "evidence": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['verified']),
+  "verifiedAt": zod.coerce.date()
+})),
+  "contacts": zod.array(zod.object({
+  "id": zod.number(),
+  "crmContactId": zod.number().nullish(),
+  "name": zod.string(),
+  "title": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "linkedinUrl": zod.string().nullish(),
+  "confidence": zod.enum(['bekreftet', 'fra_crm', 'fra_sales_navigator', 'ikke_verifisert']),
+  "rationale": zod.string().optional()
+})),
+  "crm": zod.object({
+  "status": zod.string(),
+  "matchCount": zod.number(),
+  "note": zod.string().nullish(),
+  "writeStatus": zod.enum(['not_started', 'pending', 'completed', 'partial', 'failed']).optional(),
+  "crmContactId": zod.number().nullish(),
+  "noteCreatedAt": zod.coerce.date().nullish(),
+  "taskCreatedAt": zod.coerce.date().nullish(),
+  "taskId": zod.number().nullish()
+}),
+  "suggestedOpening": zod.string().optional(),
+  "dialogueDraft": zod.string().optional(),
+  "reviewReason": zod.string().nullish(),
+  "reviewComment": zod.string().nullish()
 })
 
 

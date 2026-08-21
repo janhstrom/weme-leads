@@ -21,6 +21,8 @@ import type {
 
 import type {
   BadRequestResponse,
+  CrmContactCandidate,
+  CrmContactSelectionInput,
   CrmTaskInput,
   CrmTaskResult,
   DashboardSummary,
@@ -31,6 +33,7 @@ import type {
   ImportSignalsBody,
   ListSignalsParams,
   NotFoundResponse,
+  SearchCrmContactsParams,
   Signal,
   SignalReviewInput
 } from './api.schemas';
@@ -662,5 +665,161 @@ export const useCreateCrmTask = <TError = ErrorType<BadRequestResponse | NotFoun
         TContext
       > => {
       return useMutation(getCreateCrmTaskMutationOptions(options));
+    }
+
+export const getSearchCrmContactsUrl = (params: SearchCrmContactsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/crm/contacts/search?${stringifiedParams}` : `/api/crm/contacts/search`
+}
+
+/**
+ * @summary Search CRM contacts without writing
+ */
+export const searchCrmContacts = async (params: SearchCrmContactsParams, options?: Parameters<typeof customFetch>[1]): Promise<CrmContactCandidate[]> => {
+
+  return customFetch<CrmContactCandidate[]>(getSearchCrmContactsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSearchCrmContactsQueryKey = (params?: SearchCrmContactsParams,) => {
+    return [
+    `/api/crm/contacts/search`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSearchCrmContactsQueryOptions = <TData = Awaited<ReturnType<typeof searchCrmContacts>>, TError = ErrorType<BadRequestResponse>>(params: SearchCrmContactsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchCrmContacts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchCrmContactsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchCrmContacts>>> = ({ signal }) => searchCrmContacts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchCrmContacts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SearchCrmContactsQueryResult = NonNullable<Awaited<ReturnType<typeof searchCrmContacts>>>
+export type SearchCrmContactsQueryError = ErrorType<BadRequestResponse>
+
+
+/**
+ * @summary Search CRM contacts without writing
+ */
+
+export function useSearchCrmContacts<TData = Awaited<ReturnType<typeof searchCrmContacts>>, TError = ErrorType<BadRequestResponse>>(
+ params: SearchCrmContactsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchCrmContacts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSearchCrmContactsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getVerifySignalCrmContactUrl = (id: number,) => {
+
+
+
+
+  return `/api/signals/${id}/crm-contact`
+}
+
+/**
+ * @summary Verify and attach a CRM contact to a signal
+ */
+export const verifySignalCrmContact = async (id: number,
+    crmContactSelectionInput: CrmContactSelectionInput, options?: Parameters<typeof customFetch>[1]): Promise<Signal> => {
+
+  return customFetch<Signal>(getVerifySignalCrmContactUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crmContactSelectionInput)
+  }
+);}
+
+
+
+
+
+export const getVerifySignalCrmContactMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifySignalCrmContact>>, TError,{id: number;data: BodyType<CrmContactSelectionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifySignalCrmContact>>, TError,{id: number;data: BodyType<CrmContactSelectionInput>}, TContext> => {
+
+const mutationKey = ['verifySignalCrmContact'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifySignalCrmContact>>, {id: number;data: BodyType<CrmContactSelectionInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  verifySignalCrmContact(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifySignalCrmContactMutationResult = NonNullable<Awaited<ReturnType<typeof verifySignalCrmContact>>>
+    export type VerifySignalCrmContactMutationBody = BodyType<CrmContactSelectionInput>
+    export type VerifySignalCrmContactMutationError = ErrorType<BadRequestResponse | NotFoundResponse>
+
+    /**
+ * @summary Verify and attach a CRM contact to a signal
+ */
+export const useVerifySignalCrmContact = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifySignalCrmContact>>, TError,{id: number;data: BodyType<CrmContactSelectionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifySignalCrmContact>>,
+        TError,
+        {id: number;data: BodyType<CrmContactSelectionInput>},
+        TContext
+      > => {
+      return useMutation(getVerifySignalCrmContactMutationOptions(options));
     }
 

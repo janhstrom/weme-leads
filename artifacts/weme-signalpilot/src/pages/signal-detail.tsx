@@ -4,11 +4,14 @@ import {
   useGetSignal, 
   useReviewSignal, 
   useCreateCrmTask, 
+  useSearchCrmContacts,
+  useVerifySignalCrmContact,
   useAddSignalEvidence,
   SignalReviewInputStatus, 
   getGetDashboardSummaryQueryKey,
   getListSignalsQueryKey,
   getGetSignalQueryKey,
+  getSearchCrmContactsQueryKey,
   Signal
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -276,8 +279,31 @@ function EvidenceForm({ signal }: { signal: Signal }) {
 
 function ActionPanel({ signal }: { signal: Signal }) {
   const [comment, setComment] = useState("");
+  const [contactId, setContactId] = useState<number | null>(signal.contacts[0]?.id ?? null);
+  const [crmQuery, setCrmQuery] = useState(signal.contacts[0]?.name ?? "");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const searchParams = {
+    query: crmQuery.trim(),
+    companyDomain: signal.company.domain,
+  };
+  const crmSearch = useSearchCrmContacts(searchParams, {
+    query: { enabled: crmQuery.trim().length >= 2, queryKey: getSearchCrmContactsQueryKey(searchParams) },
+  });
+  const verifyContactMutation = useVerifySignalCrmContact({
+    mutation: {
+      onSuccess: (updatedSignal) => {
+        queryClient.setQueryData(getGetSignalQueryKey(signal.id), updatedSignal);
+        setCrmQuery("");
+        toast({ title: "CRM-kontakt verifisert", description: "Denne kontakten kan nå motta notat og oppgave." });
+      },
+      onError: (error) => toast({
+        title: "Kontakten kunne ikke verifiseres",
+        description: error instanceof Error ? error.message : "Kontroller at kontakten tilhører riktig selskap.",
+        variant: "destructive",
+      }),
+    },
+  });
 
   const reviewMutation = useReviewSignal({
     mutation: {
@@ -333,10 +359,11 @@ function ActionPanel({ signal }: { signal: Signal }) {
   };
 
   const handleCreateTask = () => {
-    if (signal.contacts.length === 0) {
+    const selected = signal.contacts.find((contact) => contact.id === contactId);
+    if (!selected?.crmContactId) {
       toast({
-        title: "Kontakt mangler",
-        description: "Du kan ikke opprette en oppgave uten kontakt",
+        title: "CRM-kontakt mangler",
+        description: "Søk etter og verifiser riktig CRM-kontakt før du oppretter en oppgave.",
         variant: "destructive"
       });
       return;
@@ -344,7 +371,7 @@ function ActionPanel({ signal }: { signal: Signal }) {
     crmMutation.mutate({
       id: signal.id,
       data: {
-        contactId: signal.contacts[0].id,
+        contactId: selected.id,
         dueDate: format(addDays(new Date(), 2), 'yyyy-MM-dd')
       }
     });
@@ -412,15 +439,73 @@ function ActionPanel({ signal }: { signal: Signal }) {
             </div>
             
             {isApproved && (
-              <Button 
-                className="w-full"
-                variant="accent"
-                onClick={handleCreateTask}
-                disabled={crmMutation.isPending}
-              >
-                <CheckSquare className="w-4 h-4 mr-2" />
-                 {crmMutation.isPending ? 'Synkroniserer...' : 'Opprett CRM-oppgave'}
-              </Button>
+              <div className="space-y-3">
+                <div className="rounded-lg border border-border bg-background p-3 space-y-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Verifiser mottaker</div>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={contactId ?? ""}
+                    onChange={(event) => setContactId(Number(event.target.value))}
+                  >
+                    <option value="" disabled>Velg anbefalt kontakt</option>
+                    {signal.contacts.map((contact) => (
+                      <option key={contact.id} value={contact.id}>
+                        {contact.name} — {contact.title}{contact.crmContactId ? " (CRM verifisert)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    placeholder="Søk navn eller e-post i CRM"
+                    value={crmQuery}
+                    onChange={(event) => setCrmQuery(event.target.value)}
+                  />
+                  {crmSearch.isFetching && <div className="text-xs text-muted-foreground">Søker i CRM...</div>}
+                  {crmSearch.data?.map((candidate) => (
+                    <div key={candidate.id} className="flex items-center justify-between gap-3 rounded-md border border-border p-2 text-sm">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{candidate.name}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {candidate.title || "Uten tittel"}{candidate.email ? ` · ${candidate.email}` : ""}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={verifyContactMutation.isPending || contactId === null}
+                        onClick={() => verifyContactMutation.mutate({
+                          id: signal.id,
+                          data: { contactId: contactId as number, crmContactId: candidate.id },
+                        })}
+                      >
+                        Koble
+                      </Button>
+                    </div>
+                  ))}
+                  {signal.contacts.find((contact) => contact.id === contactId)?.crmContactId && (
+                    <div className="text-xs text-green-700">CRM-match verifisert. Ingen CRM-skriving skjer før du trykker opprett.</div>
+                  )}
+                </div>
+                <Button
+                  className="w-full"
+                  variant="accent"
+                  onClick={handleCreateTask}
+                  disabled={crmMutation.isPending || !signal.contacts.find((contact) => contact.id === contactId)?.crmContactId}
+                >
+                  <CheckSquare className="w-4 h-4 mr-2" />
+                  {crmMutation.isPending ? 'Synkroniserer...' : 'Opprett CRM-oppgave'}
+                </Button>
+                {signal.crm.writeStatus && (
+                  <div className="rounded-md bg-secondary/60 px-3 py-2 text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">Revisjonsstatus:</span>{" "}
+                    {signal.crm.writeStatus === "completed" && "Notat og oppgave lagret"}
+                    {signal.crm.writeStatus === "pending" && "Skriver til CRM"}
+                    {signal.crm.writeStatus === "partial" && "Notat lagret, oppgave må kontrolleres i CRM"}
+                    {signal.crm.writeStatus === "failed" && "CRM-skriving feilet — ingen komplett synkronisering"}
+                    {signal.crm.writeStatus === "not_started" && "Ikke skrevet til CRM ennå"}
+                  </div>
+                )}
+              </div>
             )}
 
             <Button 

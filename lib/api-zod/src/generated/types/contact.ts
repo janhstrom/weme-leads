@@ -9,6 +9,8 @@ import type { ContactConfidence } from './contactConfidence';
 
 export interface Contact {
   id: number;
+  /** @nullable */
+  crmContactId?: number | null;
   name: string;
   title: string;
   /** @nullable */

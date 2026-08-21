@@ -25,6 +25,8 @@ export const ContactConfidence = {
 
 export interface Contact {
   id: number;
+  /** @nullable */
+  crmContactId?: number | null;
   name: string;
   title: string;
   /** @nullable */
@@ -54,11 +56,31 @@ export interface Evidence {
   verifiedAt: string;
 }
 
+export type SignalCrmWriteStatus = typeof SignalCrmWriteStatus[keyof typeof SignalCrmWriteStatus];
+
+
+export const SignalCrmWriteStatus = {
+  not_started: 'not_started',
+  pending: 'pending',
+  completed: 'completed',
+  partial: 'partial',
+  failed: 'failed',
+} as const;
+
 export interface SignalCrm {
   status: string;
   matchCount: number;
   /** @nullable */
   note?: string | null;
+  writeStatus?: SignalCrmWriteStatus;
+  /** @nullable */
+  crmContactId?: number | null;
+  /** @nullable */
+  noteCreatedAt?: string | null;
+  /** @nullable */
+  taskCreatedAt?: string | null;
+  /** @nullable */
+  taskId?: number | null;
 }
 
 export interface EvidenceInput {
@@ -122,13 +144,6 @@ export const SignalStatus = {
   følg_videre: 'følg_videre',
 } as const;
 
-export type SignalCrmProperty = {
-  status: string;
-  matchCount: number;
-  /** @nullable */
-  note?: string | null;
-};
-
 export interface Signal {
   id: number;
   company: SignalCompany;
@@ -141,7 +156,7 @@ export interface Signal {
   freshnessDays?: number;
   evidence: Evidence[];
   contacts: Contact[];
-  crm: SignalCrmProperty;
+  crm: SignalCrm;
   suggestedOpening?: string;
   dialogueDraft?: string;
   /** @nullable */
@@ -181,6 +196,25 @@ export interface CrmTaskResult {
   crmTaskCreated: boolean;
   /** @nullable */
   taskId?: number | null;
+}
+
+export interface CrmContactCandidate {
+  id: number;
+  name: string;
+  title: string;
+  /** @nullable */
+  email: string | null;
+  /** @nullable */
+  phone: string | null;
+  /** @nullable */
+  companyName: string | null;
+  /** @nullable */
+  companyDomain: string | null;
+}
+
+export interface CrmContactSelectionInput {
+  contactId: number;
+  crmContactId: number;
 }
 
 export interface DashboardSummary {
@@ -237,5 +271,16 @@ export type ImportSignals201 = {
   imported: number;
   skipped: number;
   warnings?: string[];
+};
+
+export type SearchCrmContactsParams = {
+/**
+ * @minLength 2
+ */
+query: string;
+/**
+ * @minLength 3
+ */
+companyDomain: string;
 };
 

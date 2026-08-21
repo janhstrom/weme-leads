@@ -6,9 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type SignalCrmProperty = {
-  status: string;
-  matchCount: number;
-  /** @nullable */
-  note?: string | null;
+export type SearchCrmContactsParams = {
+/**
+ * @minLength 2
+ */
+query: string;
+/**
+ * @minLength 3
+ */
+companyDomain: string;
 };

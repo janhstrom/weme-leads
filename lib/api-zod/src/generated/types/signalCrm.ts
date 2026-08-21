@@ -5,10 +5,20 @@
  * WeMe Signalpilot API
  * OpenAPI spec version: 0.1.0
  */
+import type { SignalCrmWriteStatus } from './signalCrmWriteStatus';
 
 export interface SignalCrm {
   status: string;
   matchCount: number;
   /** @nullable */
   note?: string | null;
+  writeStatus?: SignalCrmWriteStatus;
+  /** @nullable */
+  crmContactId?: number | null;
+  /** @nullable */
+  noteCreatedAt?: Date | null;
+  /** @nullable */
+  taskCreatedAt?: Date | null;
+  /** @nullable */
+  taskId?: number | null;
 }
