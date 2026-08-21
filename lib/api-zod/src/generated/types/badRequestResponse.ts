@@ -5,7 +5,9 @@
  * WeMe Signalpilot API
  * OpenAPI spec version: 0.1.0
  */
+import type { ErrorResponse } from './errorResponse';
 
-export interface HealthStatus {
-  status: string;
-}
+/**
+ * Bad request
+ */
+export type BadRequestResponse = ErrorResponse;

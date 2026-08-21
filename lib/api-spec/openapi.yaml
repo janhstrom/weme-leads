@@ -130,7 +130,7 @@ components:
       in: path
       required: true
       schema:
-        type: integer
+        type: number
     Status:
       name: status
       in: query
@@ -178,7 +178,7 @@ components:
       type: object
       required: [id, name, title, confidence]
       properties:
-        id: { type: integer }
+        id: { type: number }
         name: { type: string }
         title: { type: string }
         email: { type: ["string", "null"] }
@@ -193,7 +193,7 @@ components:
       required: [title, url, sourceType, publishedAt, excerpt]
       properties:
         title: { type: string }
-        url: { type: string, format: uri }
+        url: { type: string }
         sourceType: { type: string }
         publishedAt: { type: string, format: date }
         excerpt: { type: string }
@@ -201,13 +201,13 @@ components:
       type: object
       required: [id, company, signalType, strength, status, summary, evidence, contacts, crm]
       properties:
-        id: { type: integer }
+        id: { type: number }
         company:
           type: object
           required: [name, employees, industry, domain]
           properties:
             name: { type: string }
-            employees: { type: integer }
+            employees: { type: number }
             industry: { type: string }
             domain: { type: string }
         signalType: { type: string }
@@ -220,7 +220,7 @@ components:
         summary: { type: string }
         rationale: { type: string }
         publishedAt: { type: string, format: date }
-        freshnessDays: { type: integer }
+        freshnessDays: { type: number }
         evidence:
           type: array
           items:
@@ -234,7 +234,7 @@ components:
           required: [status, matchCount]
           properties:
             status: { type: string }
-            matchCount: { type: integer }
+            matchCount: { type: number }
             note: { type: ["string", "null"] }
         suggestedOpening: { type: string }
         dialogueDraft: { type: string }
@@ -246,7 +246,7 @@ components:
       properties:
         status:
           type: string
-          enum: [godkjent, avvist, allerede_kjent, følg_videre]
+          enum: [til_vurdering, godkjent, avvist, allerede_kjent, følg_videre]
         reason:
           type: ["string", "null"]
         comment:
@@ -255,23 +255,23 @@ components:
       type: object
       required: [contactId, dueDate]
       properties:
-        contactId: { type: integer }
+        contactId: { type: number }
         dueDate: { type: string, format: date }
     CrmTaskResult:
       type: object
       required: [signalId, crmContactId, crmNoteCreated, crmTaskCreated]
       properties:
-        signalId: { type: integer }
-        crmContactId: { type: integer }
+        signalId: { type: number }
+        crmContactId: { type: number }
         crmNoteCreated: { type: boolean }
         crmTaskCreated: { type: boolean }
-        taskId: { type: ["integer", "null"] }
+        taskId: { type: ["number", "null"] }
     DashboardSummary:
       type: object
       required: [total, pending, approved, highPriority, crmTasks]
       properties:
-        total: { type: integer }
-        pending: { type: integer }
-        approved: { type: integer }
-        highPriority: { type: integer }
-        crmTasks: { type: integer }
+        total: { type: number }
+        pending: { type: number }
+        approved: { type: number }
+        highPriority: { type: number }
+        crmTasks: { type: number }

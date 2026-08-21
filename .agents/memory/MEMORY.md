@@ -1,0 +1,1 @@
+- [OpenAPI Zod compatibility](openapi-zod-compatibility.md) — Current codegen needs numbers and plain URL strings because generated Zod helpers target a newer Zod API.

@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface Evidence {
+  title: string;
+  url: string;
+  sourceType: string;
+  publishedAt: Date;
+  excerpt: string;
 }
