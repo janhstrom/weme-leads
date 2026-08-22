@@ -102,3 +102,52 @@ test('scales mixed percentage rows by absolute total while preserving negatives'
     100,
   );
 });
+
+test('normalizes each percentage category independently across mixed signs and nulls', () => {
+  const rows = chartRows(
+    percentChart(
+      ['Mixed', 'Refund-heavy', 'Positive-heavy'],
+      [
+        [30, null, 12],
+        [-10, -20, null],
+        [null, 5, -3],
+      ],
+    ),
+  );
+
+  assert.deepEqual(rows, [
+    {
+      category: 'Mixed',
+      'series-0': 75,
+      'series-1': -25,
+      'series-2': null,
+    },
+    {
+      category: 'Refund-heavy',
+      'series-0': null,
+      'series-1': -80,
+      'series-2': 20,
+    },
+    {
+      category: 'Positive-heavy',
+      'series-0': 80,
+      'series-1': null,
+      'series-2': -20,
+    },
+  ]);
+
+  for (const row of rows) {
+    const values = Object.entries(row)
+      .filter(([key]) => key.startsWith('series-'))
+      .map(([, value]) => value);
+
+    assert.equal(
+      values.reduce<number>(
+        (total, value) =>
+          total + (typeof value === 'number' ? Math.abs(value) : 0),
+        0,
+      ),
+      100,
+    );
+  }
+});
