@@ -101,6 +101,34 @@ export const leadCandidateEvidenceTable = pgTable(
   }),
 );
 
+/**
+ * Keeps the complete source record for evidence rows collapsed by the
+ * candidate/URL uniqueness cleanup. This is intentionally separate from the
+ * live evidence table so the unique index can be enforced there.
+ */
+export const leadCandidateEvidenceDuplicatesTable = pgTable(
+  "lead_candidate_evidence_duplicates",
+  {
+    id: serial("id").primaryKey(),
+    originalEvidenceId: integer("original_evidence_id").notNull(),
+    canonicalEvidenceId: integer("canonical_evidence_id").notNull(),
+    candidateId: integer("candidate_id").notNull(),
+    title: text("title").notNull(),
+    url: text("url").notNull(),
+    sourceType: text("source_type").notNull(),
+    publishedAt: date("published_at", { mode: "string" }).notNull(),
+    excerpt: text("excerpt").notNull(),
+    verificationStatus: text("verification_status").notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    candidateUrlIdx: index("lead_candidate_evidence_duplicates_candidate_url_idx").on(table.candidateId, table.url),
+    originalEvidenceIdx: index("lead_candidate_evidence_duplicates_original_idx").on(table.originalEvidenceId),
+  }),
+);
+
 export const leadAnalysisBatchesTable = pgTable("lead_analysis_batches", {
   id: serial("id").primaryKey(),
   requestedCount: integer("requested_count").notNull(),
