@@ -34,6 +34,11 @@ export default function CandidateDetailPage() {
   const [relevanceChoice, setRelevanceChoice] = useState<Candidate["relevanceStatus"] | null>(null);
   const [decisionReason, setDecisionReason] = useState("");
   const [duplicateEvidenceUrl, setDuplicateEvidenceUrl] = useState<string | null>(null);
+  const submitEvidence = () => {
+    if (!candidate) return;
+    setDuplicateEvidenceUrl(null);
+    evidenceMutation.mutate({ id: candidate.id, data: form });
+  };
   const crmSearchParams = { query: crmQuery, companyDomain: candidate?.domain ?? "" };
   const crm = useSearchCrmContacts(
     crmSearchParams,
@@ -155,7 +160,7 @@ export default function CandidateDetailPage() {
                   <Input placeholder="https://…" value={form.url} onChange={(event) => setForm({ ...form, url: event.target.value })} />
                   <div className="grid gap-3 sm:grid-cols-2"><Input placeholder="Kildetype" value={form.sourceType} onChange={(event) => setForm({ ...form, sourceType: event.target.value })} /><Input type="date" value={form.publishedAt} onChange={(event) => setForm({ ...form, publishedAt: event.target.value })} /></div>
                   <Textarea placeholder="Kort, relevant sitat fra kilden" value={form.excerpt} onChange={(event) => setForm({ ...form, excerpt: event.target.value })} />
-                  <Button onClick={() => evidenceMutation.mutate({ id: candidate.id, data: form })} disabled={evidenceMutation.isPending}>Kontroller og legg til kilde</Button>
+                  <Button onClick={submitEvidence} disabled={evidenceMutation.isPending}>Kontroller og legg til kilde</Button>
                 </div>
               </CardContent>
             </Card>
