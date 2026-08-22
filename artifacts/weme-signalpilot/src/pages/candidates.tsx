@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
+import { read, utils } from "xlsx";
 import {
   Candidate,
   CandidateImportInput,
@@ -54,14 +55,15 @@ function splitCsvLine(line: string, separator: string) {
   return result;
 }
 
-function parseCandidateCsv(text: string) {
-  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
-  if (lines.length < 2) throw new Error("CSV-filen må ha en overskriftsrad og minst én data-rad.");
-  const separator = lines[0].split(";").length > lines[0].split(",").length ? ";" : ",";
-  const headers = splitCsvLine(lines[0], separator);
-  return lines.slice(1).map((line, index) => {
-    const values = splitCsvLine(line, separator);
-    const fields = Object.fromEntries(headers.map((header, headerIndex) => [header, values[headerIndex] ?? ""]));
+function parseCandidateRows(rows: Array<Record<string, unknown>>) {
+  if (!rows.length) throw new Error("Filen må ha en overskriftsrad og minst én data-rad.");
+  return rows.map((row, index) => {
+    const fields = Object.fromEntries(
+      Object.entries(row).map(([key, value]) => [
+        key,
+        value instanceof Date ? value.toISOString().slice(0, 10) : String(value ?? "").trim(),
+      ]),
+    );
     const companyName = rowValue(fields, ["company", "companyname", "account", "selskap", "selskapsnavn", "firmanavn", "foretaksnavn"]);
     if (!companyName) throw new Error(`Rad ${index + 2} mangler selskapsnavn.`);
     return {
@@ -79,6 +81,36 @@ function parseCandidateCsv(text: string) {
       fields,
     };
   });
+}
+
+function parseCandidateCsv(text: string) {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) throw new Error("CSV-filen må ha en overskriftsrad og minst én data-rad.");
+  const separator = lines[0].split(";").length > lines[0].split(",").length ? ";" : ",";
+  const headers = splitCsvLine(lines[0], separator);
+  return parseCandidateRows(lines.slice(1).map((line) => {
+    const values = splitCsvLine(line, separator);
+    return Object.fromEntries(headers.map((header, headerIndex) => [header, values[headerIndex] ?? ""]));
+  }));
+}
+
+function parseCandidateWorkbook(fileContents: ArrayBuffer) {
+  const workbook = read(fileContents, { type: "array", cellDates: true });
+  const firstSheetName = workbook.SheetNames[0];
+  if (!firstSheetName) throw new Error("Excel-filen har ingen ark å importere.");
+  const worksheet = workbook.Sheets[firstSheetName];
+  return parseCandidateRows(utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: "", raw: false }));
+}
+
+async function parseCandidateFile(file: File) {
+  const filename = file.name.toLocaleLowerCase("nb-NO");
+  if (filename.endsWith(".xlsx") || filename.endsWith(".xls")) {
+    return parseCandidateWorkbook(await file.arrayBuffer());
+  }
+  if (filename.endsWith(".csv") || file.type === "text/csv") {
+    return parseCandidateCsv(await file.text());
+  }
+  throw new Error("Velg en CSV- eller Excel-fil (.xlsx).");
 }
 
 export default function CandidatesPage() {
@@ -109,7 +141,7 @@ export default function CandidatesPage() {
         queryClient.invalidateQueries({ queryKey: getListCandidatesQueryKey() });
         toast({ title: "Hovedlisten er oppdatert", description: `${result.created} nye selskaper, ${result.matched} matchet og ${result.needsReview} trenger avklaring.` });
       },
-      onError: (error) => toast({ title: "Importen feilet", description: error instanceof Error ? error.message : "Kontroller CSV-formatet.", variant: "destructive" }),
+      onError: (error) => toast({ title: "Importen feilet", description: error instanceof Error ? error.message : "Kontroller CSV- eller Excel-filen.", variant: "destructive" }),
     },
   });
   const monitoringMutation = useUpdateCandidateMonitoring({
@@ -131,10 +163,10 @@ export default function CandidatesPage() {
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
     try {
-      const payload: CandidateImportInput = { sourceType, snapshotDate, records: parseCandidateCsv(await file.text()) };
+      const payload: CandidateImportInput = { sourceType, snapshotDate, records: await parseCandidateFile(file) };
       importMutation.mutate({ data: payload });
     } catch (error) {
-      toast({ title: "CSV-filen kunne ikke leses", description: error instanceof Error ? error.message : "Kontroller filen.", variant: "destructive" });
+      toast({ title: "Filen kunne ikke leses", description: error instanceof Error ? error.message : "Kontroller CSV- eller Excel-filen.", variant: "destructive" });
     } finally {
       if (fileRef.current) fileRef.current.value = "";
     }
@@ -178,7 +210,7 @@ export default function CandidatesPage() {
               <span className="hidden text-xs text-muted-foreground group-open:inline">Skjul</span>
             </summary>
             <div className="border-t border-border p-4">
-              <p className="mb-3 max-w-3xl text-sm text-muted-foreground">Dette legger nye observasjoner oppå eksisterende historikk. Det sletter ikke selskaper eller valg i overvåkningslisten.</p>
+              <p className="mb-3 max-w-3xl text-sm text-muted-foreground">Velg CSV eller Excel (.xlsx). Første ark i en Excel-fil importeres, og nye observasjoner legges oppå eksisterende historikk uten å slette selskaper eller valg i overvåkningslisten.</p>
               <div className="grid gap-3 md:grid-cols-[1fr_180px_auto] md:items-end">
                 <label className="grid gap-1 text-sm font-medium">Kilde
                   <select value={sourceType} onChange={(event) => setSourceType(event.target.value as SourceType)} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
@@ -186,7 +218,7 @@ export default function CandidatesPage() {
                   </select>
                 </label>
                 <label className="grid gap-1 text-sm font-medium">Snapshot-dato<Input type="date" value={snapshotDate} onChange={(event) => setSnapshotDate(event.target.value)} /></label>
-                <input ref={fileRef} className="hidden" type="file" accept=".csv,text/csv" onChange={(event) => handleFile(event.target.files?.[0])} />
+                <input ref={fileRef} className="hidden" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={(event) => handleFile(event.target.files?.[0])} />
                 <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={importMutation.isPending}><FileUp className="mr-2 h-4 w-4" /> {importMutation.isPending ? "Oppdaterer…" : "Velg nytt snapshot"}</Button>
               </div>
             </div>
