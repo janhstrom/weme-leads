@@ -19,7 +19,7 @@ import {
   ZAxis,
 } from 'recharts';
 
-interface ImportedSeries {
+export interface ImportedSeries {
   name: string;
   categories?: Array<string>;
   values: Array<number | null>;
@@ -28,7 +28,7 @@ interface ImportedSeries {
   color?: string;
 }
 
-interface ImportedChartModel {
+export interface ImportedChartModel {
   type:
     | 'bar'
     | 'column'
@@ -65,7 +65,7 @@ function seriesColor(series: ImportedSeries, index: number): string {
   return series.color ?? palette[index % palette.length];
 }
 
-function chartRows(chart: ImportedChartModel) {
+export function chartRows(chart: ImportedChartModel) {
   const categories = chart.series[0]?.categories ?? [];
   const percent = chart.grouping === 'percentStacked';
 
