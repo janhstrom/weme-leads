@@ -5,7 +5,11 @@
  * WeMe Signalpilot API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListCandidatesRelevanceStatus } from './listCandidatesRelevanceStatus';
+import type { ListCandidatesView } from './listCandidatesView';
 
 export type ListCandidatesParams = {
 search?: string;
+view?: ListCandidatesView;
+relevanceStatus?: ListCandidatesRelevanceStatus;
 };

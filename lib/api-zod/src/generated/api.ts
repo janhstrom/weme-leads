@@ -474,7 +474,9 @@ export const VerifySignalCrmContactResponse = zod.object({
  * @summary List the normalized candidate universe
  */
 export const ListCandidatesQueryParams = zod.object({
-  "search": zod.coerce.string().optional()
+  "search": zod.coerce.string().optional(),
+  "view": zod.enum(['universe', 'monitoring', 'review']).optional(),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']).optional()
 })
 
 export const ListCandidatesResponseItem = zod.object({
@@ -485,6 +487,11 @@ export const ListCandidatesResponseItem = zod.object({
   "industry": zod.string().nullish(),
   "employees": zod.number().nullish(),
   "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "relevanceReason": zod.string().nullish(),
+  "relevanceSource": zod.enum(['system', 'manual']),
+  "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
+  "monitoringReason": zod.string().nullish(),
   "priorityScore": zod.number(),
   "priorityReasons": zod.array(zod.string()),
   "lastAnalyzedAt": zod.coerce.date().nullish(),
@@ -540,6 +547,11 @@ export const GetCandidateResponse = zod.object({
   "industry": zod.string().nullish(),
   "employees": zod.number().nullish(),
   "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "relevanceReason": zod.string().nullish(),
+  "relevanceSource": zod.enum(['system', 'manual']),
+  "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
+  "monitoringReason": zod.string().nullish(),
   "priorityScore": zod.number(),
   "priorityReasons": zod.array(zod.string()),
   "lastAnalyzedAt": zod.coerce.date().nullish(),
@@ -638,6 +650,139 @@ export const AddCandidateEvidenceResponse = zod.object({
   "industry": zod.string().nullish(),
   "employees": zod.number().nullish(),
   "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "relevanceReason": zod.string().nullish(),
+  "relevanceSource": zod.enum(['system', 'manual']),
+  "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
+  "monitoringReason": zod.string().nullish(),
+  "priorityScore": zod.number(),
+  "priorityReasons": zod.array(zod.string()),
+  "lastAnalyzedAt": zod.coerce.date().nullish(),
+  "snapshots": zod.array(zod.object({
+  "id": zod.number(),
+  "sourceType": zod.enum(['dnb_bisnode', 'sales_navigator', 'manual']),
+  "sourceRowId": zod.string().nullish(),
+  "snapshotDate": zod.coerce.date(),
+  "originalCompanyName": zod.string(),
+  "importedAt": zod.coerce.date(),
+  "data": zod.object({
+  "employees": zod.number().nullish(),
+  "revenue": zod.string().nullish(),
+  "owner": zod.string().nullish(),
+  "personName": zod.string().nullish(),
+  "roleTitle": zod.string().nullish(),
+  "profileUrl": zod.string().nullish(),
+  "fields": zod.record(zod.string(), zod.string())
+})
+})),
+  "changes": zod.array(zod.object({
+  "kind": zod.enum(['employee_change', 'relevant_role', 'source_refresh']),
+  "label": zod.string(),
+  "detail": zod.string()
+})),
+  "evidence": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['url_verified']),
+  "verifiedAt": zod.coerce.date()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Set a manual relevance decision for a candidate
+ */
+export const UpdateCandidateRelevanceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateCandidateRelevanceBody = zod.object({
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "reason": zod.string().nullish()
+})
+
+export const UpdateCandidateRelevanceResponse = zod.object({
+  "id": zod.number(),
+  "companyName": zod.string(),
+  "organizationNumber": zod.string().nullish(),
+  "domain": zod.string().nullish(),
+  "industry": zod.string().nullish(),
+  "employees": zod.number().nullish(),
+  "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "relevanceReason": zod.string().nullish(),
+  "relevanceSource": zod.enum(['system', 'manual']),
+  "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
+  "monitoringReason": zod.string().nullish(),
+  "priorityScore": zod.number(),
+  "priorityReasons": zod.array(zod.string()),
+  "lastAnalyzedAt": zod.coerce.date().nullish(),
+  "snapshots": zod.array(zod.object({
+  "id": zod.number(),
+  "sourceType": zod.enum(['dnb_bisnode', 'sales_navigator', 'manual']),
+  "sourceRowId": zod.string().nullish(),
+  "snapshotDate": zod.coerce.date(),
+  "originalCompanyName": zod.string(),
+  "importedAt": zod.coerce.date(),
+  "data": zod.object({
+  "employees": zod.number().nullish(),
+  "revenue": zod.string().nullish(),
+  "owner": zod.string().nullish(),
+  "personName": zod.string().nullish(),
+  "roleTitle": zod.string().nullish(),
+  "profileUrl": zod.string().nullish(),
+  "fields": zod.record(zod.string(), zod.string())
+})
+})),
+  "changes": zod.array(zod.object({
+  "kind": zod.enum(['employee_change', 'relevant_role', 'source_refresh']),
+  "label": zod.string(),
+  "detail": zod.string()
+})),
+  "evidence": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['url_verified']),
+  "verifiedAt": zod.coerce.date()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Add or remove a candidate from monitoring without deleting its history
+ */
+export const UpdateCandidateMonitoringParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateCandidateMonitoringBody = zod.object({
+  "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
+  "reason": zod.string().nullish()
+})
+
+export const UpdateCandidateMonitoringResponse = zod.object({
+  "id": zod.number(),
+  "companyName": zod.string(),
+  "organizationNumber": zod.string().nullish(),
+  "domain": zod.string().nullish(),
+  "industry": zod.string().nullish(),
+  "employees": zod.number().nullish(),
+  "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "relevanceReason": zod.string().nullish(),
+  "relevanceSource": zod.enum(['system', 'manual']),
+  "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
+  "monitoringReason": zod.string().nullish(),
   "priorityScore": zod.number(),
   "priorityReasons": zod.array(zod.string()),
   "lastAnalyzedAt": zod.coerce.date().nullish(),
@@ -680,12 +825,14 @@ export const AddCandidateEvidenceResponse = zod.object({
 /**
  * @summary Select a explainable manual analysis batch
  */
+export const createCandidateAnalysisBatchBodyScopeDefault = `monitoring`;
 export const createCandidateAnalysisBatchBodyLimitMax = 100;
 
 
 
 export const CreateCandidateAnalysisBatchBody = zod.object({
-  "limit": zod.number().min(1).max(createCandidateAnalysisBatchBodyLimitMax)
+  "scope": zod.enum(['universe', 'relevant', 'monitoring']).default(createCandidateAnalysisBatchBodyScopeDefault),
+  "limit": zod.number().min(1).max(createCandidateAnalysisBatchBodyLimitMax).optional()
 })
 
 export const CreateCandidateAnalysisBatchResponse = zod.object({
@@ -702,6 +849,11 @@ export const CreateCandidateAnalysisBatchResponse = zod.object({
   "industry": zod.string().nullish(),
   "employees": zod.number().nullish(),
   "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "relevanceReason": zod.string().nullish(),
+  "relevanceSource": zod.enum(['system', 'manual']),
+  "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
+  "monitoringReason": zod.string().nullish(),
   "priorityScore": zod.number(),
   "priorityReasons": zod.array(zod.string()),
   "lastAnalyzedAt": zod.coerce.date().nullish(),

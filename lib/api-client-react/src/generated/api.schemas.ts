@@ -297,6 +297,32 @@ export const CandidateMatchStatus = {
   needs_review: 'needs_review',
 } as const;
 
+export type CandidateRelevanceStatus = typeof CandidateRelevanceStatus[keyof typeof CandidateRelevanceStatus];
+
+
+export const CandidateRelevanceStatus = {
+  relevant: 'relevant',
+  possible: 'possible',
+  not_relevant: 'not_relevant',
+  needs_review: 'needs_review',
+} as const;
+
+export type CandidateRelevanceSource = typeof CandidateRelevanceSource[keyof typeof CandidateRelevanceSource];
+
+
+export const CandidateRelevanceSource = {
+  system: 'system',
+  manual: 'manual',
+} as const;
+
+export type CandidateMonitoringStatus = typeof CandidateMonitoringStatus[keyof typeof CandidateMonitoringStatus];
+
+
+export const CandidateMonitoringStatus = {
+  monitoring: 'monitoring',
+  not_monitoring: 'not_monitoring',
+} as const;
+
 export interface Candidate {
   id: number;
   companyName: string;
@@ -309,6 +335,13 @@ export interface Candidate {
   /** @nullable */
   employees?: number | null;
   matchStatus: CandidateMatchStatus;
+  relevanceStatus: CandidateRelevanceStatus;
+  /** @nullable */
+  relevanceReason?: string | null;
+  relevanceSource: CandidateRelevanceSource;
+  monitoringStatus: CandidateMonitoringStatus;
+  /** @nullable */
+  monitoringReason?: string | null;
   priorityScore: number;
   priorityReasons: string[];
   /** @nullable */
@@ -372,12 +405,52 @@ export interface CandidateImportResult {
   warnings: string[];
 }
 
+export type CandidateBatchInputScope = typeof CandidateBatchInputScope[keyof typeof CandidateBatchInputScope];
+
+
+export const CandidateBatchInputScope = {
+  universe: 'universe',
+  relevant: 'relevant',
+  monitoring: 'monitoring',
+} as const;
+
 export interface CandidateBatchInput {
+  scope?: CandidateBatchInputScope;
   /**
      * @minimum 1
      * @maximum 100
      */
-  limit: number;
+  limit?: number;
+}
+
+export type CandidateRelevanceInputRelevanceStatus = typeof CandidateRelevanceInputRelevanceStatus[keyof typeof CandidateRelevanceInputRelevanceStatus];
+
+
+export const CandidateRelevanceInputRelevanceStatus = {
+  relevant: 'relevant',
+  possible: 'possible',
+  not_relevant: 'not_relevant',
+  needs_review: 'needs_review',
+} as const;
+
+export interface CandidateRelevanceInput {
+  relevanceStatus: CandidateRelevanceInputRelevanceStatus;
+  /** @nullable */
+  reason?: string | null;
+}
+
+export type CandidateMonitoringInputMonitoringStatus = typeof CandidateMonitoringInputMonitoringStatus[keyof typeof CandidateMonitoringInputMonitoringStatus];
+
+
+export const CandidateMonitoringInputMonitoringStatus = {
+  monitoring: 'monitoring',
+  not_monitoring: 'not_monitoring',
+} as const;
+
+export interface CandidateMonitoringInput {
+  monitoringStatus: CandidateMonitoringInputMonitoringStatus;
+  /** @nullable */
+  reason?: string | null;
 }
 
 export interface CandidateAnalysisBatch {
@@ -450,5 +523,26 @@ companyDomain: string;
 
 export type ListCandidatesParams = {
 search?: string;
+view?: ListCandidatesView;
+relevanceStatus?: ListCandidatesRelevanceStatus;
 };
+
+export type ListCandidatesView = typeof ListCandidatesView[keyof typeof ListCandidatesView];
+
+
+export const ListCandidatesView = {
+  universe: 'universe',
+  monitoring: 'monitoring',
+  review: 'review',
+} as const;
+
+export type ListCandidatesRelevanceStatus = typeof ListCandidatesRelevanceStatus[keyof typeof ListCandidatesRelevanceStatus];
+
+
+export const ListCandidatesRelevanceStatus = {
+  relevant: 'relevant',
+  possible: 'possible',
+  not_relevant: 'not_relevant',
+  needs_review: 'needs_review',
+} as const;
 

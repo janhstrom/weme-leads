@@ -5,11 +5,13 @@
  * WeMe Signalpilot API
  * OpenAPI spec version: 0.1.0
  */
+import type { CandidateBatchInputScope } from './candidateBatchInputScope';
 
 export interface CandidateBatchInput {
+  scope?: CandidateBatchInputScope;
   /**
      * @minimum 1
      * @maximum 100
      */
-  limit: number;
+  limit?: number;
 }

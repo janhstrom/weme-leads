@@ -7,6 +7,9 @@
  */
 import type { CandidateChange } from './candidateChange';
 import type { CandidateMatchStatus } from './candidateMatchStatus';
+import type { CandidateMonitoringStatus } from './candidateMonitoringStatus';
+import type { CandidateRelevanceSource } from './candidateRelevanceSource';
+import type { CandidateRelevanceStatus } from './candidateRelevanceStatus';
 import type { CandidateSnapshot } from './candidateSnapshot';
 import type { Evidence } from './evidence';
 
@@ -22,6 +25,13 @@ export interface Candidate {
   /** @nullable */
   employees?: number | null;
   matchStatus: CandidateMatchStatus;
+  relevanceStatus: CandidateRelevanceStatus;
+  /** @nullable */
+  relevanceReason?: string | null;
+  relevanceSource: CandidateRelevanceSource;
+  monitoringStatus: CandidateMonitoringStatus;
+  /** @nullable */
+  monitoringReason?: string | null;
   priorityScore: number;
   priorityReasons: string[];
   /** @nullable */

@@ -4,12 +4,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 import {
+  Candidate,
   getSearchCrmContactsQueryKey,
   getGetCandidateQueryKey,
   getListCandidatesQueryKey,
   useAddCandidateEvidence,
   useGetCandidate,
   useSearchCrmContacts,
+  useUpdateCandidateMonitoring,
+  useUpdateCandidateRelevance,
 } from "@workspace/api-client-react";
 import { Badge } from "@workspace/weme-earth-tones-system/components/ui/badge";
 import { Button } from "@workspace/weme-earth-tones-system/components/ui/button";
@@ -18,7 +21,7 @@ import { Input } from "@workspace/weme-earth-tones-system/components/ui/input";
 import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
 import { Textarea } from "@workspace/weme-earth-tones-system/components/ui/textarea";
 import { useToast } from "@workspace/weme-earth-tones-system/hooks/use-toast";
-import { ArrowLeft, Building2, FileSearch, Link2, Search, UserRound } from "lucide-react";
+import { ArrowLeft, Building2, Eye, FileSearch, Link2, Radio, Search, UserRound } from "lucide-react";
 
 export default function CandidateDetailPage() {
   const [, params] = useRoute("/candidates/:id");
@@ -28,6 +31,8 @@ export default function CandidateDetailPage() {
   const { data: candidate, isLoading, isError } = useGetCandidate(id);
   const [crmQuery, setCrmQuery] = useState("");
   const [form, setForm] = useState({ title: "", url: "", sourceType: "Selskapsnyhet", publishedAt: "", excerpt: "" });
+  const [relevanceChoice, setRelevanceChoice] = useState<Candidate["relevanceStatus"] | null>(null);
+  const [decisionReason, setDecisionReason] = useState("");
   const crmSearchParams = { query: crmQuery, companyDomain: candidate?.domain ?? "" };
   const crm = useSearchCrmContacts(
     crmSearchParams,
@@ -44,6 +49,31 @@ export default function CandidateDetailPage() {
       onError: (error) => toast({ title: "Kilden kunne ikke lagres", description: error instanceof Error ? error.message : "Kontroller feltene.", variant: "destructive" }),
     },
   });
+  const updateCandidateInCache = (updated: Candidate) => {
+    queryClient.setQueryData(getGetCandidateQueryKey(updated.id), updated);
+    queryClient.invalidateQueries({ queryKey: getListCandidatesQueryKey() });
+  };
+  const relevanceMutation = useUpdateCandidateRelevance({
+    mutation: {
+      onSuccess: (updated) => {
+        updateCandidateInCache(updated);
+        setRelevanceChoice(null);
+        setDecisionReason("");
+        toast({ title: "Relevans lagret", description: "Den manuelle vurderingen overstyrer ikke kildehistorikken." });
+      },
+      onError: () => toast({ title: "Kunne ikke lagre relevans", variant: "destructive" }),
+    },
+  });
+  const monitoringMutation = useUpdateCandidateMonitoring({
+    mutation: {
+      onSuccess: (updated) => {
+        updateCandidateInCache(updated);
+        setDecisionReason("");
+        toast({ title: updated.monitoringStatus === "monitoring" ? "Lagt til i overvåkning" : "Tatt ut av overvåkning", description: "Snapshots og kilder er beholdt i hovedlisten." });
+      },
+      onError: () => toast({ title: "Kunne ikke oppdatere overvåkning", variant: "destructive" }),
+    },
+  });
 
   if (isLoading) return <div className="p-6 space-y-4"><Skeleton className="h-8 w-56" /><Skeleton className="h-64 w-full" /></div>;
   if (isError || !candidate) return <div className="p-6 text-destructive">Kandidaten kunne ikke lastes.</div>;
@@ -55,7 +85,8 @@ export default function CandidateDetailPage() {
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-semibold">{candidate.companyName}</h1>
           <Badge variant="outline">{candidate.priorityScore} prioritetspoeng</Badge>
-          <Badge variant="secondary">{candidate.matchStatus.replace("_", " ")}</Badge>
+          <Badge variant="secondary">{candidate.relevanceStatus.replace("_", " ")}</Badge>
+          <Badge variant={candidate.monitoringStatus === "monitoring" ? "default" : "outline"}>{candidate.monitoringStatus === "monitoring" ? "Overvåkes" : "Ikke overvåket"}</Badge>
         </div>
       </header>
       <div className="flex-1 overflow-auto bg-background p-6">
@@ -69,6 +100,28 @@ export default function CandidateDetailPage() {
                   <Meta label="Domene" value={candidate.domain ?? "Ikke oppgitt"} />
                   <Meta label="Bransje" value={candidate.industry ?? "Ikke oppgitt"} />
                   <Meta label="Ansatte" value={candidate.employees?.toLocaleString("nb-NO") ?? "Ikke oppgitt"} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Eye className="h-4 w-4 text-primary" /> Relevans og overvåkning</CardTitle><CardDescription>Hovedlisten beholder selskapet uansett valg. Du styrer om det er relevant og om det skal overvåkes.</CardDescription></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <label className="grid gap-1 text-sm font-medium">Relevans
+                    <select value={relevanceChoice ?? candidate.relevanceStatus} onChange={(event) => setRelevanceChoice(event.target.value as Candidate["relevanceStatus"])} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
+                      <option value="relevant">Relevant</option>
+                      <option value="possible">Mulig relevant</option>
+                      <option value="needs_review">Må vurderes</option>
+                      <option value="not_relevant">Ikke relevant</option>
+                    </select>
+                  </label>
+                  <Button onClick={() => relevanceMutation.mutate({ id: candidate.id, data: { relevanceStatus: relevanceChoice ?? candidate.relevanceStatus, reason: decisionReason || null } })} disabled={relevanceMutation.isPending}>Lagre relevans</Button>
+                </div>
+                <Textarea placeholder="Valgfri begrunnelse for ditt valg" value={decisionReason} onChange={(event) => setDecisionReason(event.target.value)} />
+                <div className="flex flex-col gap-2 rounded-md bg-secondary/60 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div><p className="font-medium">{candidate.monitoringStatus === "monitoring" ? "Dette selskapet overvåkes" : "Dette selskapet overvåkes ikke"}</p><p className="text-muted-foreground">{candidate.monitoringReason ?? "Du kan endre dette uten å slette historikk eller relevansvurdering."}</p></div>
+                  <Button variant={candidate.monitoringStatus === "monitoring" ? "outline" : "default"} onClick={() => monitoringMutation.mutate({ id: candidate.id, data: { monitoringStatus: candidate.monitoringStatus === "monitoring" ? "not_monitoring" : "monitoring", reason: decisionReason || null } })} disabled={monitoringMutation.isPending}><Radio className="mr-2 h-4 w-4" />{candidate.monitoringStatus === "monitoring" ? "Trekk fra overvåkning" : "Legg til i overvåkning"}</Button>
                 </div>
               </CardContent>
             </Card>

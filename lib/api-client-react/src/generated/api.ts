@@ -26,6 +26,8 @@ import type {
   CandidateBatchInput,
   CandidateImportInput,
   CandidateImportResult,
+  CandidateMonitoringInput,
+  CandidateRelevanceInput,
   CrmContactCandidate,
   CrmContactSelectionInput,
   CrmTaskInput,
@@ -1202,6 +1204,150 @@ export const useAddCandidateEvidence = <TError = ErrorType<BadRequestResponse | 
         TContext
       > => {
       return useMutation(getAddCandidateEvidenceMutationOptions(options));
+    }
+
+export const getUpdateCandidateRelevanceUrl = (id: number,) => {
+
+
+
+
+  return `/api/candidates/${id}/relevance`
+}
+
+/**
+ * @summary Set a manual relevance decision for a candidate
+ */
+export const updateCandidateRelevance = async (id: number,
+    candidateRelevanceInput: CandidateRelevanceInput, options?: Parameters<typeof customFetch>[1]): Promise<Candidate> => {
+
+  return customFetch<Candidate>(getUpdateCandidateRelevanceUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(candidateRelevanceInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateCandidateRelevanceMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCandidateRelevance>>, TError,{id: number;data: BodyType<CandidateRelevanceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCandidateRelevance>>, TError,{id: number;data: BodyType<CandidateRelevanceInput>}, TContext> => {
+
+const mutationKey = ['updateCandidateRelevance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCandidateRelevance>>, {id: number;data: BodyType<CandidateRelevanceInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCandidateRelevance(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCandidateRelevanceMutationResult = NonNullable<Awaited<ReturnType<typeof updateCandidateRelevance>>>
+    export type UpdateCandidateRelevanceMutationBody = BodyType<CandidateRelevanceInput>
+    export type UpdateCandidateRelevanceMutationError = ErrorType<BadRequestResponse | NotFoundResponse>
+
+    /**
+ * @summary Set a manual relevance decision for a candidate
+ */
+export const useUpdateCandidateRelevance = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCandidateRelevance>>, TError,{id: number;data: BodyType<CandidateRelevanceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCandidateRelevance>>,
+        TError,
+        {id: number;data: BodyType<CandidateRelevanceInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCandidateRelevanceMutationOptions(options));
+    }
+
+export const getUpdateCandidateMonitoringUrl = (id: number,) => {
+
+
+
+
+  return `/api/candidates/${id}/monitoring`
+}
+
+/**
+ * @summary Add or remove a candidate from monitoring without deleting its history
+ */
+export const updateCandidateMonitoring = async (id: number,
+    candidateMonitoringInput: CandidateMonitoringInput, options?: Parameters<typeof customFetch>[1]): Promise<Candidate> => {
+
+  return customFetch<Candidate>(getUpdateCandidateMonitoringUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(candidateMonitoringInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateCandidateMonitoringMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCandidateMonitoring>>, TError,{id: number;data: BodyType<CandidateMonitoringInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCandidateMonitoring>>, TError,{id: number;data: BodyType<CandidateMonitoringInput>}, TContext> => {
+
+const mutationKey = ['updateCandidateMonitoring'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCandidateMonitoring>>, {id: number;data: BodyType<CandidateMonitoringInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCandidateMonitoring(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCandidateMonitoringMutationResult = NonNullable<Awaited<ReturnType<typeof updateCandidateMonitoring>>>
+    export type UpdateCandidateMonitoringMutationBody = BodyType<CandidateMonitoringInput>
+    export type UpdateCandidateMonitoringMutationError = ErrorType<BadRequestResponse | NotFoundResponse>
+
+    /**
+ * @summary Add or remove a candidate from monitoring without deleting its history
+ */
+export const useUpdateCandidateMonitoring = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCandidateMonitoring>>, TError,{id: number;data: BodyType<CandidateMonitoringInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCandidateMonitoring>>,
+        TError,
+        {id: number;data: BodyType<CandidateMonitoringInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCandidateMonitoringMutationOptions(options));
     }
 
 export const getCreateCandidateAnalysisBatchUrl = () => {

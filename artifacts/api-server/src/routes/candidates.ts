@@ -8,6 +8,8 @@ import {
   leadCandidateSnapshotsTable,
   signalpilotSignalsTable,
   type CandidateMatchStatus,
+  type CandidateMonitoringStatus,
+  type CandidateRelevanceStatus,
   type CandidateSnapshotData,
 } from "@workspace/db";
 import {
@@ -22,6 +24,12 @@ import {
   ImportCandidateSnapshotsResponse,
   ListCandidatesQueryParams,
   ListCandidatesResponse,
+  UpdateCandidateMonitoringBody,
+  UpdateCandidateMonitoringParams,
+  UpdateCandidateMonitoringResponse,
+  UpdateCandidateRelevanceBody,
+  UpdateCandidateRelevanceParams,
+  UpdateCandidateRelevanceResponse,
 } from "@workspace/api-zod";
 import {
   isDuplicateSnapshot,
@@ -46,6 +54,25 @@ function nullable(value: string | null | undefined) {
 
 function dateOnly(value: Date) {
   return value.toISOString().slice(0, 10);
+}
+
+function inferRelevance(priorityScore: number, priorityReasons: string[]) {
+  if (priorityScore >= 25) {
+    return {
+      relevanceStatus: "relevant" as const,
+      relevanceReason: priorityReasons[0] ?? "Systemvurdering basert på tilgjengelig kildegrunnlag.",
+    };
+  }
+  if (priorityScore > 0) {
+    return {
+      relevanceStatus: "possible" as const,
+      relevanceReason: priorityReasons[0] ?? "Noe kildegrunnlag finnes, men trenger vurdering.",
+    };
+  }
+  return {
+    relevanceStatus: "needs_review" as const,
+    relevanceReason: "For lite kildegrunnlag til å avgjøre relevans.",
+  };
 }
 
 function calculatePriority(candidate: CandidateRecord, snapshots: CandidateSnapshotRecord[]) {
@@ -161,6 +188,11 @@ async function toCandidateResponse(candidate: CandidateRecord) {
     industry: candidate.industry,
     employees: candidate.employees,
     matchStatus: candidate.matchStatus,
+    relevanceStatus: candidate.relevanceStatus,
+    relevanceReason: candidate.relevanceReason,
+    relevanceSource: candidate.relevanceSource,
+    monitoringStatus: candidate.monitoringStatus,
+    monitoringReason: candidate.monitoringReason,
     priorityScore: candidate.priorityScore,
     priorityReasons: candidate.priorityReasons,
     lastAnalyzedAt: candidate.lastAnalyzedAt,
@@ -185,9 +217,15 @@ async function refreshCandidatePriority(candidateId: number) {
   if (!candidate) return;
   const snapshots = await db.select().from(leadCandidateSnapshotsTable).where(eq(leadCandidateSnapshotsTable.candidateId, candidateId));
   const priority = calculatePriority(candidate, snapshots);
+  const systemRelevance = inferRelevance(priority.score, priority.reasons);
   await db
     .update(leadCandidatesTable)
-    .set({ priorityScore: priority.score, priorityReasons: priority.reasons, updatedAt: new Date() })
+    .set({
+      priorityScore: priority.score,
+      priorityReasons: priority.reasons,
+      ...(candidate.relevanceSource === "system" ? systemRelevance : {}),
+      updatedAt: new Date(),
+    })
     .where(eq(leadCandidatesTable.id, candidateId));
 }
 
@@ -206,6 +244,11 @@ async function ensureCandidatesFromSignals() {
           industry: signal.industry,
           employees: signal.employees,
           matchStatus: "new",
+          relevanceStatus: "relevant",
+          relevanceReason: "Eksisterende, kildebelagt signal fra pilotgrunnlaget.",
+          relevanceSource: "system",
+          monitoringStatus: "monitoring",
+          monitoringReason: "Startet i overvåkning fra eksisterende, kildebelagt signal.",
           priorityScore: signal.strength === "A" ? 35 : 25,
           priorityReasons: ["Startkandidat fra eksisterende, kildebelagt signal"],
         })
@@ -219,6 +262,20 @@ async function ensureCandidatesFromSignals() {
         originalCompanyName: signal.companyName,
         data: { employees: signal.employees, fields: { "Opprinnelse": "Eksisterende WeMe Leads-signal" } },
       });
+    }
+    if (
+      candidate.priorityReasons.includes("Startkandidat fra eksisterende, kildebelagt signal") &&
+      candidate.relevanceStatus === "needs_review"
+    ) {
+      const updates = {
+        relevanceStatus: "relevant" as CandidateRelevanceStatus,
+        relevanceReason: "Eksisterende, kildebelagt signal fra pilotgrunnlaget.",
+        relevanceSource: "system" as const,
+        monitoringStatus: "monitoring" as CandidateMonitoringStatus,
+        monitoringReason: "Startet i overvåkning fra eksisterende, kildebelagt signal.",
+      };
+      await db.update(leadCandidatesTable).set(updates).where(eq(leadCandidatesTable.id, candidate.id));
+      Object.assign(candidate, updates);
     }
     const existingEvidence = await db
       .select({ url: leadCandidateEvidenceTable.url })
@@ -281,6 +338,17 @@ router.get("/candidates", async (req, res): Promise<void> => {
       [candidate.companyName, candidate.domain, candidate.industry].filter(Boolean).join(" ").toLocaleLowerCase("nb-NO").includes(needle),
     );
   }
+  if (query.data.view === "monitoring") {
+    candidates = candidates.filter((candidate) => candidate.monitoringStatus === "monitoring");
+  }
+  if (query.data.view === "review") {
+    candidates = candidates.filter(
+      (candidate) => candidate.relevanceStatus === "needs_review" || candidate.matchStatus === "needs_review",
+    );
+  }
+  if (query.data.relevanceStatus) {
+    candidates = candidates.filter((candidate) => candidate.relevanceStatus === query.data.relevanceStatus);
+  }
   const response = await Promise.all(candidates.map(toCandidateResponse));
   res.json(ListCandidatesResponse.parse(response));
 });
@@ -298,6 +366,55 @@ router.get("/candidates/:id", async (req, res): Promise<void> => {
     return;
   }
   res.json(GetCandidateResponse.parse(await toCandidateResponse(candidate)));
+});
+
+router.patch("/candidates/:id/relevance", async (req, res): Promise<void> => {
+  const params = UpdateCandidateRelevanceParams.safeParse(req.params);
+  const body = UpdateCandidateRelevanceBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "Velg en gyldig relevansstatus." });
+    return;
+  }
+  await ensureCandidatesFromSignals();
+  const [candidate] = await db
+    .update(leadCandidatesTable)
+    .set({
+      relevanceStatus: body.data.relevanceStatus,
+      relevanceReason: nullable(body.data.reason),
+      relevanceSource: "manual",
+      updatedAt: new Date(),
+    })
+    .where(eq(leadCandidatesTable.id, params.data.id))
+    .returning();
+  if (!candidate) {
+    res.status(404).json({ error: "Selskapet finnes ikke i hovedlisten." });
+    return;
+  }
+  res.json(UpdateCandidateRelevanceResponse.parse(await toCandidateResponse(candidate)));
+});
+
+router.patch("/candidates/:id/monitoring", async (req, res): Promise<void> => {
+  const params = UpdateCandidateMonitoringParams.safeParse(req.params);
+  const body = UpdateCandidateMonitoringBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "Velg om selskapet skal overvåkes eller ikke." });
+    return;
+  }
+  await ensureCandidatesFromSignals();
+  const [candidate] = await db
+    .update(leadCandidatesTable)
+    .set({
+      monitoringStatus: body.data.monitoringStatus,
+      monitoringReason: nullable(body.data.reason),
+      updatedAt: new Date(),
+    })
+    .where(eq(leadCandidatesTable.id, params.data.id))
+    .returning();
+  if (!candidate) {
+    res.status(404).json({ error: "Selskapet finnes ikke i hovedlisten." });
+    return;
+  }
+  res.json(UpdateCandidateMonitoringResponse.parse(await toCandidateResponse(candidate)));
 });
 
 router.post("/candidates/import", async (req, res): Promise<void> => {
@@ -439,11 +556,24 @@ router.post("/candidates/analysis-batches", async (req, res): Promise<void> => {
     return;
   }
   await ensureCandidatesFromSignals();
-  const candidates = await db.select().from(leadCandidatesTable).orderBy(desc(leadCandidatesTable.priorityScore), asc(leadCandidatesTable.companyName)).limit(body.data.limit);
-  const criteria = "Prioritert på regelbasert ICP-fit, observerte endringer, aktualitet og relevante Sales Navigator-roller. CRM brukes ikke i utvalget.";
+  let candidates = await db.select().from(leadCandidatesTable).orderBy(desc(leadCandidatesTable.priorityScore), asc(leadCandidatesTable.companyName));
+  if (body.data.scope === "relevant") {
+    candidates = candidates.filter((candidate) => candidate.relevanceStatus === "relevant");
+  }
+  if (body.data.scope === "monitoring") {
+    candidates = candidates.filter((candidate) => candidate.monitoringStatus === "monitoring");
+  }
+  const requestedCount = body.data.limit ?? candidates.length;
+  candidates = body.data.limit ? candidates.slice(0, body.data.limit) : candidates;
+  const scopeLabel = {
+    universe: "hele hovedlisten",
+    relevant: "alle relevante selskaper",
+    monitoring: "overvåkningslisten",
+  }[body.data.scope];
+  const criteria = `Arbeidsliste for ${scopeLabel}. Dette velger selskaper som skal gjennomgås; relevans vurderes fra snapshot-data og CRM brukes ikke til å filtrere ut selskaper.`;
   const [batch] = await db
     .insert(leadAnalysisBatchesTable)
-    .values({ requestedCount: body.data.limit, selectedCandidateIds: candidates.map((candidate) => candidate.id), criteria })
+    .values({ requestedCount, selectedCandidateIds: candidates.map((candidate) => candidate.id), criteria })
     .returning();
   if (candidates.length > 0) {
     await db.update(leadCandidatesTable).set({ lastAnalyzedAt: new Date(), updatedAt: new Date() }).where(inArray(leadCandidatesTable.id, candidates.map((candidate) => candidate.id)));

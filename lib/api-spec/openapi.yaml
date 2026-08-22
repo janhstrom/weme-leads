@@ -253,6 +253,12 @@ paths:
         - name: search
           in: query
           schema: { type: string }
+        - name: view
+          in: query
+          schema: { type: string, enum: [universe, monitoring, review] }
+        - name: relevanceStatus
+          in: query
+          schema: { type: string, enum: [relevant, possible, not_relevant, needs_review] }
       responses:
         "200":
           description: Candidates
@@ -307,6 +313,46 @@ paths:
       responses:
         "201":
           description: Candidate with the new evidence
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Candidate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /candidates/{id}/relevance:
+    patch:
+      operationId: updateCandidateRelevance
+      tags: [candidates]
+      summary: Set a manual relevance decision for a candidate
+      parameters:
+        - $ref: "#/components/parameters/CandidateId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CandidateRelevanceInput" }
+      responses:
+        "200":
+          description: Updated candidate
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Candidate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /candidates/{id}/monitoring:
+    patch:
+      operationId: updateCandidateMonitoring
+      tags: [candidates]
+      summary: Add or remove a candidate from monitoring without deleting its history
+      parameters:
+        - $ref: "#/components/parameters/CandidateId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CandidateMonitoringInput" }
+      responses:
+        "200":
+          description: Updated candidate
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Candidate" }
@@ -586,7 +632,7 @@ components:
         detail: { type: string }
     Candidate:
       type: object
-      required: [id, companyName, matchStatus, priorityScore, priorityReasons, snapshots, changes, evidence, createdAt, updatedAt]
+      required: [id, companyName, matchStatus, relevanceStatus, relevanceSource, monitoringStatus, priorityScore, priorityReasons, snapshots, changes, evidence, createdAt, updatedAt]
       properties:
         id: { type: number }
         companyName: { type: string }
@@ -595,6 +641,11 @@ components:
         industry: { type: ["string", "null"] }
         employees: { type: ["number", "null"] }
         matchStatus: { type: string, enum: [new, exact, domain_match, name_match, needs_review] }
+        relevanceStatus: { type: string, enum: [relevant, possible, not_relevant, needs_review] }
+        relevanceReason: { type: ["string", "null"] }
+        relevanceSource: { type: string, enum: [system, manual] }
+        monitoringStatus: { type: string, enum: [monitoring, not_monitoring] }
+        monitoringReason: { type: ["string", "null"] }
         priorityScore: { type: number }
         priorityReasons:
           type: array
@@ -652,9 +703,21 @@ components:
           items: { type: string }
     CandidateBatchInput:
       type: object
-      required: [limit]
       properties:
+        scope: { type: string, enum: [universe, relevant, monitoring], default: monitoring }
         limit: { type: number, minimum: 1, maximum: 100 }
+    CandidateRelevanceInput:
+      type: object
+      required: [relevanceStatus]
+      properties:
+        relevanceStatus: { type: string, enum: [relevant, possible, not_relevant, needs_review] }
+        reason: { type: ["string", "null"] }
+    CandidateMonitoringInput:
+      type: object
+      required: [monitoringStatus]
+      properties:
+        monitoringStatus: { type: string, enum: [monitoring, not_monitoring] }
+        reason: { type: ["string", "null"] }
     CandidateAnalysisBatch:
       type: object
       required: [id, requestedCount, selectedCount, criteria, createdAt, candidates]

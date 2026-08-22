@@ -105,28 +105,28 @@ export default function DashboardPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold">
                   <PlayCircle className="h-4 w-4 text-primary" />
-                  Hva som allerede er gjort
+                  Hva innboksen viser nå
                 </div>
                 <p className="text-muted-foreground">
-                  Pilotkjøringen på kildene du ga er allerede gjort. Ingen import kreves for disse tre kandidatene. Nye vurderinger kjøres manuelt, én kandidat om gangen, med én eller flere kilder per kandidat.
+                  Dette er signalene fra kildegrunnlaget som er registrert i systemet nå. Antallet her er et startpunkt, ikke en konklusjon om hvor mange relevante selskaper som finnes.
                 </p>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold">
                   <FileSearch className="h-4 w-4 text-primary" />
-                  Hvorfor tre kandidater
+                  Hovedliste før signaler
                 </div>
                 <p className="text-muted-foreground">
-                  Motek, Lyse og Hydro hadde konkrete, kontrollerte primærkilder. Mills og DIPS er ikke tatt med ennå fordi vi ikke fant tilsvarende tilstrekkelig primærkilde.
+                  Alle selskaper beholdes i hovedlisten og får en relevansvurdering. Du velger selv hvilke relevante selskaper som skal følges i overvåkningslisten.
                 </p>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold">
                   <Building2 className="h-4 w-4 text-primary" />
-                  Universum, signal og CRM-oppslag
+                  Overvåkning, signal og CRM-oppslag
                 </div>
                 <p className="text-muted-foreground">
-                  {summary?.total ?? 0} kandidater vises i pilotinnboksen nå. Kontoer er universet, mens en konkret offentlig kilde er signalet. CRM brukes som åpent oppslag for historikk og kontaktvalg — gammel CRM-data begrenser ikke analysen.
+                  En konkret offentlig kilde blir et signal. CRM brukes som åpent oppslag for historikk og kontaktvalg — gammel CRM-data begrenser aldri hovedlisten eller overvåkningen.
                 </p>
               </div>
             </CardContent>
