@@ -146,28 +146,44 @@ export default function CandidatesPage() {
 
           <Card className="border-primary/20 bg-primary/5">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base"><FileUp className="h-4 w-4 text-primary" /> Importer kilde-snapshot</CardTitle>
-              <CardDescription>Last opp en CSV fra D&B/Bisnode eller Sales Navigator. Kolonner beholdes som kildegrunnlag; importen overskriver aldri eldre snapshots.</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4 w-4 text-primary" /> Dette er kildegrunnlaget vi overvåker nå</CardTitle>
+              <CardDescription>Pilotkildene du allerede har gitt er behandlet og ligger fast som grunnlag for nye vurderinger. Du trenger ikke laste opp filene på nytt.</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-[1fr_180px_180px_auto] md:items-end">
-              <label className="grid gap-1 text-sm font-medium">
-                Kilde
-                <select value={sourceType} onChange={(event) => setSourceType(event.target.value as SourceType)} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
-                  <option value="dnb_bisnode">D&B/Bisnode</option>
-                  <option value="sales_navigator">Sales Navigator</option>
-                  <option value="manual">Manuelt utdrag</option>
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm font-medium">
-                Snapshot-dato
-                <Input type="date" value={snapshotDate} onChange={(event) => setSnapshotDate(event.target.value)} />
-              </label>
-              <input ref={fileRef} className="hidden" type="file" accept=".csv,text/csv" onChange={(event) => handleFile(event.target.files?.[0])} />
-              <Button onClick={() => fileRef.current?.click()} disabled={importMutation.isPending}>
-                <FileUp className="mr-2 h-4 w-4" /> {importMutation.isPending ? "Importerer…" : "Velg CSV"}
-              </Button>
+            <CardContent className="grid gap-3 text-sm md:grid-cols-3">
+              <SourceRole title="D&B/Bisnode" description="Firmaprofil og endringer over tid." />
+              <SourceRole title="Sales Navigator" description="Personer, roller og organisatoriske spor." />
+              <SourceRole title="CRM og åpne kilder" description="CRM gir historikk og kontaktvalg. Offentlige kilder dokumenterer konkrete signaler." />
             </CardContent>
           </Card>
+
+          <details className="group rounded-xl border border-border bg-card">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2"><FileUp className="h-4 w-4 text-muted-foreground" /> Har du et nytt snapshot? Importer kun ved behov.</span>
+              <span className="text-xs text-muted-foreground group-open:hidden">Valgfritt</span>
+              <span className="hidden text-xs text-muted-foreground group-open:inline">Skjul</span>
+            </summary>
+            <div className="border-t border-border p-4">
+              <p className="mb-3 max-w-3xl text-sm text-muted-foreground">Dette er ikke nødvendig for pilotgrunnlaget. Bruk dette bare hvis du unntaksvis får en ny D&B/Bisnode- eller Sales Navigator-eksport. Eldre snapshots beholdes.</p>
+              <div className="grid gap-3 md:grid-cols-[1fr_180px_auto] md:items-end">
+                <label className="grid gap-1 text-sm font-medium">
+                  Kilde
+                  <select value={sourceType} onChange={(event) => setSourceType(event.target.value as SourceType)} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
+                    <option value="dnb_bisnode">D&B/Bisnode</option>
+                    <option value="sales_navigator">Sales Navigator</option>
+                    <option value="manual">Manuelt utdrag</option>
+                  </select>
+                </label>
+                <label className="grid gap-1 text-sm font-medium">
+                  Snapshot-dato
+                  <Input type="date" value={snapshotDate} onChange={(event) => setSnapshotDate(event.target.value)} />
+                </label>
+                <input ref={fileRef} className="hidden" type="file" accept=".csv,text/csv" onChange={(event) => handleFile(event.target.files?.[0])} />
+                <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={importMutation.isPending}>
+                  <FileUp className="mr-2 h-4 w-4" /> {importMutation.isPending ? "Importerer…" : "Velg ny CSV"}
+                </Button>
+              </div>
+            </div>
+          </details>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full sm:w-72">
@@ -193,7 +209,7 @@ export default function CandidatesPage() {
               <div className="p-12 text-center text-muted-foreground">
                 <UsersRound className="mx-auto mb-3 h-10 w-10 text-primary" />
                 <p className="font-medium text-foreground">Ingen kandidater ennå</p>
-                <p className="mt-1 text-sm">Importer en CSV fra D&B/Bisnode eller Sales Navigator for å bygge universet.</p>
+                <p className="mt-1 text-sm">Pilotgrunnlaget er allerede klart. Nye filer trenger du bare å importere hvis du senere får et nytt snapshot.</p>
               </div>
             )}
           </div>
@@ -201,6 +217,10 @@ export default function CandidatesPage() {
       </div>
     </div>
   );
+}
+
+function SourceRole({ title, description }: { title: string; description: string }) {
+  return <div className="rounded-md border border-primary/15 bg-card/70 p-3"><p className="font-semibold">{title}</p><p className="mt-1 text-muted-foreground">{description}</p></div>;
 }
 
 function Stat({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
