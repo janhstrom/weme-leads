@@ -1,8 +1,8 @@
 import { useGetDashboardSummary, useListSignals, ListSignalsParams, Signal, SignalStatus } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@workspace/weme-earth-tones-system/components/ui/card";
+import { Badge } from "@workspace/weme-earth-tones-system/components/ui/badge";
+import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
+import { Input } from "@workspace/weme-earth-tones-system/components/ui/input";
 import { Search, Building2, Calendar, Zap, ArrowRight, CheckCircle2, Clock, CheckCircle } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Link } from "wouter";
@@ -28,7 +28,7 @@ export default function DashboardPage() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <header className="h-14 min-h-[56px] border-b border-border bg-card flex items-center px-6 shrink-0">
-        <h1 className="font-semibold text-lg">Signal Inbox</h1>
+        <h1 className="font-semibold text-lg">WeMe Leads</h1>
       </header>
 
       <div className="flex-1 overflow-auto p-6 bg-background">
@@ -48,7 +48,7 @@ export default function DashboardPage() {
               title="Godkjent" 
               value={summary?.approved} 
               loading={isLoadingSummary} 
-              icon={<CheckCircle2 className="w-4 h-4 text-green-600" />} 
+              icon={<CheckCircle2 className="w-4 h-4 text-chart-2" />} 
               onClick={() => setStatusFilter("godkjent")}
               active={statusFilter === "godkjent"}
             />
@@ -182,8 +182,8 @@ function SignalRow({ signal }: { signal: Signal }) {
 export function StrengthBadge({ strength }: { strength: string }) {
   const colors = {
     A: "bg-destructive text-destructive-foreground",
-    B: "bg-orange-500 text-white",
-    C: "bg-blue-500 text-white",
+    B: "bg-accent text-accent-foreground",
+    C: "bg-primary text-primary-foreground",
   } as Record<string, string>;
   
   return (
@@ -196,10 +196,10 @@ export function StrengthBadge({ strength }: { strength: string }) {
 export function StatusBadge({ status }: { status: string }) {
   const styles = {
     til_vurdering: "bg-secondary text-secondary-foreground border-transparent",
-    godkjent: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
-    avvist: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
-    allerede_kjent: "bg-slate-100 text-slate-800 border-slate-200",
-    følg_videre: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
+    godkjent: "bg-primary text-primary-foreground border-primary",
+    avvist: "bg-destructive text-destructive-foreground border-destructive",
+    allerede_kjent: "bg-muted text-muted-foreground border-muted",
+    følg_videre: "bg-accent text-accent-foreground border-accent",
   } as Record<string, string>;
 
   return (

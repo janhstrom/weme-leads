@@ -1,7 +1,7 @@
 # Migrating web UI to WeMe Earth Tones
 
-Read `artifacts/weme-earth-tones/docs/AGENTS.md` and
-`artifacts/weme-earth-tones/docs/consuming-web.md` first. Use this guide
+Read `artifacts/weme-earth-tones-system/docs/AGENTS.md` and
+`artifacts/weme-earth-tones-system/docs/consuming-web.md` first. Use this guide
 when a web app, including a fresh scaffold, already has local theme or component
 copies.
 
@@ -21,9 +21,9 @@ consumption guide.
 Rewrite every local import for a module this package provides:
 
 - `@/components/ui/<name>` →
-  `@workspace/weme-earth-tones/components/ui/<name>`
-- `@/lib/utils` (`cn`) → `@workspace/weme-earth-tones/lib/utils`
-- `@/hooks/use-toast` → `@workspace/weme-earth-tones/hooks/use-toast`
+  `@workspace/weme-earth-tones-system/components/ui/<name>`
+- `@/lib/utils` (`cn`) → `@workspace/weme-earth-tones-system/lib/utils`
+- `@/hooks/use-toast` → `@workspace/weme-earth-tones-system/hooks/use-toast`
 
 Judge component ownership by the imported module, not by the file doing the
 import. App-specific components may remain local, but they must import shared

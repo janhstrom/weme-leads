@@ -29,8 +29,8 @@ import type {
   ErrorResponse,
   EvidenceInput,
   HealthStatus,
-  ImportSignals201,
-  ImportSignalsBody,
+  ImportSignalBatch201,
+  ImportSignalBatchBody,
   ListSignalsParams,
   NotFoundResponse,
   SearchCrmContactsParams,
@@ -524,7 +524,7 @@ export const useAddSignalEvidence = <TError = ErrorType<BadRequestResponse | Not
       return useMutation(getAddSignalEvidenceMutationOptions(options));
     }
 
-export const getImportSignalsUrl = () => {
+export const getImportSignalBatchUrl = () => {
 
 
 
@@ -535,14 +535,14 @@ export const getImportSignalsUrl = () => {
 /**
  * @summary Import selected accounts from a baseline or CRM workbook
  */
-export const importSignals = async (importSignalsBody: ImportSignalsBody, options?: Parameters<typeof customFetch>[1]): Promise<ImportSignals201> => {
+export const importSignalBatch = async (importSignalBatchBody: ImportSignalBatchBody, options?: Parameters<typeof customFetch>[1]): Promise<ImportSignalBatch201> => {
 
-  return customFetch<ImportSignals201>(getImportSignalsUrl(),
+  return customFetch<ImportSignalBatch201>(getImportSignalBatchUrl(),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(importSignalsBody)
+    body: JSON.stringify(importSignalBatchBody)
   }
 );}
 
@@ -550,11 +550,11 @@ export const importSignals = async (importSignalsBody: ImportSignalsBody, option
 
 
 
-export const getImportSignalsMutationOptions = <TError = ErrorType<BadRequestResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importSignals>>, TError,{data: BodyType<ImportSignalsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof importSignals>>, TError,{data: BodyType<ImportSignalsBody>}, TContext> => {
+export const getImportSignalBatchMutationOptions = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importSignalBatch>>, TError,{data: BodyType<ImportSignalBatchBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importSignalBatch>>, TError,{data: BodyType<ImportSignalBatchBody>}, TContext> => {
 
-const mutationKey = ['importSignals'];
+const mutationKey = ['importSignalBatch'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -564,10 +564,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importSignals>>, {data: BodyType<ImportSignalsBody>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importSignalBatch>>, {data: BodyType<ImportSignalBatchBody>}> = (props) => {
           const {data} = props ?? {};
 
-          return  importSignals(data,requestOptions)
+          return  importSignalBatch(data,requestOptions)
         }
 
 
@@ -577,22 +577,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type ImportSignalsMutationResult = NonNullable<Awaited<ReturnType<typeof importSignals>>>
-    export type ImportSignalsMutationBody = BodyType<ImportSignalsBody>
-    export type ImportSignalsMutationError = ErrorType<BadRequestResponse>
+    export type ImportSignalBatchMutationResult = NonNullable<Awaited<ReturnType<typeof importSignalBatch>>>
+    export type ImportSignalBatchMutationBody = BodyType<ImportSignalBatchBody>
+    export type ImportSignalBatchMutationError = ErrorType<BadRequestResponse>
 
     /**
  * @summary Import selected accounts from a baseline or CRM workbook
  */
-export const useImportSignals = <TError = ErrorType<BadRequestResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importSignals>>, TError,{data: BodyType<ImportSignalsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useImportSignalBatch = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importSignalBatch>>, TError,{data: BodyType<ImportSignalBatchBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof importSignals>>,
+        Awaited<ReturnType<typeof importSignalBatch>>,
         TError,
-        {data: BodyType<ImportSignalsBody>},
+        {data: BodyType<ImportSignalBatchBody>},
         TContext
       > => {
-      return useMutation(getImportSignalsMutationOptions(options));
+      return useMutation(getImportSignalBatchMutationOptions(options));
     }
 
 export const getCreateCrmTaskUrl = (id: number,) => {

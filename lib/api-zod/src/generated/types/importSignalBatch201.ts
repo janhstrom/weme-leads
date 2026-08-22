@@ -5,8 +5,9 @@
  * WeMe Signalpilot API
  * OpenAPI spec version: 0.1.0
  */
-import type { SignalImportInput } from './signalImportInput';
 
-export type ImportSignalsBody = {
-  signals: SignalImportInput[];
+export type ImportSignalBatch201 = {
+  imported: number;
+  skipped: number;
+  warnings?: string[];
 };

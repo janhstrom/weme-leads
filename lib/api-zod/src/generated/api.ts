@@ -284,7 +284,7 @@ export const AddSignalEvidenceResponse = zod.object({
 /**
  * @summary Import selected accounts from a baseline or CRM workbook
  */
-export const ImportSignalsBody = zod.object({
+export const ImportSignalBatchBody = zod.object({
   "signals": zod.array(zod.object({
   "companyName": zod.string(),
   "employees": zod.number(),
@@ -328,7 +328,7 @@ export const ImportSignalsBody = zod.object({
 }))
 })
 
-export const ImportSignalsResponse = zod.object({
+export const ImportSignalBatchResponse = zod.object({
   "imported": zod.number(),
   "skipped": zod.number(),
   "warnings": zod.array(zod.string()).optional()

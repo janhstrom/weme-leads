@@ -7,7 +7,7 @@ export default function Why() {
       <div className="relative flex h-full flex-col px-[8vw] py-[8vh]">
         <p className="font-body text-[1.5vw] font-bold uppercase tracking-[0.16em] text-accent">01 / Utgangspunkt</p>
         <h1 className="mt-[2vh] max-w-[70vw] font-display text-[4.3vw] font-semibold leading-[0.98] tracking-[-0.06em]">
-          Hvorfor Signalpilot?
+          Hvorfor WeMe Leads?
         </h1>
         <div className="mt-[8vh] grid max-w-[78vw] grid-cols-2 gap-x-[6vw] gap-y-[5vh]">
           <div className="border-t-[0.16vw] border-primary/25 pt-[2vh]">

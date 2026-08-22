@@ -6,6 +6,7 @@ import DashboardPage from '@/pages/dashboard';
 import SignalDetailPage from '@/pages/signal-detail';
 import NotFound from '@/pages/not-found';
 import { Layout } from '@/components/layout';
+import { Toaster } from '@workspace/weme-earth-tones-system/components/ui/toaster';
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
         <Router />
+        <Toaster />
       </WouterRouter>
     </QueryClientProvider>
   );

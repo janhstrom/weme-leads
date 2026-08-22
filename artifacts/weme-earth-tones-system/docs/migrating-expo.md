@@ -1,7 +1,7 @@
 # Migrating Expo UI to WeMe Earth Tones
 
-Read `artifacts/weme-earth-tones/docs/AGENTS.md` and
-`artifacts/weme-earth-tones/docs/consuming-expo.md` first. Use this guide
+Read `artifacts/weme-earth-tones-system/docs/AGENTS.md` and
+`artifacts/weme-earth-tones-system/docs/consuming-expo.md` first. Use this guide
 when an Expo app, including a fresh scaffold, has local theme, hooks, fonts, or
 product-agnostic component implementations.
 
@@ -12,10 +12,10 @@ Grep the Expo artifact for `@/constants/colors`, `@/hooks/useColors`, local
 file before deleting anything.
 
 - Rewrite color/theme imports to
-  `@workspace/weme-earth-tones/lib/native-theme` and
-  `@workspace/weme-earth-tones/hooks/use-colors`.
+  `@workspace/weme-earth-tones-system/lib/native-theme` and
+  `@workspace/weme-earth-tones-system/hooks/use-colors`.
 - Rewrite the root layout to use
-  `@workspace/weme-earth-tones/hooks/use-fonts` while preserving its
+  `@workspace/weme-earth-tones-system/hooks/use-fonts` while preserving its
   SplashScreen gating.
 - Delete app-local `constants/colors.ts` and `hooks/useColors.ts` after every
   import points at this package. Do not leave compatibility re-exports.
@@ -46,5 +46,5 @@ Inventory inline and app-local styled controls before migrating screens.
   fonts, and one package primitive before presenting the app.
 
 Migration is complete when Expo imports every shared visual primitive, theme,
-and hook directly from `@workspace/weme-earth-tones` and retains only
+and hook directly from `@workspace/weme-earth-tones-system` and retains only
 product-specific UI compositions locally.

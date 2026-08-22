@@ -18,13 +18,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow, parseISO, addDays, format } from "date-fns";
 import { nb } from "date-fns/locale";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from "@workspace/weme-earth-tones-system/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@workspace/weme-earth-tones-system/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/weme-earth-tones-system/components/ui/tabs";
+import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
+import { Textarea } from "@workspace/weme-earth-tones-system/components/ui/textarea";
+import { Badge } from "@workspace/weme-earth-tones-system/components/ui/badge";
+import { useToast } from "@workspace/weme-earth-tones-system/hooks/use-toast";
 
 import { 
   ArrowLeft, Building2, Calendar, Link as LinkIcon, 
@@ -149,7 +149,7 @@ export default function SignalDetailPage() {
                       <h4 className="font-semibold text-sm group-hover:text-primary transition-colors">{ev.title}</h4>
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="text-[10px] uppercase font-mono">{ev.sourceType}</Badge>
-                        <Badge variant="outline" className="text-[10px] text-green-700 border-green-200 bg-green-50">
+                        <Badge variant="outline" className="text-[10px] text-primary border-primary/30 bg-primary/10">
                           <CheckCircle2 className="w-3 h-3 mr-1" /> Verifisert
                         </Badge>
                       </div>
@@ -213,7 +213,7 @@ export default function SignalDetailPage() {
               <Card className="bg-card">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${signal.crm.matchCount > 0 ? 'bg-green-500' : 'bg-destructive'}`} />
+                    <div className={`w-2 h-2 rounded-full ${signal.crm.matchCount > 0 ? 'bg-chart-2' : 'bg-destructive'}`} />
                     <span className="text-sm font-medium">{signal.crm.status}</span>
                   </div>
                   <span className="text-xs font-mono bg-secondary px-2 py-1 rounded">
@@ -385,7 +385,7 @@ function ActionPanel({ signal }: { signal: Signal }) {
       <CardHeader className="pb-3 bg-secondary/30 rounded-t-xl">
         <CardTitle className="text-base flex items-center justify-between">
           {isPending ? "Velg neste steg" : "Status"}
-          {isApproved && <Badge variant="success">Godkjent</Badge>}
+          {isApproved && <Badge variant="default">Godkjent</Badge>}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-4 space-y-4 pt-4">
@@ -483,12 +483,12 @@ function ActionPanel({ signal }: { signal: Signal }) {
                     </div>
                   ))}
                   {signal.contacts.find((contact) => contact.id === contactId)?.crmContactId && (
-                    <div className="text-xs text-green-700">CRM-match verifisert. Ingen CRM-skriving skjer før du trykker opprett.</div>
+                    <div className="text-xs text-primary">CRM-match verifisert. Ingen CRM-skriving skjer før du trykker opprett.</div>
                   )}
                 </div>
                 <Button
                   className="w-full"
-                  variant="accent"
+                  variant="secondary"
                   onClick={handleCreateTask}
                   disabled={crmMutation.isPending || !signal.contacts.find((contact) => contact.id === contactId)?.crmContactId}
                 >

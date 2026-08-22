@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "WeMe Signalpilot"
+title = "WeMe Leads"
 description = "En enkel arbeidsflate for å oppdage, vurdere og følge opp offentlige endringssignaler hos WeMe sine pilotkontoer, med CRM-oppgaver og læring fra selgerens feedback."
 version = "1.0.0"
 id = "artifacts/weme-signalpilot"

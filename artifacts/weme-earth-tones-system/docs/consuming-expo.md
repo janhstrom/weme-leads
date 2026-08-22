@@ -1,10 +1,10 @@
 # Consuming WeMe Earth Tones in Expo apps
 
-Read `artifacts/weme-earth-tones/docs/AGENTS.md` first. React Native does
+Read `artifacts/weme-earth-tones-system/docs/AGENTS.md` first. React Native does
 not consume the web CSS or DOM components. It imports portable tokens, native
 theme/hooks, and native components directly from this package. If the Expo app
 still contains scaffolded or existing local theme/hooks/components, also read
-`artifacts/weme-earth-tones/docs/migrating-expo.md` before writing UI.
+`artifacts/weme-earth-tones-system/docs/migrating-expo.md` before writing UI.
 
 ## Native theme and fonts
 
@@ -13,7 +13,7 @@ registered typography names in `src/lib/native-theme.tsx`. Convert CSS lengths
 once inside this package:
 
 ```tsx
-import { tokens } from "@workspace/weme-earth-tones/tokens";
+import { tokens } from "@workspace/weme-earth-tones-system/tokens";
 
 const radius = tokens.radius.endsWith("rem")
   ? Number.parseFloat(tokens.radius) * 16
@@ -28,9 +28,9 @@ returns `fontsLoaded` and `fontError`. Use exact registered names such as
 Expo imports these concrete paths directly:
 
 ```tsx
-import { nativeTheme } from "@workspace/weme-earth-tones/lib/native-theme";
-import { useColors } from "@workspace/weme-earth-tones/hooks/use-colors";
-import { useDesignSystemFonts } from "@workspace/weme-earth-tones/hooks/use-fonts";
+import { nativeTheme } from "@workspace/weme-earth-tones-system/lib/native-theme";
+import { useColors } from "@workspace/weme-earth-tones-system/hooks/use-colors";
+import { useDesignSystemFonts } from "@workspace/weme-earth-tones-system/hooks/use-fonts";
 ```
 
 Keep the root layout's existing SplashScreen gating around the shared font
@@ -52,9 +52,9 @@ differences in the base `AGENTS.md` inventory.
 Import native primitives directly:
 
 ```tsx
-import { Badge } from "@workspace/weme-earth-tones/components/native/badge";
-import { Button } from "@workspace/weme-earth-tones/components/native/button";
-import { Card } from "@workspace/weme-earth-tones/components/native/card";
+import { Badge } from "@workspace/weme-earth-tones-system/components/native/badge";
+import { Button } from "@workspace/weme-earth-tones-system/components/native/button";
+import { Card } from "@workspace/weme-earth-tones-system/components/native/card";
 ```
 
 Keep product data, navigation, state, and domain compositions in Expo. A
@@ -77,6 +77,6 @@ Set `app.json`'s literal `splash.backgroundColor` from
 ## Verify
 
 Import and render
-`@workspace/weme-earth-tones/components/native/button`, then run Expo
+`@workspace/weme-earth-tones-system/components/native/button`, then run Expo
 typecheck and the development workflow. The import, native theme, and font hook
 must resolve before broader screen work begins.

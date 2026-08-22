@@ -17,7 +17,7 @@ export default function Title() {
       <div className="relative z-10 flex h-full w-[62vw] flex-col justify-center pl-[7vw]">
         <div className="mb-[3vh] w-[8vw] border-t-[0.35vw] border-accent" />
         <h1 className="max-w-[55vw] font-display text-[7.2vw] font-semibold leading-[0.92] tracking-[-0.07em] text-wrap-balance">
-          WeMe<br />Signalpilot
+        WeMe<br />Leads
         </h1>
         <p className="mt-[4vh] max-w-[43vw] font-body text-[2.1vw] leading-[1.18] text-[#f4f0e8]/85">
           Fra statiske lister til ferske, verifiserte kundesignaler

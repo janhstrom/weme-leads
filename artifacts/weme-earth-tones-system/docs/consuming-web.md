@@ -1,16 +1,16 @@
 # Consuming WeMe Earth Tones in web apps
 
-Read `artifacts/weme-earth-tones/docs/AGENTS.md` first. This guide covers
+Read `artifacts/weme-earth-tones-system/docs/AGENTS.md` first. This guide covers
 React/Vite and other shadcn/Tailwind web consumers. If the app already contains
 a local theme or component library, also read
-`artifacts/weme-earth-tones/docs/migrating-web.md` before writing UI.
+`artifacts/weme-earth-tones-system/docs/migrating-web.md` before writing UI.
 
 ## Theme
 
 Import this package's theme once from the app's main CSS:
 
 ```css
-@import "@workspace/weme-earth-tones/styles.css";
+@import "@workspace/weme-earth-tones-system/styles.css";
 ```
 
 `styles.css` already imports Tailwind, its plugins, and this package's token
@@ -38,12 +38,12 @@ consumer's HTML entry (or with the app's preferred font-loading mechanism):
 Import every provided primitive, `cn`, and toast API directly from this package:
 
 ```tsx
-import { Button } from "@workspace/weme-earth-tones/components/ui/button";
-import { cn } from "@workspace/weme-earth-tones/lib/utils";
+import { Button } from "@workspace/weme-earth-tones-system/components/ui/button";
+import { cn } from "@workspace/weme-earth-tones-system/lib/utils";
 import {
   toast,
   useToast,
-} from "@workspace/weme-earth-tones/hooks/use-toast";
+} from "@workspace/weme-earth-tones-system/hooks/use-toast";
 ```
 
 Use the package component whenever it provides the required family. Keep
@@ -56,7 +56,7 @@ local toast hook while rendering the packaged `Toaster`.
 ## Verify
 
 After wiring the workspace dependency, import and render
-`@workspace/weme-earth-tones/components/ui/button`. Run the app's typecheck
+`@workspace/weme-earth-tones-system/components/ui/button`. Run the app's typecheck
 and dev server. The import must resolve and the Button must use this package's
 theme before broader UI work begins.
 

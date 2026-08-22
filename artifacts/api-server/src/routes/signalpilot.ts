@@ -14,7 +14,7 @@ import {
   CreateCrmTaskResponse,
   AddSignalEvidenceBody,
   AddSignalEvidenceParams,
-  ImportSignalsBody,
+  ImportSignalBatchBody,
   GetDashboardSummaryResponse,
   GetSignalParams,
   GetSignalResponse,
@@ -496,7 +496,7 @@ router.post("/signals/:id/evidence", async (req, res): Promise<void> => {
 });
 
 router.post("/signals/import", async (req, res): Promise<void> => {
-  const body = ImportSignalsBody.safeParse(req.body);
+  const body = ImportSignalBatchBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: "Importen mangler felter eller har feil format." });
     return;

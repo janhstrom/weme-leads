@@ -3,7 +3,7 @@
     "id": "8f3d1c32-6d72-4c84-8c52-12c91d5b8b01",
     "position": 1,
     "filepath": "src/pages/slides/Title.tsx",
-    "title": "WeMe Signalpilot",
+    "title": "WeMe Leads",
     "description": "Fra statiske lister til ferske, verifiserte kundesignaler.",
     "speakerNotes": ""
   },
@@ -11,7 +11,7 @@
     "id": "6d2e4f77-bf79-46e6-8d86-1c5b55b5d102",
     "position": 2,
     "filepath": "src/pages/slides/Why.tsx",
-    "title": "Hvorfor Signalpilot?",
+    "title": "Hvorfor WeMe Leads?",
     "description": "Hvorfor statiske lister og CRM ikke er nok.",
     "speakerNotes": ""
   },

@@ -119,7 +119,7 @@ paths:
           $ref: "#/components/responses/NotFound"
   /signals/import:
     post:
-      operationId: importSignals
+      operationId: importSignalBatch
       tags: [signals]
       summary: Import selected accounts from a baseline or CRM workbook
       requestBody:

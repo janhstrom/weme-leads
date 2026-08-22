@@ -263,11 +263,11 @@ strength?: StrengthParameter;
 search?: SearchParameter;
 };
 
-export type ImportSignalsBody = {
+export type ImportSignalBatchBody = {
   signals: SignalImportInput[];
 };
 
-export type ImportSignals201 = {
+export type ImportSignalBatch201 = {
   imported: number;
   skipped: number;
   warnings?: string[];
