@@ -23,6 +23,12 @@ import {
   ListCandidatesQueryParams,
   ListCandidatesResponse,
 } from "@workspace/api-zod";
+import {
+  isDuplicateSnapshot,
+  matchImportedCompany,
+  normalizeCandidateDomain,
+  normalizeCandidateName,
+} from "../lib/candidate-matching";
 
 const router: IRouter = Router();
 const DAY = 1000 * 60 * 60 * 24;
@@ -32,25 +38,6 @@ const relevantRolePattern = /\b(hr|human resources|people|transform|endring|chan
 type CandidateRecord = typeof leadCandidatesTable.$inferSelect;
 type CandidateSnapshotRecord = typeof leadCandidateSnapshotsTable.$inferSelect;
 type CandidateEvidenceRecord = typeof leadCandidateEvidenceTable.$inferSelect;
-
-function normalizeName(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase("nb-NO")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function normalizeDomain(value: string | null | undefined) {
-  if (!value) return null;
-  return value
-    .trim()
-    .toLocaleLowerCase("nb-NO")
-    .replace(/^https?:\/\//, "")
-    .replace(/^www\./, "")
-    .replace(/\/.*$/, "") || null;
-}
 
 function nullable(value: string | null | undefined) {
   const trimmed = value?.trim();
@@ -208,14 +195,14 @@ async function ensureCandidatesFromSignals() {
   const signals = await db.select().from(signalpilotSignalsTable);
   const candidates = await db.select().from(leadCandidatesTable);
   for (const signal of signals) {
-    let candidate = candidates.find((item) => item.normalizedName === normalizeName(signal.companyName));
+    let candidate = candidates.find((item) => item.normalizedName === normalizeCandidateName(signal.companyName));
     if (!candidate) {
       const [created] = await db
         .insert(leadCandidatesTable)
         .values({
           companyName: signal.companyName,
-          normalizedName: normalizeName(signal.companyName),
-          domain: normalizeDomain(signal.domain),
+          normalizedName: normalizeCandidateName(signal.companyName),
+          domain: normalizeCandidateDomain(signal.domain),
           industry: signal.industry,
           employees: signal.employees,
           matchStatus: "new",
@@ -334,18 +321,28 @@ router.post("/candidates/import", async (req, res): Promise<void> => {
       continue;
     }
     const organizationNumber = nullable(record.organizationNumber);
-    const domain = normalizeDomain(record.domain);
-    const normalizedName = normalizeName(companyName);
-    const matchesByOrg = organizationNumber ? existingCandidates.filter((candidate) => candidate.organizationNumber === organizationNumber) : [];
-    const matchesByDomain = domain ? existingCandidates.filter((candidate) => candidate.domain === domain) : [];
-    const matchesByName = existingCandidates.filter((candidate) => candidate.normalizedName === normalizedName);
-    const possibleMatches = matchesByOrg.length ? matchesByOrg : matchesByDomain.length ? matchesByDomain : matchesByName;
-    let candidate = possibleMatches.length === 1 ? possibleMatches[0] : undefined;
-    let matchStatus: CandidateMatchStatus = matchesByOrg.length === 1 ? "exact" : matchesByDomain.length === 1 ? "domain_match" : matchesByName.length === 1 ? "name_match" : "new";
+    const domain = normalizeCandidateDomain(record.domain);
+    const normalizedName = normalizeCandidateName(companyName);
+    const match = matchImportedCompany({ companyName, organizationNumber, domain }, existingCandidates);
+    let candidate = match.candidate ? existingCandidates.find((item) => item.id === match.candidate?.id) : undefined;
+    const matchStatus: CandidateMatchStatus = match.status;
+    if (matchStatus === "needs_review") needsReview += 1;
 
-    if (possibleMatches.length > 1) {
-      matchStatus = "needs_review";
-      needsReview += 1;
+    const snapshotDate = dateOnly(body.data.snapshotDate);
+    if (candidate) {
+      const existingSnapshots = await db
+        .select({
+          sourceType: leadCandidateSnapshotsTable.sourceType,
+          snapshotDate: leadCandidateSnapshotsTable.snapshotDate,
+          sourceRowId: leadCandidateSnapshotsTable.sourceRowId,
+        })
+        .from(leadCandidateSnapshotsTable)
+        .where(eq(leadCandidateSnapshotsTable.candidateId, candidate.id));
+      if (isDuplicateSnapshot(existingSnapshots, { sourceType: body.data.sourceType, snapshotDate, sourceRowId: record.sourceRowId })) {
+        skipped += 1;
+        warnings.push(`${companyName}: identisk kilde-rad finnes allerede for dette snapshotet.`);
+        continue;
+      }
     }
     if (!candidate) {
       const [createdCandidate] = await db
@@ -377,21 +374,14 @@ router.post("/candidates/import", async (req, res): Promise<void> => {
           updatedAt: new Date(),
         })
         .where(eq(leadCandidatesTable.id, candidate.id));
+      Object.assign(candidate, {
+        organizationNumber: candidate.organizationNumber ?? organizationNumber,
+        domain: candidate.domain ?? domain,
+        industry: candidate.industry ?? nullable(record.industry),
+        employees: record.employees ?? candidate.employees,
+        matchStatus,
+      });
       matched += 1;
-    }
-
-    const snapshotDate = dateOnly(body.data.snapshotDate);
-    const existingSnapshot = await db
-      .select({ id: leadCandidateSnapshotsTable.id })
-      .from(leadCandidateSnapshotsTable)
-      .where(eq(leadCandidateSnapshotsTable.candidateId, candidate.id));
-    if (existingSnapshot.length > 0 && record.sourceRowId) {
-      const allSnapshots = await db.select().from(leadCandidateSnapshotsTable).where(eq(leadCandidateSnapshotsTable.candidateId, candidate.id));
-      if (allSnapshots.some((snapshot) => snapshot.sourceType === body.data.sourceType && snapshot.snapshotDate === snapshotDate && snapshot.sourceRowId === record.sourceRowId)) {
-        skipped += 1;
-        warnings.push(`${companyName}: identisk kilde-rad finnes allerede for dette snapshotet.`);
-        continue;
-      }
     }
 
     const data: CandidateSnapshotData = {
