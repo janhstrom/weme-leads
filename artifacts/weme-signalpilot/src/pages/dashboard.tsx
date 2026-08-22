@@ -77,28 +77,28 @@ export default function DashboardPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold">
                   <PlayCircle className="h-4 w-4 text-primary" />
-                  Når og hvor mye
+                  Hva som allerede er gjort
                 </div>
                 <p className="text-muted-foreground">
-                  Ingen planlagt nattkjøring. Vurdering skjer manuelt ved import eller når en kilde legges til: én kandidat om gangen, med én eller flere kilder per kandidat.
+                  Pilotkjøringen på kildene du ga er allerede gjort. Ingen import kreves for disse tre kandidatene. Nye vurderinger kjøres manuelt, én kandidat om gangen, med én eller flere kilder per kandidat.
                 </p>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold">
                   <FileSearch className="h-4 w-4 text-primary" />
-                  Hva som vurderes
+                  Hvorfor tre kandidater
                 </div>
                 <p className="text-muted-foreground">
-                  Kun konkrete, offentlige artikler eller dokumenter med HTTPS-lenke, tittel, dato og evidenssitat — ikke generelle nyhetssider eller bred nettsøking.
+                  Motek, Lyse og Hydro hadde konkrete, kontrollerte primærkilder. Mills og DIPS er ikke tatt med ennå fordi vi ikke fant tilsvarende tilstrekkelig primærkilde.
                 </p>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold">
                   <Building2 className="h-4 w-4 text-primary" />
-                  Universum, signal og CRM
+                  Hva en ny kjøring betyr
                 </div>
                 <p className="text-muted-foreground">
-                  {summary?.total ?? 0} pilotkandidater ligger i arbeidsflaten. Kontoer er bare universet; den konkrete kilden er signalet. CRM brukes kun for relasjon, konflikt og kontaktvalg.
+                  {summary?.total ?? 0} kandidater vises i pilotinnboksen nå. Kontoer er bare universet; en konkret kilde er signalet. CRM brukes kun for relasjon, konflikt og kontaktvalg.
                 </p>
               </div>
             </CardContent>
