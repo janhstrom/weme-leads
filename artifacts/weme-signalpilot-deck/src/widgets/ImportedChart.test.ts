@@ -54,6 +54,43 @@ test('leaves an all-null percentage row null instead of creating values', () => 
   ]);
 });
 
+test('keeps zero-only percentage categories at zero while normalizing non-zero categories', () => {
+  const rows = chartRows(
+    percentChart(
+      ['No activity', 'Pipeline'],
+      [
+        [0, 10],
+        [0, 20],
+      ],
+    ),
+  );
+
+  assert.deepEqual(rows[0], {
+    category: 'No activity',
+    'series-0': 0,
+    'series-1': 0,
+  });
+
+  const zeroValues = Object.entries(rows[0] ?? {})
+    .filter(([key]) => key.startsWith('series-'))
+    .map(([, value]) => value);
+  assert.deepEqual(zeroValues, [0, 0]);
+
+  const nonZeroValues = Object.entries(rows[1] ?? {})
+    .filter(([key]) => key.startsWith('series-'))
+    .map(([, value]) => value);
+  assert.ok(Math.abs(Number(nonZeroValues[0]) - 100 / 3) < Number.EPSILON);
+  assert.ok(Math.abs(Number(nonZeroValues[1]) - 200 / 3) < Number.EPSILON);
+  assert.equal(
+    nonZeroValues.reduce<number>(
+      (total, value) =>
+        total + (typeof value === 'number' ? Math.abs(value) : 0),
+      0,
+    ),
+    100,
+  );
+});
+
 test('scales positive percentage rows to a total of 100', () => {
   const rows = chartRows(
     percentChart(['Pipeline'], [
