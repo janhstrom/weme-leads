@@ -318,6 +318,7 @@ paths:
               schema: { $ref: "#/components/schemas/Candidate" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /candidates/{id}/relevance:
     patch:
       operationId: updateCandidateRelevance
@@ -414,6 +415,12 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     BadRequest:
       description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Conflict
       content:
         application/json:
           schema:

@@ -28,6 +28,7 @@ import type {
   CandidateImportResult,
   CandidateMonitoringInput,
   CandidateRelevanceInput,
+  ConflictResponse,
   CrmContactCandidate,
   CrmContactSelectionInput,
   CrmTaskInput,
@@ -1161,7 +1162,7 @@ export const addCandidateEvidence = async (id: number,
 
 
 
-export const getAddCandidateEvidenceMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+export const getAddCandidateEvidenceMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse | ConflictResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCandidateEvidence>>, TError,{id: number;data: BodyType<EvidenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof addCandidateEvidence>>, TError,{id: number;data: BodyType<EvidenceInput>}, TContext> => {
 
@@ -1190,12 +1191,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type AddCandidateEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof addCandidateEvidence>>>
     export type AddCandidateEvidenceMutationBody = BodyType<EvidenceInput>
-    export type AddCandidateEvidenceMutationError = ErrorType<BadRequestResponse | NotFoundResponse>
+    export type AddCandidateEvidenceMutationError = ErrorType<BadRequestResponse | NotFoundResponse | ConflictResponse>
 
     /**
  * @summary Add and URL-check a public source for a candidate
  */
-export const useAddCandidateEvidence = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+export const useAddCandidateEvidence = <TError = ErrorType<BadRequestResponse | NotFoundResponse | ConflictResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCandidateEvidence>>, TError,{id: number;data: BodyType<EvidenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof addCandidateEvidence>>,

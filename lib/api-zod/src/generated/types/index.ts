@@ -30,6 +30,7 @@ export * from './candidateSnapshot';
 export * from './candidateSnapshotData';
 export * from './candidateSnapshotDataFields';
 export * from './candidateSnapshotSourceType';
+export * from './conflictResponse';
 export * from './contact';
 export * from './contactConfidence';
 export * from './crmContactCandidate';

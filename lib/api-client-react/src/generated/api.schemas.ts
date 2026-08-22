@@ -472,6 +472,11 @@ export type NotFoundResponse = ErrorResponse;
  */
 export type BadRequestResponse = ErrorResponse;
 
+/**
+ * Conflict
+ */
+export type ConflictResponse = ErrorResponse;
+
 export type StatusParameter = typeof StatusParameter[keyof typeof StatusParameter];
 
 
