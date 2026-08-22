@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import {
   db,
   leadAnalysisBatchesTable,
@@ -535,13 +535,29 @@ router.post("/candidates/:id/evidence", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Kandidaten finnes ikke." });
     return;
   }
+  const [existingEvidence] = await db
+    .select({ id: leadCandidateEvidenceTable.id })
+    .from(leadCandidateEvidenceTable)
+    .where(and(eq(leadCandidateEvidenceTable.candidateId, candidate.id), eq(leadCandidateEvidenceTable.url, body.data.url)));
+  if (existingEvidence) {
+    res.status(409).json({ error: "Denne evidens-URL-en finnes allerede for kandidaten." });
+    return;
+  }
   try {
     const evidence = await verifyPublicEvidence({ ...body.data, publishedAt: dateOnly(body.data.publishedAt) });
-    await db.insert(leadCandidateEvidenceTable).values({
-      candidateId: candidate.id,
-      ...evidence,
-      verificationStatus: "url_verified",
-    });
+    try {
+      await db.insert(leadCandidateEvidenceTable).values({
+        candidateId: candidate.id,
+        ...evidence,
+        verificationStatus: "url_verified",
+      });
+    } catch (error) {
+      if ((error as { code?: string }).code === "23505") {
+        res.status(409).json({ error: "Denne evidens-URL-en finnes allerede for kandidaten." });
+        return;
+      }
+      throw error;
+    }
     const [updated] = await db.select().from(leadCandidatesTable).where(eq(leadCandidatesTable.id, candidate.id));
     res.status(201).json(AddCandidateEvidenceResponse.parse(await toCandidateResponse(updated)));
   } catch (error) {

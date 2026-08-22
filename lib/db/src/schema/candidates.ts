@@ -7,6 +7,7 @@ import {
   serial,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export type CandidateMatchStatus = "new" | "exact" | "domain_match" | "name_match" | "needs_review";
@@ -96,6 +97,7 @@ export const leadCandidateEvidenceTable = pgTable(
   },
   (table) => ({
     candidateEvidenceIdx: index("lead_candidate_evidence_candidate_idx").on(table.candidateId),
+    candidateEvidenceUrlUnique: uniqueIndex("lead_candidate_evidence_candidate_url_unique").on(table.candidateId, table.url),
   }),
 );
 

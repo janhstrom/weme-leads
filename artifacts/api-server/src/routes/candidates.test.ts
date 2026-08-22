@@ -191,3 +191,26 @@ test("bevarer kandidatens kildehistorikk når overvåkning legges til og fjernes
   assert.ok(!reviewIds.includes(monitoredCandidateId));
   assert.ok(!reviewIds.includes(mainListCandidateId));
 });
+
+test("avviser identisk evidens-URL og beholder eksisterende evidens", async () => {
+  const evidenceUrl = `https://example.com/${testRun}`;
+  const duplicate = await request(`/candidates/${monitoredCandidateId}/evidence`, {
+    method: "POST",
+    body: JSON.stringify({
+      title: "Ny tittel for samme offentlige kilde",
+      url: evidenceUrl,
+      sourceType: "Selskapsnyhet",
+      publishedAt: "2026-08-16",
+      excerpt: "Et nytt sitat skal ikke opprette en ny post for samme dokumentasjon.",
+    }),
+  });
+
+  assert.equal(duplicate.response.status, 409);
+  assert.equal(duplicate.body.error, "Denne evidens-URL-en finnes allerede for kandidaten.");
+
+  const candidate = await request(`/candidates/${monitoredCandidateId}`);
+  assert.equal(candidate.response.status, 200);
+  assert.equal(candidate.body.evidence.length, 1);
+  assert.equal(candidate.body.evidence[0].url, evidenceUrl);
+  assert.equal(candidate.body.evidence[0].title, "Offentlig dokumentasjon for historikktest");
+});
