@@ -267,6 +267,7 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Candidate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
   /candidates/{id}:
     get:
       operationId: getCandidate
@@ -280,6 +281,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Candidate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
   /candidates/import:
     post:
@@ -375,6 +377,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/CandidateAnalysisBatch" }
+        "400": { $ref: "#/components/responses/BadRequest" }
 components:
   parameters:
     SignalId:

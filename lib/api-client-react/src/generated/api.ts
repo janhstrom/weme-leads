@@ -943,7 +943,7 @@ export const getListCandidatesQueryKey = (params?: ListCandidatesParams,) => {
     }
 
 
-export const getListCandidatesQueryOptions = <TData = Awaited<ReturnType<typeof listCandidates>>, TError = ErrorType<unknown>>(params?: ListCandidatesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListCandidatesQueryOptions = <TData = Awaited<ReturnType<typeof listCandidates>>, TError = ErrorType<BadRequestResponse>>(params?: ListCandidatesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -962,14 +962,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListCandidatesQueryResult = NonNullable<Awaited<ReturnType<typeof listCandidates>>>
-export type ListCandidatesQueryError = ErrorType<unknown>
+export type ListCandidatesQueryError = ErrorType<BadRequestResponse>
 
 
 /**
  * @summary List the normalized candidate universe
  */
 
-export function useListCandidates<TData = Awaited<ReturnType<typeof listCandidates>>, TError = ErrorType<unknown>>(
+export function useListCandidates<TData = Awaited<ReturnType<typeof listCandidates>>, TError = ErrorType<BadRequestResponse>>(
  params?: ListCandidatesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -1020,7 +1020,7 @@ export const getGetCandidateQueryKey = (id: number,) => {
     }
 
 
-export const getGetCandidateQueryOptions = <TData = Awaited<ReturnType<typeof getCandidate>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCandidate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCandidateQueryOptions = <TData = Awaited<ReturnType<typeof getCandidate>>, TError = ErrorType<BadRequestResponse | NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCandidate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -1039,14 +1039,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetCandidateQueryResult = NonNullable<Awaited<ReturnType<typeof getCandidate>>>
-export type GetCandidateQueryError = ErrorType<NotFoundResponse>
+export type GetCandidateQueryError = ErrorType<BadRequestResponse | NotFoundResponse>
 
 
 /**
  * @summary Get one candidate with source snapshots and evidence
  */
 
-export function useGetCandidate<TData = Awaited<ReturnType<typeof getCandidate>>, TError = ErrorType<NotFoundResponse>>(
+export function useGetCandidate<TData = Awaited<ReturnType<typeof getCandidate>>, TError = ErrorType<BadRequestResponse | NotFoundResponse>>(
  id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCandidate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -1377,7 +1377,7 @@ export const createCandidateAnalysisBatch = async (candidateBatchInput: Candidat
 
 
 
-export const getCreateCandidateAnalysisBatchMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateCandidateAnalysisBatchMutationOptions = <TError = ErrorType<BadRequestResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCandidateAnalysisBatch>>, TError,{data: BodyType<CandidateBatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createCandidateAnalysisBatch>>, TError,{data: BodyType<CandidateBatchInput>}, TContext> => {
 
@@ -1406,12 +1406,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateCandidateAnalysisBatchMutationResult = NonNullable<Awaited<ReturnType<typeof createCandidateAnalysisBatch>>>
     export type CreateCandidateAnalysisBatchMutationBody = BodyType<CandidateBatchInput>
-    export type CreateCandidateAnalysisBatchMutationError = ErrorType<unknown>
+    export type CreateCandidateAnalysisBatchMutationError = ErrorType<BadRequestResponse>
 
     /**
  * @summary Select a explainable manual analysis batch
  */
-export const useCreateCandidateAnalysisBatch = <TError = ErrorType<unknown>,
+export const useCreateCandidateAnalysisBatch = <TError = ErrorType<BadRequestResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCandidateAnalysisBatch>>, TError,{data: BodyType<CandidateBatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createCandidateAnalysisBatch>>,

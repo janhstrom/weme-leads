@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "codegen": "orval --config ./orval.config.ts && node ./scripts/fix-api-zod-index.mjs && pnpm -w run typecheck:libs"
+    "codegen": "orval --config ./orval.config.ts && node ./scripts/fix-api-zod-index.mjs && pnpm --filter @workspace/scripts run validate-api-contract && pnpm -w run typecheck:libs"
   },
   "devDependencies": {
     "orval": "^8.23.0"
