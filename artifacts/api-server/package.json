@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --experimental-strip-types --test src/lib/candidate-matching.test.ts"
+    "test": "pnpm --filter @workspace/weme-signalpilot-deck exec tsx ../api-server/src/routes/signalpilot.test.ts && node --experimental-strip-types --test src/lib/candidate-matching.test.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

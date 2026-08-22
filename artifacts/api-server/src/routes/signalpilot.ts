@@ -33,12 +33,12 @@ const router: IRouter = Router();
 const DAY = 1000 * 60 * 60 * 24;
 const EVIDENCE_CHECK_TIMEOUT_MS = 6_000;
 let pilotSeedPromise: Promise<void> | null = null;
-const legacyPilotSourceUrls = new Set([
-  "https://www.motek.no/nyheter/",
-  "https://www.lysekonsern.no/nyheter/",
-  "https://www.hydro.com/no-NO/media/news/",
-  "https://mills.no/om-mills/nyheter/",
-  "https://www.dips.com/no/nyheter/",
+const legacyPilotSourceCompanies = new Map([
+  ["https://www.motek.no/nyheter/", "Motek"],
+  ["https://www.lysekonsern.no/nyheter/", "Lyse"],
+  ["https://www.hydro.com/no-NO/media/news/", "Hydro"],
+  ["https://mills.no/om-mills/nyheter/", "Mills"],
+  ["https://www.dips.com/no/nyheter/", "DIPS"],
 ]);
 
 const pilotSignals = [
@@ -183,7 +183,7 @@ type SignalResponse = {
   reviewComment: string | null;
 };
 
-async function verifyPublicEvidence(input: {
+export async function verifyPublicEvidence(input: {
   title: string;
   url: string;
   sourceType: string;
@@ -208,16 +208,26 @@ async function verifyPublicEvidence(input: {
 
   const fetchWithTimeout = async (method: "HEAD" | "GET") => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), EVIDENCE_CHECK_TIMEOUT_MS);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      return await fetch(parsed, { method, redirect: "follow", signal: controller.signal });
+      const request = fetch(parsed, { method, redirect: "follow", signal: controller.signal });
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => {
+          controller.abort();
+          reject(new Error("Kildekontrollen tok mer enn seks sekunder."));
+        }, EVIDENCE_CHECK_TIMEOUT_MS);
+      });
+      return await Promise.race([
+        request,
+        timeoutPromise,
+      ]);
     } catch (error) {
       if (controller.signal.aborted) {
         throw new Error("Kildekontrollen tok mer enn seks sekunder.");
       }
       throw error;
     } finally {
-      clearTimeout(timeout);
+      if (timeout) clearTimeout(timeout);
     }
   };
 
@@ -235,6 +245,10 @@ async function verifyPublicEvidence(input: {
     verificationStatus: "url_verified",
     verifiedAt: new Date().toISOString(),
   };
+}
+
+export function shouldRemoveLegacyPilotSignal(signal: Pick<SignalpilotSignal, "companyName" | "evidence">): boolean {
+  return signal.evidence.some((item) => legacyPilotSourceCompanies.get(item.url) === signal.companyName);
 }
 
 function toSignalResponse(signal: SignalpilotSignal): SignalResponse {
@@ -274,9 +288,7 @@ function toSignalResponse(signal: SignalpilotSignal): SignalResponse {
 
 async function seedPilotSignals(): Promise<void> {
   const existing = await db.select().from(signalpilotSignalsTable);
-  const legacySignals = existing.filter((signal) =>
-    signal.evidence.some((item) => legacyPilotSourceUrls.has(item.url)),
-  );
+  const legacySignals = existing.filter(shouldRemoveLegacyPilotSignal);
 
   if (legacySignals.length > 0) {
     await db
