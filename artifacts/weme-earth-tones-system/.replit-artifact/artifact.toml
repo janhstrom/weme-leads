@@ -1,0 +1,19 @@
+kind = "design-system"
+previewPath = "/weme-earth-tones-system/"
+title = "WeMe Earth Tones"
+description = "WeMe sitt delte designsystem for jordnære farger, typografi og UI-komponenter."
+version = "1.0.0"
+id = "artifacts/weme-earth-tones-system"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/weme-earth-tones-system/" ]
+localPort = 25682
+
+[services.development]
+run = "pnpm --filter @workspace/weme-earth-tones-system run dev"
+
+[services.env]
+PORT = "25682"
+BASE_PATH = "/weme-earth-tones-system/"
