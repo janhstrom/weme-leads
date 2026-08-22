@@ -35,6 +35,24 @@ export const GetDashboardSummaryResponse = zod.object({
 
 
 /**
+ * @summary Refresh pilot sources and signals
+ */
+export const RefreshDashboardResponse = zod.object({
+  "total": zod.number(),
+  "pending": zod.number(),
+  "approved": zod.number(),
+  "highPriority": zod.number(),
+  "crmTasks": zod.number(),
+  "pilotSourcesLastRefreshedAt": zod.coerce.date(),
+  "rejectedPilotSources": zod.array(zod.object({
+  "company": zod.string(),
+  "url": zod.string(),
+  "reason": zod.string()
+}))
+})
+
+
+/**
  * @summary List signals
  */
 export const ListSignalsQueryParams = zod.object({

@@ -225,6 +225,77 @@ export function useGetDashboardSummary<TData = Awaited<ReturnType<typeof getDash
 
 
 
+export const getRefreshDashboardUrl = () => {
+
+
+
+
+  return `/api/dashboard/refresh`
+}
+
+/**
+ * @summary Refresh pilot sources and signals
+ */
+export const refreshDashboard = async ( options?: Parameters<typeof customFetch>[1]): Promise<DashboardSummary> => {
+
+  return customFetch<DashboardSummary>(getRefreshDashboardUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRefreshDashboardMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshDashboard>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshDashboard>>, TError,void, TContext> => {
+
+const mutationKey = ['refreshDashboard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshDashboard>>, void> = () => {
+
+
+          return  refreshDashboard(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshDashboardMutationResult = NonNullable<Awaited<ReturnType<typeof refreshDashboard>>>
+
+    export type RefreshDashboardMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Refresh pilot sources and signals
+ */
+export const useRefreshDashboard = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshDashboard>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refreshDashboard>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRefreshDashboardMutationOptions(options));
+    }
+
 export const getListSignalsUrl = (params?: ListSignalsParams,) => {
   const normalizedParams = new URLSearchParams();
 

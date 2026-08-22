@@ -38,6 +38,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardSummary"
+  /dashboard/refresh:
+    post:
+      operationId: refreshDashboard
+      tags: [dashboard]
+      summary: Refresh pilot sources and signals
+      responses:
+        "200":
+          description: Refreshed signal dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+        "500":
+          description: Pilot source refresh failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /signals:
     get:
       operationId: listSignals

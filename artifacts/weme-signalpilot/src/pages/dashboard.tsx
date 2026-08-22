@@ -1,4 +1,4 @@
-import { useGetDashboardSummary, useListSignals, ListSignalsParams, Signal, SignalStatus } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useListSignals, useRefreshDashboard, ListSignalsParams, Signal } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@workspace/weme-earth-tones-system/components/ui/card";
 import { Badge } from "@workspace/weme-earth-tones-system/components/ui/badge";
 import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
@@ -8,12 +8,24 @@ import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { nb } from "date-fns/locale";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function DashboardPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ListSignalsParams['status'] | 'all'>("til_vurdering");
+  const queryClient = useQueryClient();
 
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary();
+  const refreshMutation = useRefreshDashboard({
+    mutation: {
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/signals"] }),
+        ]);
+      },
+    },
+  });
   
   const queryParams = useMemo(() => {
     const params: ListSignalsParams = {};
@@ -68,10 +80,26 @@ export default function DashboardPage() {
 
           <Card className="border-primary/20 bg-primary/5 shadow-none">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Info className="h-4 w-4 text-primary" />
-                Slik kjører WeMe Leads i v1
-              </CardTitle>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Info className="h-4 w-4 text-primary" />
+                  Slik kjører WeMe Leads i v1
+                </CardTitle>
+                <button
+                  type="button"
+                  onClick={() => refreshMutation.mutate()}
+                  disabled={refreshMutation.isPending}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <FileSearch className={`h-4 w-4 ${refreshMutation.isPending ? "animate-pulse" : ""}`} />
+                  {refreshMutation.isPending ? "Oppfrisker kilder…" : "Oppfrisk pilotkilder"}
+                </button>
+              </div>
+              {refreshMutation.isError && (
+                <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+                  Oppfriskningen mislyktes. Forrige kjente resultat vises fortsatt. {refreshMutation.error instanceof Error ? refreshMutation.error.message : "Prøv igjen senere."}
+                </p>
+              )}
             </CardHeader>
             <CardContent className="grid gap-4 text-sm md:grid-cols-3">
               <div className="space-y-1">

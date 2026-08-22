@@ -361,6 +361,34 @@ async function ensurePilotSignals(): Promise<void> {
   await pilotSeedPromise;
 }
 
+async function refreshPilotSignals(): Promise<void> {
+  const previousSeed = pilotSeedPromise;
+  pilotSeedPromise = (previousSeed ? previousSeed.catch(() => undefined) : Promise.resolve())
+    .then(() => seedPilotSignals())
+    .catch((error: unknown) => {
+      pilotSeedPromise = null;
+      throw error;
+    });
+  await pilotSeedPromise;
+}
+
+async function getDashboardSummary() {
+  await ensurePilotSignals();
+  const signals = await db.select().from(signalpilotSignalsTable);
+
+  return GetDashboardSummaryResponse.parse({
+    total: signals.length,
+    pending: signals.filter((signal) => signal.status === "til_vurdering").length,
+    approved: signals.filter((signal) => signal.status === "godkjent").length,
+    highPriority: signals.filter(
+      (signal) => signal.strength === "A" && signal.status === "til_vurdering",
+    ).length,
+    crmTasks: signals.filter((signal) => signal.crmTaskCreated).length,
+    pilotSourcesLastRefreshedAt: pilotSourcesLastRefreshedAt ?? new Date().toISOString(),
+    rejectedPilotSources,
+  });
+}
+
 async function findSignal(id: number): Promise<SignalpilotSignal | undefined> {
   await ensurePilotSignals();
   const [signal] = await db
@@ -371,22 +399,18 @@ async function findSignal(id: number): Promise<SignalpilotSignal | undefined> {
 }
 
 router.get("/dashboard/summary", async (_req, res): Promise<void> => {
-  await ensurePilotSignals();
-  const signals = await db.select().from(signalpilotSignalsTable);
+  res.json(await getDashboardSummary());
+});
 
-  res.json(
-    GetDashboardSummaryResponse.parse({
-      total: signals.length,
-      pending: signals.filter((signal) => signal.status === "til_vurdering").length,
-      approved: signals.filter((signal) => signal.status === "godkjent").length,
-      highPriority: signals.filter(
-        (signal) => signal.strength === "A" && signal.status === "til_vurdering",
-      ).length,
-      crmTasks: signals.filter((signal) => signal.crmTaskCreated).length,
-      pilotSourcesLastRefreshedAt: pilotSourcesLastRefreshedAt ?? new Date().toISOString(),
-      rejectedPilotSources,
-    }),
-  );
+router.post("/dashboard/refresh", async (_req, res): Promise<void> => {
+  try {
+    await refreshPilotSignals();
+    res.json(await getDashboardSummary());
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Pilotkildene kunne ikke oppfriskes.",
+    });
+  }
 });
 
 router.get("/signals", async (req, res): Promise<void> => {
