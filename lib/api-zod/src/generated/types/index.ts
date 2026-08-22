@@ -29,6 +29,7 @@ export * from './crmContactSelectionInput';
 export * from './crmTaskInput';
 export * from './crmTaskResult';
 export * from './dashboardSummary';
+export * from './dashboardSummaryRejectedPilotSourcesItem';
 export * from './errorResponse';
 export * from './evidence';
 export * from './evidenceInput';

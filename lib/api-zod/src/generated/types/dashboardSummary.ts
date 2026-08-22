@@ -5,6 +5,7 @@
  * WeMe Signalpilot API
  * OpenAPI spec version: 0.1.0
  */
+import type { DashboardSummaryRejectedPilotSourcesItem } from './dashboardSummaryRejectedPilotSourcesItem';
 
 export interface DashboardSummary {
   total: number;
@@ -12,4 +13,6 @@ export interface DashboardSummary {
   approved: number;
   highPriority: number;
   crmTasks: number;
+  pilotSourcesLastRefreshedAt: Date;
+  rejectedPilotSources: DashboardSummaryRejectedPilotSourcesItem[];
 }

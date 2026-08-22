@@ -217,12 +217,20 @@ export interface CrmContactSelectionInput {
   crmContactId: number;
 }
 
+export type DashboardSummaryRejectedPilotSourcesItem = {
+  company: string;
+  url: string;
+  reason: string;
+};
+
 export interface DashboardSummary {
   total: number;
   pending: number;
   approved: number;
   highPriority: number;
   crmTasks: number;
+  pilotSourcesLastRefreshedAt: string;
+  rejectedPilotSources: DashboardSummaryRejectedPilotSourcesItem[];
 }
 
 export type CandidateSnapshotSourceType = typeof CandidateSnapshotSourceType[keyof typeof CandidateSnapshotSourceType];

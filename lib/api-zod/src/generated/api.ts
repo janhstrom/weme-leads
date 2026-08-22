@@ -24,7 +24,13 @@ export const GetDashboardSummaryResponse = zod.object({
   "pending": zod.number(),
   "approved": zod.number(),
   "highPriority": zod.number(),
-  "crmTasks": zod.number()
+  "crmTasks": zod.number(),
+  "pilotSourcesLastRefreshedAt": zod.coerce.date(),
+  "rejectedPilotSources": zod.array(zod.object({
+  "company": zod.string(),
+  "url": zod.string(),
+  "reason": zod.string()
+}))
 })
 
 

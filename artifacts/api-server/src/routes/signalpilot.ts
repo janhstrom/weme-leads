@@ -33,6 +33,9 @@ const router: IRouter = Router();
 const DAY = 1000 * 60 * 60 * 24;
 const EVIDENCE_CHECK_TIMEOUT_MS = 6_000;
 let pilotSeedPromise: Promise<void> | null = null;
+let pilotSourcesLastRefreshedAt: string | null = null;
+type RejectedPilotSource = { company: string; url: string; reason: string };
+let rejectedPilotSources: RejectedPilotSource[] = [];
 const legacyPilotSourceCompanies = new Map([
   ["https://www.motek.no/nyheter/", "Motek"],
   ["https://www.lysekonsern.no/nyheter/", "Lyse"],
@@ -40,6 +43,18 @@ const legacyPilotSourceCompanies = new Map([
   ["https://mills.no/om-mills/nyheter/", "Mills"],
   ["https://www.dips.com/no/nyheter/", "DIPS"],
 ]);
+const knownRejectedPilotSources: RejectedPilotSource[] = [
+  {
+    company: "Mills",
+    url: "https://mills.no/om-mills/nyheter/",
+    reason: "Fant ikke en tilstrekkelig, kontrollerbar primærkilde.",
+  },
+  {
+    company: "DIPS",
+    url: "https://www.dips.com/no/nyheter/",
+    reason: "Fant ikke en tilstrekkelig, kontrollerbar primærkilde.",
+  },
+];
 
 const pilotSignals = [
   {
@@ -287,6 +302,8 @@ function toSignalResponse(signal: SignalpilotSignal): SignalResponse {
 }
 
 async function seedPilotSignals(): Promise<void> {
+  const refreshedAt = new Date().toISOString();
+  const rejectedSources: RejectedPilotSource[] = knownRejectedPilotSources.map((source) => ({ ...source }));
   const existing = await db.select().from(signalpilotSignalsTable);
   const legacySignals = existing.filter(shouldRemoveLegacyPilotSignal);
 
@@ -299,21 +316,39 @@ async function seedPilotSignals(): Promise<void> {
   const remaining = await db.select().from(signalpilotSignalsTable);
   const existingCompanies = new Set(remaining.map((signal) => signal.companyName));
   const candidates = pilotSignals.filter((signal) => !existingCompanies.has(signal.companyName));
-  const verifiedCandidates = await Promise.allSettled(
-    candidates.map(async (signal) => ({
-      ...signal,
-      evidence: await Promise.all(signal.evidence.map((item) => verifyPublicEvidence(item))),
-    })),
+  const verifiedCandidates = await Promise.all(
+    candidates.map(async (signal) => {
+      const evidenceResults = await Promise.all(
+        signal.evidence.map(async (item) => {
+          try {
+            return { item, result: await verifyPublicEvidence(item) };
+          } catch (error) {
+            rejectedSources.push({
+              company: signal.companyName,
+              url: item.url,
+              reason: error instanceof Error ? error.message : "Kilden kunne ikke verifiseres.",
+            });
+            return { item, result: null };
+          }
+        }),
+      );
+      return {
+        signal,
+        evidence: evidenceResults.map(({ result }) => result).filter((result): result is SignalEvidence => result !== null),
+        rejected: evidenceResults.some(({ result }) => result === null),
+      };
+    }),
   );
   const readyCandidates = verifiedCandidates.flatMap((candidate) => {
-    if (candidate.status === "fulfilled") return [candidate.value];
-    console.warn("Pilotkilde ble ikke lagt inn fordi URL-en ikke kunne kontrolleres.", candidate.reason);
+    if (!candidate.rejected) return [{ ...candidate.signal, evidence: candidate.evidence }];
     return [];
   });
 
   if (readyCandidates.length > 0) {
     await db.insert(signalpilotSignalsTable).values(readyCandidates);
   }
+  rejectedPilotSources = rejectedSources;
+  pilotSourcesLastRefreshedAt = refreshedAt;
 }
 
 async function ensurePilotSignals(): Promise<void> {
@@ -348,6 +383,8 @@ router.get("/dashboard/summary", async (_req, res): Promise<void> => {
         (signal) => signal.strength === "A" && signal.status === "til_vurdering",
       ).length,
       crmTasks: signals.filter((signal) => signal.crmTaskCreated).length,
+      pilotSourcesLastRefreshedAt: pilotSourcesLastRefreshedAt ?? new Date().toISOString(),
+      rejectedPilotSources,
     }),
   );
 });

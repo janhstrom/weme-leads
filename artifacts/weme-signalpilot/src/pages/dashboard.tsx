@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@workspace/weme-earth-
 import { Badge } from "@workspace/weme-earth-tones-system/components/ui/badge";
 import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
 import { Input } from "@workspace/weme-earth-tones-system/components/ui/input";
-import { Search, Building2, Calendar, Zap, ArrowRight, CheckCircle2, Clock, CheckCircle, FileSearch, Info, PlayCircle } from "lucide-react";
+import { Search, Building2, Calendar, Zap, ArrowRight, CheckCircle2, Clock, CheckCircle, FileSearch, Info, PlayCircle, AlertTriangle, ExternalLink } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { formatDistanceToNow, parseISO } from "date-fns";
@@ -103,6 +103,34 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
+
+          {summary?.rejectedPilotSources && summary.rejectedPilotSources.length > 0 && (
+            <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  Forkastede pilotkilder
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Kontrollert ved siste oppfriskning {formatDistanceToNow(parseISO(summary.pilotSourcesLastRefreshedAt), { addSuffix: true, locale: nb })}. Disse kildene ble hoppet over og er ikke med i innboksen.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {summary.rejectedPilotSources.map((source, index) => (
+                  <div key={`${source.url}-${index}`} className="rounded-lg border border-destructive/20 bg-card p-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="font-semibold">{source.company}</span>
+                      <a href={source.url} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 text-primary hover:underline">
+                        <span className="truncate">{source.url}</span>
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                    </div>
+                    <p className="mt-1 text-muted-foreground">Årsak: {source.reason}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">

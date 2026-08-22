@@ -519,13 +519,23 @@ components:
         crmContactId: { type: number }
     DashboardSummary:
       type: object
-      required: [total, pending, approved, highPriority, crmTasks]
+      required: [total, pending, approved, highPriority, crmTasks, pilotSourcesLastRefreshedAt, rejectedPilotSources]
       properties:
         total: { type: number }
         pending: { type: number }
         approved: { type: number }
         highPriority: { type: number }
         crmTasks: { type: number }
+        pilotSourcesLastRefreshedAt: { type: string, format: date-time }
+        rejectedPilotSources:
+          type: array
+          items:
+            type: object
+            required: [company, url, reason]
+            properties:
+              company: { type: string }
+              url: { type: string }
+              reason: { type: string }
     CandidateSnapshot:
       type: object
       required: [id, sourceType, snapshotDate, originalCompanyName, importedAt, data]
