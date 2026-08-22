@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { shouldRemoveLegacyPilotSignal, verifyPublicEvidence } from "./signalpilot";
+import {
+  refreshDashboardErrorResponse,
+  shouldRemoveLegacyPilotSignal,
+  verifyPublicEvidence,
+} from "./signalpilot";
 
 const validEvidence = {
   title: "En verifisert selskapsnyhet",
@@ -53,4 +57,11 @@ test("an unresponsive source is aborted and rejected", async () => {
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("a failed pilot source refresh returns an HTTP 500 error response", () => {
+  const response = refreshDashboardErrorResponse(new Error("Kildekontrollen feilet."));
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(response.body, { error: "Kildekontrollen feilet." });
 });

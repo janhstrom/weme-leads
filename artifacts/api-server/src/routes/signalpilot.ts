@@ -372,6 +372,18 @@ async function refreshPilotSignals(): Promise<void> {
   await pilotSeedPromise;
 }
 
+export function refreshDashboardErrorResponse(error: unknown): {
+  status: 500;
+  body: { error: string };
+} {
+  return {
+    status: 500,
+    body: {
+      error: error instanceof Error ? error.message : "Pilotkildene kunne ikke oppfriskes.",
+    },
+  };
+}
+
 async function getDashboardSummary() {
   await ensurePilotSignals();
   const signals = await db.select().from(signalpilotSignalsTable);
@@ -407,9 +419,8 @@ router.post("/dashboard/refresh", async (_req, res): Promise<void> => {
     await refreshPilotSignals();
     res.json(await getDashboardSummary());
   } catch (error) {
-    res.status(500).json({
-      error: error instanceof Error ? error.message : "Pilotkildene kunne ikke oppfriskes.",
-    });
+    const failure = refreshDashboardErrorResponse(error);
+    res.status(failure.status).json(failure.body);
   }
 });
 
