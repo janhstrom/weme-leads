@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@workspace/weme-earth-
 import { Badge } from "@workspace/weme-earth-tones-system/components/ui/badge";
 import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
 import { Input } from "@workspace/weme-earth-tones-system/components/ui/input";
-import { Search, Building2, Calendar, Zap, ArrowRight, CheckCircle2, Clock, CheckCircle } from "lucide-react";
+import { Search, Building2, Calendar, Zap, ArrowRight, CheckCircle2, Clock, CheckCircle, FileSearch, Info, PlayCircle } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { formatDistanceToNow, parseISO } from "date-fns";
@@ -65,6 +65,44 @@ export default function DashboardPage() {
               icon={<Building2 className="w-4 h-4 text-primary" />} 
             />
           </div>
+
+          <Card className="border-primary/20 bg-primary/5 shadow-none">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Info className="h-4 w-4 text-primary" />
+                Slik kjører WeMe Leads i v1
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 text-sm md:grid-cols-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 font-semibold">
+                  <PlayCircle className="h-4 w-4 text-primary" />
+                  Når og hvor mye
+                </div>
+                <p className="text-muted-foreground">
+                  Ingen planlagt nattkjøring. Vurdering skjer manuelt ved import eller når en kilde legges til: én kandidat om gangen, med én eller flere kilder per kandidat.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 font-semibold">
+                  <FileSearch className="h-4 w-4 text-primary" />
+                  Hva som vurderes
+                </div>
+                <p className="text-muted-foreground">
+                  Kun konkrete, offentlige artikler eller dokumenter med HTTPS-lenke, tittel, dato og evidenssitat — ikke generelle nyhetssider eller bred nettsøking.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 font-semibold">
+                  <Building2 className="h-4 w-4 text-primary" />
+                  Universum, signal og CRM
+                </div>
+                <p className="text-muted-foreground">
+                  {summary?.total ?? 0} pilotkandidater ligger i arbeidsflaten. Kontoer er bare universet; den konkrete kilden er signalet. CRM brukes kun for relasjon, konflikt og kontaktvalg.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">

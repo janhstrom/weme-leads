@@ -43,7 +43,7 @@ export type EvidenceVerificationStatus = typeof EvidenceVerificationStatus[keyof
 
 
 export const EvidenceVerificationStatus = {
-  verified: 'verified',
+  url_verified: 'url_verified',
 } as const;
 
 export interface Evidence {

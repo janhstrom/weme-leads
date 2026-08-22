@@ -17,7 +17,7 @@ export type SignalEvidence = {
   sourceType: string;
   publishedAt: string;
   excerpt: string;
-  verificationStatus: "verified";
+  verificationStatus: "url_verified";
   verifiedAt: string;
 };
 

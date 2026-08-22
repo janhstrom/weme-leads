@@ -58,7 +58,7 @@ export const ListSignalsResponseItem = zod.object({
   "sourceType": zod.string(),
   "publishedAt": zod.coerce.date(),
   "excerpt": zod.string(),
-  "verificationStatus": zod.enum(['verified']),
+  "verificationStatus": zod.enum(['url_verified']),
   "verifiedAt": zod.coerce.date()
 })),
   "contacts": zod.array(zod.object({
@@ -118,7 +118,7 @@ export const GetSignalResponse = zod.object({
   "sourceType": zod.string(),
   "publishedAt": zod.coerce.date(),
   "excerpt": zod.string(),
-  "verificationStatus": zod.enum(['verified']),
+  "verificationStatus": zod.enum(['url_verified']),
   "verifiedAt": zod.coerce.date()
 })),
   "contacts": zod.array(zod.object({
@@ -183,7 +183,7 @@ export const ReviewSignalResponse = zod.object({
   "sourceType": zod.string(),
   "publishedAt": zod.coerce.date(),
   "excerpt": zod.string(),
-  "verificationStatus": zod.enum(['verified']),
+  "verificationStatus": zod.enum(['url_verified']),
   "verifiedAt": zod.coerce.date()
 })),
   "contacts": zod.array(zod.object({
@@ -250,7 +250,7 @@ export const AddSignalEvidenceResponse = zod.object({
   "sourceType": zod.string(),
   "publishedAt": zod.coerce.date(),
   "excerpt": zod.string(),
-  "verificationStatus": zod.enum(['verified']),
+  "verificationStatus": zod.enum(['url_verified']),
   "verifiedAt": zod.coerce.date()
 })),
   "contacts": zod.array(zod.object({
@@ -415,7 +415,7 @@ export const VerifySignalCrmContactResponse = zod.object({
   "sourceType": zod.string(),
   "publishedAt": zod.coerce.date(),
   "excerpt": zod.string(),
-  "verificationStatus": zod.enum(['verified']),
+  "verificationStatus": zod.enum(['url_verified']),
   "verifiedAt": zod.coerce.date()
 })),
   "contacts": zod.array(zod.object({

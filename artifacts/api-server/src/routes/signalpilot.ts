@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import {
   db,
   signalpilotSignalsTable,
@@ -32,79 +32,86 @@ const router: IRouter = Router();
 
 const DAY = 1000 * 60 * 60 * 24;
 let pilotSeedPromise: Promise<void> | null = null;
+const legacyPilotSourceUrls = new Set([
+  "https://www.motek.no/nyheter/",
+  "https://www.lysekonsern.no/nyheter/",
+  "https://www.hydro.com/no-NO/media/news/",
+  "https://mills.no/om-mills/nyheter/",
+  "https://www.dips.com/no/nyheter/",
+]);
 
 const pilotSignals = [
   {
     companyName: "Motek",
-    employees: 180,
+    employees: 360,
     industry: "Bygg og håndverk",
     domain: "motek.no",
-    signalType: "Digital transformasjon",
-    strength: "A",
-    status: "allerede_kjent",
+    signalType: "Digital adopsjon",
+    strength: "B",
+    status: "til_vurdering",
     summary:
-      "Selskapet har offentlig kommunisert arbeid med ERP, sky og AI som del av en bredere modernisering.",
+      "Motek har lansert en digital læringsplattform for fagfolk som skal ta i bruk Profis Engineering i arbeidshverdagen.",
     rationale:
-      "Kombinasjonen av ny teknologi og gjennomføringsbehov gjør endringskapasitet og forankring relevant.",
-    publishedAt: "2026-08-14",
+      "Nye digitale arbeidsverktøy krever at brukere får praktisk opplæring og lykkes med å endre vaner i hverdagen.",
+    publishedAt: "2025-04-04",
     evidence: [
       {
-        title: "Modernisering av kjerneprosesser",
-        url: "https://www.motek.no/nyheter/",
-        sourceType: "Selskapsnyhet",
-        publishedAt: "2026-08-14",
+        title: "Profis eLearning",
+        url: "https://www.mynewsdesk.com/no/motek/pressreleases/profis-elearning-3379464",
+        sourceType: "Pressemelding fra selskapet",
+        publishedAt: "2025-04-04",
         excerpt:
-          "Pilotgrunnlag: ERP-, sky- og AI-initiativ skal verifiseres mot primærkilden før ny kontakt.",
+          "Motek lanserer en digital læringsplattform for ingeniører og fagfolk som jobber med design av ankerløsninger.",
       },
     ],
     contacts: [
       {
         id: 101,
         name: "Anbefalt kontakt",
-        title: "COO / transformasjonsansvarlig",
+        title: "Leder for kompetanse eller digital adopsjon",
         confidence: "fra_sales_navigator",
         rationale:
-          "Eier typisk tverrfaglig gjennomføring når prosesser og teknologi endres samtidig.",
+          "Er typisk nær både utrulling av digitale verktøy og hvordan brukerne støttes i å ta dem i bruk.",
       },
     ] satisfies SignalContact[],
     crm: {
-      status: "Eksisterende lead",
-      matchCount: 1,
-      note: "CRM viser «Prøvd å kontakte». Ikke start nytt løp uten avklaring.",
+      status: "Ingen konflikt funnet",
+      matchCount: 0,
+      note: null,
     } satisfies SignalCrm,
     suggestedOpening:
-      "Når dere standardiserer prosesser rundt ERP og ny teknologi, hvor opplever dere at det menneskelige endringsarbeidet blir mest krevende?",
+      "Når nye digitale verktøy skal fungere ute i prosjektene, hva er viktigst for at brukerne faktisk tar dem i bruk?",
     dialogueDraft:
-      "Jeg så at dere arbeider med å modernisere kjerneprosessene. WeMe hjelper virksomheter med å gjøre endringsarbeidet konkret i hverdagen når nye arbeidsmåter skal tas i bruk.",
+      "Jeg så at dere har lansert en digital læringsplattform for Profis Engineering. WeMe hjelper virksomheter med å gjøre opplæring og endrede arbeidsmåter konkrete i arbeidshverdagen.",
   },
   {
     companyName: "Lyse",
-    employees: 460,
+    employees: 1200,
     industry: "Energi og infrastruktur",
     domain: "lysekonsern.no",
     signalType: "Organisasjonsendring",
-    strength: "B",
+    strength: "A",
     status: "til_vurdering",
     summary:
-      "Et eldre, men konkret signal om omorganisering og nye prioriteringer i konsernet.",
+      "Lyse Tele varsler organisasjonsjusteringer og nedbemanning for å etablere en enklere og mer effektiv driftsmodell.",
     rationale:
-      "Store, tverrgående endringer krever tydelige roller, god intern kommunikasjon og lokal forankring.",
-    publishedAt: "2026-06-18",
+      "Endringer i struktur, roller og driftsmodell krever tydelig lederkommunikasjon og lokal forankring.",
+    publishedAt: "2025-11-04",
     evidence: [
       {
-        title: "Endring i organisasjon og satsinger",
-        url: "https://www.lysekonsern.no/nyheter/",
+        title: "Varsler nedbemanning i Lyses televirksomhet",
+        url: "https://www.lysekonsern.no/om-oss/nyhetsarkiv/varsler-nedbemanning-i-lyses-televirksomhet",
         sourceType: "Selskapsnyhet",
-        publishedAt: "2026-06-18",
+        publishedAt: "2025-11-04",
         excerpt:
-          "Pilotgrunnlag: Endringen er konkret, men må oppdateres med en fersk primærkilde før kontakt.",
+          "Målet er å etablere en enklere og mer effektiv driftsmodell etter erfaringer fra sammenslåingen av virksomhetene.",
       },
     ],
     contacts: [
       {
         id: 201,
         name: "Anbefalt kontakt",
-        title: "Programleder / HR-leder",
+        title: "Programleder, HR-leder eller endringsleder",
         confidence: "fra_sales_navigator",
         rationale:
           "Er ofte tett på oversettelsen fra ny struktur til nye arbeidsmåter.",
@@ -112,125 +119,47 @@ const pilotSignals = [
     ] satisfies SignalContact[],
     crm: { status: "Ingen konflikt funnet", matchCount: 0, note: null } satisfies SignalCrm,
     suggestedOpening:
-      "Når en ny organisering skal fungere i praksis, hva er viktigst å få på plass hos lederne de første månedene?",
+      "Når en ny driftsmodell skal fungere i praksis, hva trenger lederne for å gi medarbeiderne tydelig retning i den første fasen?",
     dialogueDraft:
-      "Vi følger virksomheter som står i endring på tvers av struktur, ledelse og arbeidsmåter. Jeg ble nysgjerrig på hvordan dere jobber med å gjøre endringen enkel å forstå og ta i bruk.",
+      "Jeg så at Lyse Tele gjør organisasjonsjusteringer for å etablere en enklere driftsmodell. WeMe hjelper virksomheter med å gjøre strukturendringer forståelige og gjennomførbare i hverdagen.",
   },
   {
     companyName: "Hydro",
-    employees: 500,
+    employees: 34000,
     industry: "Industri",
     domain: "hydro.com",
-    signalType: "Strategiimplementering",
-    strength: "B",
-    status: "følg_videre",
+    signalType: "Organisasjonsendring",
+    strength: "A",
+    status: "til_vurdering",
     summary:
-      "Et strategisk omstillingssignal med tydelig relevans, men uten tilstrekkelig fersk dokumentasjon.",
+      "Hydro har varslet kostnadskutt og en organisatorisk tilpasning som omfatter om lag 750 stillinger.",
     rationale:
-      "Strategi blir først verdiskapende når nye prioriteringer oversettes til konkrete valg og vaner.",
-    publishedAt: "2026-05-27",
+      "En større tilpasning i roller og støttefunksjoner øker behovet for å få endringen tydelig og omsorgsfullt ut i organisasjonen.",
+    publishedAt: "2025-08-14",
     evidence: [
       {
-        title: "Oppdatering om strategiske prioriteringer",
-        url: "https://www.hydro.com/no-NO/media/news/",
+        title: "Hydro cuts costs and carries out strategic workforce adjustment",
+        url: "https://www.hydro.com/en/global/media/news/2025/hydro-cuts-costs-and-carries-out-strategic-workforce-adjustment/",
         sourceType: "Presserom",
-        publishedAt: "2026-05-27",
+        publishedAt: "2025-08-14",
         excerpt:
-          "Pilotgrunnlag: Følg utviklingen, men vent med kontakt til et nytt, konkret endringssignal foreligger.",
+          "Hydro skal redusere årlige kostnader med én milliard kroner og tilpasse organisasjonen til strategiske mål og endrede forretningsbehov.",
       },
     ],
     contacts: [
       {
         id: 301,
         name: "Anbefalt kontakt",
-        title: "Strategi- eller programleder",
-        confidence: "ikke_verifisert",
-        rationale: "Rollen er relevant, men person og mandat må verifiseres.",
-      },
-    ] satisfies SignalContact[],
-    crm: { status: "Ingen konflikt funnet", matchCount: 0, note: null } satisfies SignalCrm,
-    suggestedOpening:
-      "Hva trenger ledere og nøkkelpersoner for å gjøre de strategiske prioriteringene operative i hverdagen?",
-    dialogueDraft:
-      "Vi er opptatt av gapet mellom en tydelig strategi og hvordan den faktisk lander hos ledere og ansatte. Det er ofte her vi hjelper team med å skape fremdrift.",
-  },
-  {
-    companyName: "Mills",
-    employees: 330,
-    industry: "Forbrukervarer",
-    domain: "mills.no",
-    signalType: "Omstilling",
-    strength: "B",
-    status: "til_vurdering",
-    summary:
-      "Historisk signal om omstilling med mulig relevans for ledelse, prioritering og nye arbeidsformer.",
-    rationale:
-      "Signalets alder senker tempoet, men gjør kontoen egnet for en undersøkende og ikke-selgende inngang.",
-    publishedAt: "2026-06-05",
-    evidence: [
-      {
-        title: "Endring og nye prioriteringer",
-        url: "https://mills.no/om-mills/nyheter/",
-        sourceType: "Selskapsnyhet",
-        publishedAt: "2026-06-05",
-        excerpt:
-          "Pilotgrunnlag: Verifiser endringens nåværende fase med en ny kilde eller CRM-kontakt før oppfølging.",
-      },
-    ],
-    contacts: [
-      {
-        id: 401,
-        name: "Anbefalt kontakt",
-        title: "HR-direktør / endringsleder",
+        title: "HR-, endrings- eller programleder",
         confidence: "fra_sales_navigator",
-        rationale:
-          "Kan knytte virksomhetens prioriteringer til lederstøtte og endringskapasitet.",
+        rationale: "Rollen er relevant for å omsette en større organisatorisk tilpasning til tydelig praksis og oppfølging.",
       },
     ] satisfies SignalContact[],
     crm: { status: "Ingen konflikt funnet", matchCount: 0, note: null } satisfies SignalCrm,
     suggestedOpening:
-      "Har dere en felles måte å hjelpe ledere med å omsette nye prioriteringer til praksis i teamene sine?",
+      "Når en organisatorisk tilpasning skal gjennomføres med åpenhet og omsorg, hva er viktigst for å gi lederne støtte i den første fasen?",
     dialogueDraft:
-      "Mange virksomheter lykkes med retningen, men bruker unødvendig mye energi på å få endringen til å leve i hverdagen. Det er nettopp det rommet WeMe er bygget for.",
-  },
-  {
-    companyName: "DIPS",
-    employees: 260,
-    industry: "Helse-teknologi",
-    domain: "dips.com",
-    signalType: "AI-adopsjon",
-    strength: "A",
-    status: "til_vurdering",
-    summary:
-      "Et ferskt signal om ny teknologi som vil kreve endrede arbeidsprosesser og god involvering.",
-    rationale:
-      "AI-innføring får større effekt når kliniske, tekniske og kommersielle miljøer får en felles endringsrytme.",
-    publishedAt: "2026-08-08",
-    evidence: [
-      {
-        title: "Nye initiativ innen teknologi og arbeidsflyt",
-        url: "https://www.dips.com/no/nyheter/",
-        sourceType: "Selskapsnyhet",
-        publishedAt: "2026-08-08",
-        excerpt:
-          "Pilotgrunnlag: Et aktuelt teknologispor med tydelig mulig endringsbehov; primærkilde må kvalitetssikres før kontakt.",
-      },
-    ],
-    contacts: [
-      {
-        id: 501,
-        name: "Anbefalt kontakt",
-        title: "Produkt- eller programleder",
-        confidence: "fra_sales_navigator",
-        rationale:
-          "Kan binde sammen produktinnføring, kundeadopsjon og intern gjennomføring.",
-      },
-    ] satisfies SignalContact[],
-    crm: { status: "Ingen konflikt funnet", matchCount: 0, note: null } satisfies SignalCrm,
-    suggestedOpening:
-      "Når ny teknologi skal inn i etablerte arbeidsflyter, hva gjør dere for å sikre at de som skal bruke den faktisk opplever nytten?",
-    dialogueDraft:
-      "Jeg så at dere utforsker nye teknologiske arbeidsflyter. WeMe hjelper endringsledere med å skape forståelse, trening og fremdrift når løsningen skal fungere i praksis.",
+      "Jeg så at Hydro har varslet en organisatorisk tilpasning som berører støttefunksjoner, engineering, kommersielle miljøer og IT. WeMe hjelper ledere med å gjøre store endringer tydelige og gjennomførbare i hverdagen.",
   },
 ];
 
@@ -287,17 +216,9 @@ async function verifyPublicEvidence(input: {
     ...input,
     title: input.title.trim(),
     excerpt: input.excerpt.trim(),
-    verificationStatus: "verified",
+    verificationStatus: "url_verified",
     verifiedAt: new Date().toISOString(),
   };
-}
-
-function withSeedVerification(evidence: SignalEvidence[] | Omit<SignalEvidence, "verificationStatus" | "verifiedAt">[]) {
-  return evidence.map((item) => ({
-    ...item,
-    verificationStatus: "verified" as const,
-    verifiedAt: new Date().toISOString(),
-  }));
 }
 
 function toSignalResponse(signal: SignalpilotSignal): SignalResponse {
@@ -321,11 +242,9 @@ function toSignalResponse(signal: SignalpilotSignal): SignalResponse {
     rationale: signal.rationale,
     publishedAt: signal.publishedAt,
     freshnessDays,
-    // Normalize rows created by the original pilot fixture so an existing
-    // database remains readable after verification metadata was introduced.
     evidence: signal.evidence.map((item) => ({
       ...item,
-      verificationStatus: item.verificationStatus ?? "verified",
+      verificationStatus: "url_verified" as const,
       verifiedAt: item.verifiedAt ?? signal.updatedAt.toISOString(),
     })),
     contacts: signal.contacts,
@@ -338,12 +257,35 @@ function toSignalResponse(signal: SignalpilotSignal): SignalResponse {
 }
 
 async function seedPilotSignals(): Promise<void> {
-  const existing = await db.select({ id: signalpilotSignalsTable.id }).from(signalpilotSignalsTable).limit(1);
-  if (existing.length > 0) return;
-
-  await db.insert(signalpilotSignalsTable).values(
-    pilotSignals.map((signal) => ({ ...signal, evidence: withSeedVerification(signal.evidence) })),
+  const existing = await db.select().from(signalpilotSignalsTable);
+  const legacySignals = existing.filter((signal) =>
+    signal.evidence.some((item) => legacyPilotSourceUrls.has(item.url)),
   );
+
+  if (legacySignals.length > 0) {
+    await db
+      .delete(signalpilotSignalsTable)
+      .where(inArray(signalpilotSignalsTable.id, legacySignals.map((signal) => signal.id)));
+  }
+
+  const remaining = await db.select().from(signalpilotSignalsTable);
+  const existingCompanies = new Set(remaining.map((signal) => signal.companyName));
+  const candidates = pilotSignals.filter((signal) => !existingCompanies.has(signal.companyName));
+  const verifiedCandidates = await Promise.allSettled(
+    candidates.map(async (signal) => ({
+      ...signal,
+      evidence: await Promise.all(signal.evidence.map((item) => verifyPublicEvidence(item))),
+    })),
+  );
+  const readyCandidates = verifiedCandidates.flatMap((candidate) => {
+    if (candidate.status === "fulfilled") return [candidate.value];
+    console.warn("Pilotkilde ble ikke lagt inn fordi URL-en ikke kunne kontrolleres.", candidate.reason);
+    return [];
+  });
+
+  if (readyCandidates.length > 0) {
+    await db.insert(signalpilotSignalsTable).values(readyCandidates);
+  }
 }
 
 async function ensurePilotSignals(): Promise<void> {
@@ -443,7 +385,7 @@ router.post("/signals/:id/review", async (req, res): Promise<void> => {
   }
   if (body.data.status === "godkjent") {
     const signal = await findSignal(params.data.id);
-    if (signal && signal.evidence.some((item) => item.verificationStatus !== "verified")) {
+    if (signal && signal.evidence.some((item) => item.verificationStatus !== "url_verified")) {
       res.status(400).json({ error: "Signalet kan ikke godkjennes før alle kilder er verifisert." });
       return;
     }

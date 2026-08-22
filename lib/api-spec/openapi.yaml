@@ -300,7 +300,7 @@ components:
         sourceType: { type: string }
         publishedAt: { type: string, format: date }
         excerpt: { type: string }
-        verificationStatus: { type: string, enum: [verified] }
+        verificationStatus: { type: string, enum: [url_verified] }
         verifiedAt: { type: string, format: date-time }
     SignalCrm:
       type: object

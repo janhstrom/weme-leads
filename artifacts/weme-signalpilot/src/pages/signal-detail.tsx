@@ -142,6 +142,9 @@ export default function SignalDetailPage() {
                 <FileText className="w-5 h-5 text-muted-foreground" />
                 Kilder og bevis
               </h3>
+              <p className="mb-3 text-sm text-muted-foreground">
+                «URL kontrollert» betyr at den konkrete HTTPS-kilden svarer og at tittel, dato og sitat er registrert. Relevansen vurderes av selger i review-steget.
+              </p>
               <div className="space-y-3">
                 {signal.evidence.map((ev, i) => (
                   <a key={i} href={ev.url} target="_blank" rel="noopener noreferrer" className="block p-4 rounded-xl border border-border bg-card hover:border-primary/50 transition-colors group">
@@ -150,7 +153,7 @@ export default function SignalDetailPage() {
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="text-[10px] uppercase font-mono">{ev.sourceType}</Badge>
                         <Badge variant="outline" className="text-[10px] text-primary border-primary/30 bg-primary/10">
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> Verifisert
+                          <LinkIcon className="w-3 h-3 mr-1" /> URL kontrollert
                         </Badge>
                       </div>
                     </div>
@@ -243,7 +246,7 @@ function EvidenceForm({ signal }: { signal: Signal }) {
         queryClient.invalidateQueries({ queryKey: getListSignalsQueryKey() });
         setForm({ title: "", url: "", sourceType: "Selskapsnyhet", publishedAt: "", excerpt: "" });
         setOpen(false);
-        toast({ title: "Kilde verifisert", description: "Kilden er lagret som aktiv primærkilde." });
+        toast({ title: "Kilde kontrollert", description: "HTTPS-lenken svarer og er lagret med tittel, dato og sitat. Relevansen må fortsatt vurderes." });
       },
       onError: (error) => toast({ title: "Kilden ble ikke godkjent", description: error instanceof Error ? error.message : "Kontroller URL og feltene.", variant: "destructive" }),
     },
@@ -252,10 +255,10 @@ function EvidenceForm({ signal }: { signal: Signal }) {
   return (
     <div className="mt-4">
       {!open ? (
-        <Button variant="outline" size="sm" onClick={() => setOpen(true)}><Plus className="w-4 h-4 mr-2" /> Legg inn verifisert kilde</Button>
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)}><Plus className="w-4 h-4 mr-2" /> Legg inn kildekontrollert kilde</Button>
       ) : (
         <Card className="border-primary/30 bg-primary/5">
-          <CardHeader className="pb-3"><CardTitle className="text-sm">Ny offentlig primærkilde</CardTitle><CardDescription>Kun direkte HTTPS-kilder med tittel, dato og sitat blir lagret.</CardDescription></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="text-sm">Ny offentlig primærkilde</CardTitle><CardDescription>Systemet sjekker at en direkte HTTPS-lenke svarer. Du må selv legge inn riktig tittel, dato og sitat; relevansen vurderes ikke automatisk.</CardDescription></CardHeader>
           <CardContent className="space-y-3">
             {([
               ["title", "Kvalitetssikret tittel"],
