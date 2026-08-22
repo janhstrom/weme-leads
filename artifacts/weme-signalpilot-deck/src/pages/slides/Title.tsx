@@ -27,7 +27,7 @@ export default function Title() {
         </p>
       </div>
       <div className="absolute bottom-[7vh] right-[7vw] font-body text-[1.5vw] tracking-[0.08em] text-[#f4f0e8]/55">
-        SIGNALPILOT / V1
+        WEME LEADS / V1
       </div>
     </div>
   );

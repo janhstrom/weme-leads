@@ -9,8 +9,8 @@ Avoid `type: integer` and URI-formatted strings in the OpenAPI contract while th
 
 **How to apply:** Use `type: number` for numeric API fields and ordinary `type: string` for URL fields unless the workspace's Zod/codegen versions have been upgraded and a full generated-library typecheck confirms support.
 
-The generated Zod API currently overlaps with the generated types barrel for some request schemas; keep the public `lib/api-zod/src/index.ts` export limited to `generated/api` after codegen, then run the shared-library typecheck.
+The generated Zod API currently overlaps with the generated types barrel for inline request schemas. Keep the codegen post-step that limits the public `lib/api-zod/src/index.ts` export to `generated/api`, then run the shared-library typecheck.
 
 **Why:** Re-exporting both generated barrels can produce duplicate export errors even when the generated schemas themselves are valid.
 
-**How to apply:** Re-apply this small index adjustment after running Orval and verify `pnpm -w run typecheck:libs`.
+**How to apply:** Do not remove the API-spec codegen post-step that rewrites the generated barrel after Orval runs. Verify `pnpm -w run typecheck:libs` whenever the OpenAPI contract or codegen setup changes.
