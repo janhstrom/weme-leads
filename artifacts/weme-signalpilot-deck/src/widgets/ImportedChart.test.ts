@@ -76,3 +76,29 @@ test('scales positive percentage rows to a total of 100', () => {
     100,
   );
 });
+
+test('scales mixed percentage rows by absolute total while preserving negatives', () => {
+  const rows = chartRows(
+    percentChart(['Net change'], [
+      [30],
+      [-10],
+    ]),
+  );
+
+  const values = Object.entries(rows[0] ?? {})
+    .filter(([key]) => key.startsWith('series-'))
+    .map(([, value]) => value);
+
+  // The percentage total is based on magnitudes: 30 + |-10| = 40.
+  // The signed values therefore render as 75% and -25%, whose magnitudes
+  // total 100% without hiding that the second series is negative.
+  assert.deepEqual(values, [75, -25]);
+  assert.equal(
+    values.reduce<number>(
+      (total, value) =>
+        total + (typeof value === 'number' ? Math.abs(value) : 0),
+      0,
+    ),
+    100,
+  );
+});

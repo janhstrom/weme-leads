@@ -71,6 +71,8 @@ export function chartRows(chart: ImportedChartModel) {
 
   return categories.map((category, index) => {
     const values = chart.series.map((series) => series.values[index] ?? null);
+    // Percent stacks normalize magnitudes so losses/refunds keep their sign
+    // without making the positive and negative portions distort each other.
     const total = values.reduce<number>(
       (sum: number, value) => sum + Math.abs(value ?? 0),
       0,
