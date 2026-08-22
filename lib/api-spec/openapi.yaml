@@ -11,6 +11,7 @@ tags:
   - name: health
   - name: dashboard
   - name: signals
+  - name: candidates
   - name: crm
 paths:
   /healthz:
@@ -225,9 +226,99 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
         "502": { $ref: "#/components/responses/BadRequest" }
+  /candidates:
+    get:
+      operationId: listCandidates
+      tags: [candidates]
+      summary: List the normalized candidate universe
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Candidate" }
+  /candidates/{id}:
+    get:
+      operationId: getCandidate
+      tags: [candidates]
+      summary: Get one candidate with source snapshots and evidence
+      parameters:
+        - $ref: "#/components/parameters/CandidateId"
+      responses:
+        "200":
+          description: Candidate
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Candidate" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /candidates/import:
+    post:
+      operationId: importCandidateSnapshots
+      tags: [candidates]
+      summary: Import D&B/Bisnode or Sales Navigator snapshot rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CandidateImportInput" }
+      responses:
+        "201":
+          description: Import result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CandidateImportResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /candidates/{id}/evidence:
+    post:
+      operationId: addCandidateEvidence
+      tags: [candidates]
+      summary: Add and URL-check a public source for a candidate
+      parameters:
+        - $ref: "#/components/parameters/CandidateId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceInput" }
+      responses:
+        "201":
+          description: Candidate with the new evidence
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Candidate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /candidates/analysis-batches:
+    post:
+      operationId: createCandidateAnalysisBatch
+      tags: [candidates]
+      summary: Select a explainable manual analysis batch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CandidateBatchInput" }
+      responses:
+        "201":
+          description: Analysis batch
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CandidateAnalysisBatch" }
 components:
   parameters:
     SignalId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: number
+    CandidateId:
       name: id
       in: path
       required: true
@@ -435,3 +526,116 @@ components:
         approved: { type: number }
         highPriority: { type: number }
         crmTasks: { type: number }
+    CandidateSnapshot:
+      type: object
+      required: [id, sourceType, snapshotDate, originalCompanyName, importedAt, data]
+      properties:
+        id: { type: number }
+        sourceType: { type: string, enum: [dnb_bisnode, sales_navigator, manual] }
+        sourceRowId: { type: ["string", "null"] }
+        snapshotDate: { type: string, format: date }
+        originalCompanyName: { type: string }
+        importedAt: { type: string, format: date-time }
+        data:
+          type: object
+          required: [fields]
+          properties:
+            employees: { type: ["number", "null"] }
+            revenue: { type: ["string", "null"] }
+            owner: { type: ["string", "null"] }
+            personName: { type: ["string", "null"] }
+            roleTitle: { type: ["string", "null"] }
+            profileUrl: { type: ["string", "null"] }
+            fields:
+              type: object
+              additionalProperties: { type: string }
+    CandidateChange:
+      type: object
+      required: [kind, label, detail]
+      properties:
+        kind: { type: string, enum: [employee_change, relevant_role, source_refresh] }
+        label: { type: string }
+        detail: { type: string }
+    Candidate:
+      type: object
+      required: [id, companyName, matchStatus, priorityScore, priorityReasons, snapshots, changes, evidence, createdAt, updatedAt]
+      properties:
+        id: { type: number }
+        companyName: { type: string }
+        organizationNumber: { type: ["string", "null"] }
+        domain: { type: ["string", "null"] }
+        industry: { type: ["string", "null"] }
+        employees: { type: ["number", "null"] }
+        matchStatus: { type: string, enum: [new, exact, domain_match, name_match, needs_review] }
+        priorityScore: { type: number }
+        priorityReasons:
+          type: array
+          items: { type: string }
+        lastAnalyzedAt: { type: ["string", "null"], format: date-time }
+        snapshots:
+          type: array
+          items: { $ref: "#/components/schemas/CandidateSnapshot" }
+        changes:
+          type: array
+          items: { $ref: "#/components/schemas/CandidateChange" }
+        evidence:
+          type: array
+          items: { $ref: "#/components/schemas/Evidence" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CandidateImportRecord:
+      type: object
+      required: [companyName]
+      properties:
+        sourceRowId: { type: ["string", "null"] }
+        companyName: { type: string, minLength: 2 }
+        organizationNumber: { type: ["string", "null"] }
+        domain: { type: ["string", "null"] }
+        industry: { type: ["string", "null"] }
+        employees: { type: ["number", "null"] }
+        revenue: { type: ["string", "null"] }
+        owner: { type: ["string", "null"] }
+        personName: { type: ["string", "null"] }
+        roleTitle: { type: ["string", "null"] }
+        profileUrl: { type: ["string", "null"] }
+        fields:
+          type: object
+          additionalProperties: { type: string }
+    CandidateImportInput:
+      type: object
+      required: [sourceType, snapshotDate, records]
+      properties:
+        sourceType: { type: string, enum: [dnb_bisnode, sales_navigator, manual] }
+        snapshotDate: { type: string, format: date }
+        records:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/CandidateImportRecord" }
+    CandidateImportResult:
+      type: object
+      required: [created, matched, needsReview, skipped, warnings]
+      properties:
+        created: { type: number }
+        matched: { type: number }
+        needsReview: { type: number }
+        skipped: { type: number }
+        warnings:
+          type: array
+          items: { type: string }
+    CandidateBatchInput:
+      type: object
+      required: [limit]
+      properties:
+        limit: { type: number, minimum: 1, maximum: 100 }
+    CandidateAnalysisBatch:
+      type: object
+      required: [id, requestedCount, selectedCount, criteria, createdAt, candidates]
+      properties:
+        id: { type: number }
+        requestedCount: { type: number }
+        selectedCount: { type: number }
+        criteria: { type: string }
+        createdAt: { type: string, format: date-time }
+        candidates:
+          type: array
+          items: { $ref: "#/components/schemas/Candidate" }

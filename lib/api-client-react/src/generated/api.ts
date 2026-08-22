@@ -21,6 +21,11 @@ import type {
 
 import type {
   BadRequestResponse,
+  Candidate,
+  CandidateAnalysisBatch,
+  CandidateBatchInput,
+  CandidateImportInput,
+  CandidateImportResult,
   CrmContactCandidate,
   CrmContactSelectionInput,
   CrmTaskInput,
@@ -31,6 +36,7 @@ import type {
   HealthStatus,
   ImportSignalBatch201,
   ImportSignalBatchBody,
+  ListCandidatesParams,
   ListSignalsParams,
   NotFoundResponse,
   SearchCrmContactsParams,
@@ -821,5 +827,380 @@ export const useVerifySignalCrmContact = <TError = ErrorType<BadRequestResponse 
         TContext
       > => {
       return useMutation(getVerifySignalCrmContactMutationOptions(options));
+    }
+
+export const getListCandidatesUrl = (params?: ListCandidatesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/candidates?${stringifiedParams}` : `/api/candidates`
+}
+
+/**
+ * @summary List the normalized candidate universe
+ */
+export const listCandidates = async (params?: ListCandidatesParams, options?: Parameters<typeof customFetch>[1]): Promise<Candidate[]> => {
+
+  return customFetch<Candidate[]>(getListCandidatesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCandidatesQueryKey = (params?: ListCandidatesParams,) => {
+    return [
+    `/api/candidates`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCandidatesQueryOptions = <TData = Awaited<ReturnType<typeof listCandidates>>, TError = ErrorType<unknown>>(params?: ListCandidatesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCandidatesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCandidates>>> = ({ signal }) => listCandidates(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCandidates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCandidatesQueryResult = NonNullable<Awaited<ReturnType<typeof listCandidates>>>
+export type ListCandidatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List the normalized candidate universe
+ */
+
+export function useListCandidates<TData = Awaited<ReturnType<typeof listCandidates>>, TError = ErrorType<unknown>>(
+ params?: ListCandidatesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCandidatesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCandidateUrl = (id: number,) => {
+
+
+
+
+  return `/api/candidates/${id}`
+}
+
+/**
+ * @summary Get one candidate with source snapshots and evidence
+ */
+export const getCandidate = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<Candidate> => {
+
+  return customFetch<Candidate>(getGetCandidateUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCandidateQueryKey = (id: number,) => {
+    return [
+    `/api/candidates/${id}`
+    ] as const;
+    }
+
+
+export const getGetCandidateQueryOptions = <TData = Awaited<ReturnType<typeof getCandidate>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCandidate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCandidateQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCandidate>>> = ({ signal }) => getCandidate(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCandidate>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCandidateQueryResult = NonNullable<Awaited<ReturnType<typeof getCandidate>>>
+export type GetCandidateQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get one candidate with source snapshots and evidence
+ */
+
+export function useGetCandidate<TData = Awaited<ReturnType<typeof getCandidate>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCandidate>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCandidateQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getImportCandidateSnapshotsUrl = () => {
+
+
+
+
+  return `/api/candidates/import`
+}
+
+/**
+ * @summary Import D&B/Bisnode or Sales Navigator snapshot rows
+ */
+export const importCandidateSnapshots = async (candidateImportInput: CandidateImportInput, options?: Parameters<typeof customFetch>[1]): Promise<CandidateImportResult> => {
+
+  return customFetch<CandidateImportResult>(getImportCandidateSnapshotsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(candidateImportInput)
+  }
+);}
+
+
+
+
+
+export const getImportCandidateSnapshotsMutationOptions = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importCandidateSnapshots>>, TError,{data: BodyType<CandidateImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importCandidateSnapshots>>, TError,{data: BodyType<CandidateImportInput>}, TContext> => {
+
+const mutationKey = ['importCandidateSnapshots'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importCandidateSnapshots>>, {data: BodyType<CandidateImportInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importCandidateSnapshots(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportCandidateSnapshotsMutationResult = NonNullable<Awaited<ReturnType<typeof importCandidateSnapshots>>>
+    export type ImportCandidateSnapshotsMutationBody = BodyType<CandidateImportInput>
+    export type ImportCandidateSnapshotsMutationError = ErrorType<BadRequestResponse>
+
+    /**
+ * @summary Import D&B/Bisnode or Sales Navigator snapshot rows
+ */
+export const useImportCandidateSnapshots = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importCandidateSnapshots>>, TError,{data: BodyType<CandidateImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importCandidateSnapshots>>,
+        TError,
+        {data: BodyType<CandidateImportInput>},
+        TContext
+      > => {
+      return useMutation(getImportCandidateSnapshotsMutationOptions(options));
+    }
+
+export const getAddCandidateEvidenceUrl = (id: number,) => {
+
+
+
+
+  return `/api/candidates/${id}/evidence`
+}
+
+/**
+ * @summary Add and URL-check a public source for a candidate
+ */
+export const addCandidateEvidence = async (id: number,
+    evidenceInput: EvidenceInput, options?: Parameters<typeof customFetch>[1]): Promise<Candidate> => {
+
+  return customFetch<Candidate>(getAddCandidateEvidenceUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(evidenceInput)
+  }
+);}
+
+
+
+
+
+export const getAddCandidateEvidenceMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCandidateEvidence>>, TError,{id: number;data: BodyType<EvidenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addCandidateEvidence>>, TError,{id: number;data: BodyType<EvidenceInput>}, TContext> => {
+
+const mutationKey = ['addCandidateEvidence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addCandidateEvidence>>, {id: number;data: BodyType<EvidenceInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addCandidateEvidence(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddCandidateEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof addCandidateEvidence>>>
+    export type AddCandidateEvidenceMutationBody = BodyType<EvidenceInput>
+    export type AddCandidateEvidenceMutationError = ErrorType<BadRequestResponse | NotFoundResponse>
+
+    /**
+ * @summary Add and URL-check a public source for a candidate
+ */
+export const useAddCandidateEvidence = <TError = ErrorType<BadRequestResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCandidateEvidence>>, TError,{id: number;data: BodyType<EvidenceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addCandidateEvidence>>,
+        TError,
+        {id: number;data: BodyType<EvidenceInput>},
+        TContext
+      > => {
+      return useMutation(getAddCandidateEvidenceMutationOptions(options));
+    }
+
+export const getCreateCandidateAnalysisBatchUrl = () => {
+
+
+
+
+  return `/api/candidates/analysis-batches`
+}
+
+/**
+ * @summary Select a explainable manual analysis batch
+ */
+export const createCandidateAnalysisBatch = async (candidateBatchInput: CandidateBatchInput, options?: Parameters<typeof customFetch>[1]): Promise<CandidateAnalysisBatch> => {
+
+  return customFetch<CandidateAnalysisBatch>(getCreateCandidateAnalysisBatchUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(candidateBatchInput)
+  }
+);}
+
+
+
+
+
+export const getCreateCandidateAnalysisBatchMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCandidateAnalysisBatch>>, TError,{data: BodyType<CandidateBatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCandidateAnalysisBatch>>, TError,{data: BodyType<CandidateBatchInput>}, TContext> => {
+
+const mutationKey = ['createCandidateAnalysisBatch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCandidateAnalysisBatch>>, {data: BodyType<CandidateBatchInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCandidateAnalysisBatch(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCandidateAnalysisBatchMutationResult = NonNullable<Awaited<ReturnType<typeof createCandidateAnalysisBatch>>>
+    export type CreateCandidateAnalysisBatchMutationBody = BodyType<CandidateBatchInput>
+    export type CreateCandidateAnalysisBatchMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Select a explainable manual analysis batch
+ */
+export const useCreateCandidateAnalysisBatch = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCandidateAnalysisBatch>>, TError,{data: BodyType<CandidateBatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCandidateAnalysisBatch>>,
+        TError,
+        {data: BodyType<CandidateBatchInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCandidateAnalysisBatchMutationOptions(options));
     }
 

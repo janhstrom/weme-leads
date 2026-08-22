@@ -446,3 +446,275 @@ export const VerifySignalCrmContactResponse = zod.object({
 })
 
 
+/**
+ * @summary List the normalized candidate universe
+ */
+export const ListCandidatesQueryParams = zod.object({
+  "search": zod.coerce.string().optional()
+})
+
+export const ListCandidatesResponseItem = zod.object({
+  "id": zod.number(),
+  "companyName": zod.string(),
+  "organizationNumber": zod.string().nullish(),
+  "domain": zod.string().nullish(),
+  "industry": zod.string().nullish(),
+  "employees": zod.number().nullish(),
+  "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
+  "priorityScore": zod.number(),
+  "priorityReasons": zod.array(zod.string()),
+  "lastAnalyzedAt": zod.coerce.date().nullish(),
+  "snapshots": zod.array(zod.object({
+  "id": zod.number(),
+  "sourceType": zod.enum(['dnb_bisnode', 'sales_navigator', 'manual']),
+  "sourceRowId": zod.string().nullish(),
+  "snapshotDate": zod.coerce.date(),
+  "originalCompanyName": zod.string(),
+  "importedAt": zod.coerce.date(),
+  "data": zod.object({
+  "employees": zod.number().nullish(),
+  "revenue": zod.string().nullish(),
+  "owner": zod.string().nullish(),
+  "personName": zod.string().nullish(),
+  "roleTitle": zod.string().nullish(),
+  "profileUrl": zod.string().nullish(),
+  "fields": zod.record(zod.string(), zod.string())
+})
+})),
+  "changes": zod.array(zod.object({
+  "kind": zod.enum(['employee_change', 'relevant_role', 'source_refresh']),
+  "label": zod.string(),
+  "detail": zod.string()
+})),
+  "evidence": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['url_verified']),
+  "verifiedAt": zod.coerce.date()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListCandidatesResponse = zod.array(ListCandidatesResponseItem)
+
+
+/**
+ * @summary Get one candidate with source snapshots and evidence
+ */
+export const GetCandidateParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetCandidateResponse = zod.object({
+  "id": zod.number(),
+  "companyName": zod.string(),
+  "organizationNumber": zod.string().nullish(),
+  "domain": zod.string().nullish(),
+  "industry": zod.string().nullish(),
+  "employees": zod.number().nullish(),
+  "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
+  "priorityScore": zod.number(),
+  "priorityReasons": zod.array(zod.string()),
+  "lastAnalyzedAt": zod.coerce.date().nullish(),
+  "snapshots": zod.array(zod.object({
+  "id": zod.number(),
+  "sourceType": zod.enum(['dnb_bisnode', 'sales_navigator', 'manual']),
+  "sourceRowId": zod.string().nullish(),
+  "snapshotDate": zod.coerce.date(),
+  "originalCompanyName": zod.string(),
+  "importedAt": zod.coerce.date(),
+  "data": zod.object({
+  "employees": zod.number().nullish(),
+  "revenue": zod.string().nullish(),
+  "owner": zod.string().nullish(),
+  "personName": zod.string().nullish(),
+  "roleTitle": zod.string().nullish(),
+  "profileUrl": zod.string().nullish(),
+  "fields": zod.record(zod.string(), zod.string())
+})
+})),
+  "changes": zod.array(zod.object({
+  "kind": zod.enum(['employee_change', 'relevant_role', 'source_refresh']),
+  "label": zod.string(),
+  "detail": zod.string()
+})),
+  "evidence": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['url_verified']),
+  "verifiedAt": zod.coerce.date()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Import D&B/Bisnode or Sales Navigator snapshot rows
+ */
+export const importCandidateSnapshotsBodyRecordsItemCompanyNameMin = 2;
+
+
+
+
+export const ImportCandidateSnapshotsBody = zod.object({
+  "sourceType": zod.enum(['dnb_bisnode', 'sales_navigator', 'manual']),
+  "snapshotDate": zod.coerce.date(),
+  "records": zod.array(zod.object({
+  "sourceRowId": zod.string().nullish(),
+  "companyName": zod.string().min(importCandidateSnapshotsBodyRecordsItemCompanyNameMin),
+  "organizationNumber": zod.string().nullish(),
+  "domain": zod.string().nullish(),
+  "industry": zod.string().nullish(),
+  "employees": zod.number().nullish(),
+  "revenue": zod.string().nullish(),
+  "owner": zod.string().nullish(),
+  "personName": zod.string().nullish(),
+  "roleTitle": zod.string().nullish(),
+  "profileUrl": zod.string().nullish(),
+  "fields": zod.record(zod.string(), zod.string()).optional()
+})).min(1)
+})
+
+export const ImportCandidateSnapshotsResponse = zod.object({
+  "created": zod.number(),
+  "matched": zod.number(),
+  "needsReview": zod.number(),
+  "skipped": zod.number(),
+  "warnings": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Add and URL-check a public source for a candidate
+ */
+export const AddCandidateEvidenceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AddCandidateEvidenceBody = zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string()
+})
+
+export const AddCandidateEvidenceResponse = zod.object({
+  "id": zod.number(),
+  "companyName": zod.string(),
+  "organizationNumber": zod.string().nullish(),
+  "domain": zod.string().nullish(),
+  "industry": zod.string().nullish(),
+  "employees": zod.number().nullish(),
+  "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
+  "priorityScore": zod.number(),
+  "priorityReasons": zod.array(zod.string()),
+  "lastAnalyzedAt": zod.coerce.date().nullish(),
+  "snapshots": zod.array(zod.object({
+  "id": zod.number(),
+  "sourceType": zod.enum(['dnb_bisnode', 'sales_navigator', 'manual']),
+  "sourceRowId": zod.string().nullish(),
+  "snapshotDate": zod.coerce.date(),
+  "originalCompanyName": zod.string(),
+  "importedAt": zod.coerce.date(),
+  "data": zod.object({
+  "employees": zod.number().nullish(),
+  "revenue": zod.string().nullish(),
+  "owner": zod.string().nullish(),
+  "personName": zod.string().nullish(),
+  "roleTitle": zod.string().nullish(),
+  "profileUrl": zod.string().nullish(),
+  "fields": zod.record(zod.string(), zod.string())
+})
+})),
+  "changes": zod.array(zod.object({
+  "kind": zod.enum(['employee_change', 'relevant_role', 'source_refresh']),
+  "label": zod.string(),
+  "detail": zod.string()
+})),
+  "evidence": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['url_verified']),
+  "verifiedAt": zod.coerce.date()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Select a explainable manual analysis batch
+ */
+export const createCandidateAnalysisBatchBodyLimitMax = 100;
+
+
+
+export const CreateCandidateAnalysisBatchBody = zod.object({
+  "limit": zod.number().min(1).max(createCandidateAnalysisBatchBodyLimitMax)
+})
+
+export const CreateCandidateAnalysisBatchResponse = zod.object({
+  "id": zod.number(),
+  "requestedCount": zod.number(),
+  "selectedCount": zod.number(),
+  "criteria": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "candidates": zod.array(zod.object({
+  "id": zod.number(),
+  "companyName": zod.string(),
+  "organizationNumber": zod.string().nullish(),
+  "domain": zod.string().nullish(),
+  "industry": zod.string().nullish(),
+  "employees": zod.number().nullish(),
+  "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
+  "priorityScore": zod.number(),
+  "priorityReasons": zod.array(zod.string()),
+  "lastAnalyzedAt": zod.coerce.date().nullish(),
+  "snapshots": zod.array(zod.object({
+  "id": zod.number(),
+  "sourceType": zod.enum(['dnb_bisnode', 'sales_navigator', 'manual']),
+  "sourceRowId": zod.string().nullish(),
+  "snapshotDate": zod.coerce.date(),
+  "originalCompanyName": zod.string(),
+  "importedAt": zod.coerce.date(),
+  "data": zod.object({
+  "employees": zod.number().nullish(),
+  "revenue": zod.string().nullish(),
+  "owner": zod.string().nullish(),
+  "personName": zod.string().nullish(),
+  "roleTitle": zod.string().nullish(),
+  "profileUrl": zod.string().nullish(),
+  "fields": zod.record(zod.string(), zod.string())
+})
+})),
+  "changes": zod.array(zod.object({
+  "kind": zod.enum(['employee_change', 'relevant_role', 'source_refresh']),
+  "label": zod.string(),
+  "detail": zod.string()
+})),
+  "evidence": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['url_verified']),
+  "verifiedAt": zod.coerce.date()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+})
+
+

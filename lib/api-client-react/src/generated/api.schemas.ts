@@ -225,6 +225,162 @@ export interface DashboardSummary {
   crmTasks: number;
 }
 
+export type CandidateSnapshotSourceType = typeof CandidateSnapshotSourceType[keyof typeof CandidateSnapshotSourceType];
+
+
+export const CandidateSnapshotSourceType = {
+  dnb_bisnode: 'dnb_bisnode',
+  sales_navigator: 'sales_navigator',
+  manual: 'manual',
+} as const;
+
+export type CandidateSnapshotDataFields = {[key: string]: string};
+
+export type CandidateSnapshotData = {
+  /** @nullable */
+  employees?: number | null;
+  /** @nullable */
+  revenue?: string | null;
+  /** @nullable */
+  owner?: string | null;
+  /** @nullable */
+  personName?: string | null;
+  /** @nullable */
+  roleTitle?: string | null;
+  /** @nullable */
+  profileUrl?: string | null;
+  fields: CandidateSnapshotDataFields;
+};
+
+export interface CandidateSnapshot {
+  id: number;
+  sourceType: CandidateSnapshotSourceType;
+  /** @nullable */
+  sourceRowId?: string | null;
+  snapshotDate: string;
+  originalCompanyName: string;
+  importedAt: string;
+  data: CandidateSnapshotData;
+}
+
+export type CandidateChangeKind = typeof CandidateChangeKind[keyof typeof CandidateChangeKind];
+
+
+export const CandidateChangeKind = {
+  employee_change: 'employee_change',
+  relevant_role: 'relevant_role',
+  source_refresh: 'source_refresh',
+} as const;
+
+export interface CandidateChange {
+  kind: CandidateChangeKind;
+  label: string;
+  detail: string;
+}
+
+export type CandidateMatchStatus = typeof CandidateMatchStatus[keyof typeof CandidateMatchStatus];
+
+
+export const CandidateMatchStatus = {
+  new: 'new',
+  exact: 'exact',
+  domain_match: 'domain_match',
+  name_match: 'name_match',
+  needs_review: 'needs_review',
+} as const;
+
+export interface Candidate {
+  id: number;
+  companyName: string;
+  /** @nullable */
+  organizationNumber?: string | null;
+  /** @nullable */
+  domain?: string | null;
+  /** @nullable */
+  industry?: string | null;
+  /** @nullable */
+  employees?: number | null;
+  matchStatus: CandidateMatchStatus;
+  priorityScore: number;
+  priorityReasons: string[];
+  /** @nullable */
+  lastAnalyzedAt?: string | null;
+  snapshots: CandidateSnapshot[];
+  changes: CandidateChange[];
+  evidence: Evidence[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CandidateImportRecordFields = {[key: string]: string};
+
+export interface CandidateImportRecord {
+  /** @nullable */
+  sourceRowId?: string | null;
+  /** @minLength 2 */
+  companyName: string;
+  /** @nullable */
+  organizationNumber?: string | null;
+  /** @nullable */
+  domain?: string | null;
+  /** @nullable */
+  industry?: string | null;
+  /** @nullable */
+  employees?: number | null;
+  /** @nullable */
+  revenue?: string | null;
+  /** @nullable */
+  owner?: string | null;
+  /** @nullable */
+  personName?: string | null;
+  /** @nullable */
+  roleTitle?: string | null;
+  /** @nullable */
+  profileUrl?: string | null;
+  fields?: CandidateImportRecordFields;
+}
+
+export type CandidateImportInputSourceType = typeof CandidateImportInputSourceType[keyof typeof CandidateImportInputSourceType];
+
+
+export const CandidateImportInputSourceType = {
+  dnb_bisnode: 'dnb_bisnode',
+  sales_navigator: 'sales_navigator',
+  manual: 'manual',
+} as const;
+
+export interface CandidateImportInput {
+  sourceType: CandidateImportInputSourceType;
+  snapshotDate: string;
+  /** @minItems 1 */
+  records: CandidateImportRecord[];
+}
+
+export interface CandidateImportResult {
+  created: number;
+  matched: number;
+  needsReview: number;
+  skipped: number;
+  warnings: string[];
+}
+
+export interface CandidateBatchInput {
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  limit: number;
+}
+
+export interface CandidateAnalysisBatch {
+  id: number;
+  requestedCount: number;
+  selectedCount: number;
+  criteria: string;
+  createdAt: string;
+  candidates: Candidate[];
+}
+
 /**
  * Not found
  */
@@ -282,5 +438,9 @@ query: string;
  * @minLength 3
  */
 companyDomain: string;
+};
+
+export type ListCandidatesParams = {
+search?: string;
 };
 

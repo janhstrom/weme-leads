@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 
 import DashboardPage from '@/pages/dashboard';
+import CandidatesPage from '@/pages/candidates';
+import CandidateDetailPage from '@/pages/candidate-detail';
 import SignalDetailPage from '@/pages/signal-detail';
 import NotFound from '@/pages/not-found';
 import { Layout } from '@/components/layout';
@@ -15,6 +17,8 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={DashboardPage} />
+        <Route path="/candidates" component={CandidatesPage} />
+        <Route path="/candidates/:id" component={CandidateDetailPage} />
         <Route path="/signals/:id" component={SignalDetailPage} />
         <Route component={NotFound} />
       </Switch>

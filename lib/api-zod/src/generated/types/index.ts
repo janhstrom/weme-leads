@@ -7,6 +7,21 @@
  */
 
 export * from './badRequestResponse';
+export * from './candidate';
+export * from './candidateAnalysisBatch';
+export * from './candidateBatchInput';
+export * from './candidateChange';
+export * from './candidateChangeKind';
+export * from './candidateImportInput';
+export * from './candidateImportInputSourceType';
+export * from './candidateImportRecord';
+export * from './candidateImportRecordFields';
+export * from './candidateImportResult';
+export * from './candidateMatchStatus';
+export * from './candidateSnapshot';
+export * from './candidateSnapshotData';
+export * from './candidateSnapshotDataFields';
+export * from './candidateSnapshotSourceType';
 export * from './contact';
 export * from './contactConfidence';
 export * from './crmContactCandidate';
@@ -21,6 +36,7 @@ export * from './evidenceVerificationStatus';
 export * from './healthStatus';
 export * from './importSignalBatch201';
 export * from './importSignalBatchBody';
+export * from './listCandidatesParams';
 export * from './listSignalsParams';
 export * from './notFoundResponse';
 export * from './searchCrmContactsParams';

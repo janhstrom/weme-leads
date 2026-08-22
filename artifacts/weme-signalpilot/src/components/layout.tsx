@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Activity, Inbox, LayoutDashboard, Settings, ListFilter, Radar } from "lucide-react";
+import { Activity, Inbox, Settings, ListFilter, Radar, UsersRound } from "lucide-react";
 import { useHealthCheck } from "@workspace/api-client-react";
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -9,6 +9,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const isDashboard = location === "/";
   const isSignals = location.startsWith("/signals");
+  const isCandidates = location.startsWith("/candidates");
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
@@ -35,6 +36,13 @@ export function Layout({ children }: { children: ReactNode }) {
           >
             <ListFilter className="w-5 h-5 shrink-0" />
             <span className="hidden lg:inline-block text-sm">All signals</span>
+          </Link>
+          <Link
+            href="/candidates"
+            className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isCandidates ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'}`}
+          >
+            <UsersRound className="w-5 h-5 shrink-0" />
+            <span className="hidden lg:inline-block text-sm">Kandidater</span>
           </Link>
         </nav>
 
