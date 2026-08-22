@@ -95,10 +95,10 @@ export default function DashboardPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold">
                   <Building2 className="h-4 w-4 text-primary" />
-                  Hva en ny kjøring betyr
+                  Universum, signal og CRM-oppslag
                 </div>
                 <p className="text-muted-foreground">
-                  {summary?.total ?? 0} kandidater vises i pilotinnboksen nå. Kontoer er bare universet; en konkret kilde er signalet. CRM brukes kun for relasjon, konflikt og kontaktvalg.
+                  {summary?.total ?? 0} kandidater vises i pilotinnboksen nå. Kontoer er universet, mens en konkret offentlig kilde er signalet. CRM brukes som åpent oppslag for historikk og kontaktvalg — gammel CRM-data begrenser ikke analysen.
                 </p>
               </div>
             </CardContent>

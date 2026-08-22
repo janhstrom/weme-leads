@@ -212,7 +212,7 @@ export default function SignalDetailPage() {
             
             {/* CRM Status */}
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">CRM-sjekk</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">CRM-oppslag</h3>
               <Card className="bg-card">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
