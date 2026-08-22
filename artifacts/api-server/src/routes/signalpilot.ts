@@ -31,6 +31,7 @@ import {
 const router: IRouter = Router();
 
 const DAY = 1000 * 60 * 60 * 24;
+const EVIDENCE_CHECK_TIMEOUT_MS = 6_000;
 let pilotSeedPromise: Promise<void> | null = null;
 const legacyPilotSourceUrls = new Set([
   "https://www.motek.no/nyheter/",
@@ -205,9 +206,24 @@ async function verifyPublicEvidence(input: {
     throw new Error("Publiseringsdato må være på formatet YYYY-MM-DD.");
   }
 
-  let response = await fetch(parsed, { method: "HEAD", redirect: "follow" });
+  const fetchWithTimeout = async (method: "HEAD" | "GET") => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), EVIDENCE_CHECK_TIMEOUT_MS);
+    try {
+      return await fetch(parsed, { method, redirect: "follow", signal: controller.signal });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error("Kildekontrollen tok mer enn seks sekunder.");
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
+  let response = await fetchWithTimeout("HEAD");
   if (response.status === 405) {
-    response = await fetch(parsed, { method: "GET", redirect: "follow" });
+    response = await fetchWithTimeout("GET");
   }
   if (!response.ok) {
     throw new Error(`Kilden kunne ikke verifiseres (HTTP ${response.status}).`);
