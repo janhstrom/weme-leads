@@ -21,7 +21,7 @@ import { Input } from "@workspace/weme-earth-tones-system/components/ui/input";
 import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
 import { Textarea } from "@workspace/weme-earth-tones-system/components/ui/textarea";
 import { useToast } from "@workspace/weme-earth-tones-system/hooks/use-toast";
-import { ArrowLeft, Building2, Eye, FileSearch, Link2, Radio, Search, UserRound } from "lucide-react";
+import { AlertCircle, ArrowLeft, Building2, Eye, ExternalLink, FileSearch, Link2, Radio, Search, UserRound, X } from "lucide-react";
 
 export default function CandidateDetailPage() {
   const [, params] = useRoute("/candidates/:id");
@@ -33,6 +33,7 @@ export default function CandidateDetailPage() {
   const [form, setForm] = useState({ title: "", url: "", sourceType: "Selskapsnyhet", publishedAt: "", excerpt: "" });
   const [relevanceChoice, setRelevanceChoice] = useState<Candidate["relevanceStatus"] | null>(null);
   const [decisionReason, setDecisionReason] = useState("");
+  const [duplicateEvidenceUrl, setDuplicateEvidenceUrl] = useState<string | null>(null);
   const crmSearchParams = { query: crmQuery, companyDomain: candidate?.domain ?? "" };
   const crm = useSearchCrmContacts(
     crmSearchParams,
@@ -44,9 +45,17 @@ export default function CandidateDetailPage() {
         queryClient.setQueryData(getGetCandidateQueryKey(updated.id), updated);
         queryClient.invalidateQueries({ queryKey: getListCandidatesQueryKey() });
         setForm({ title: "", url: "", sourceType: "Selskapsnyhet", publishedAt: "", excerpt: "" });
+        setDuplicateEvidenceUrl(null);
         toast({ title: "Kilde kontrollert", description: "Den konkrete URL-en er lagret. Relevansen må fortsatt vurderes manuelt." });
       },
-      onError: (error) => toast({ title: "Kilden kunne ikke lagres", description: error instanceof Error ? error.message : "Kontroller feltene.", variant: "destructive" }),
+      onError: (error) => {
+        if (isDuplicateEvidenceError(error)) {
+          setDuplicateEvidenceUrl(form.url.trim());
+          toast({ title: "Kilden finnes allerede", description: "Den samme URL-en er allerede registrert for dette selskapet.", variant: "destructive" });
+          return;
+        }
+        toast({ title: "Kilden kunne ikke lagres", description: "Kontroller feltene og at URL-en er tilgjengelig.", variant: "destructive" });
+      },
     },
   });
   const updateCandidateInCache = (updated: Candidate) => {
@@ -140,6 +149,7 @@ export default function CandidateDetailPage() {
               <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Link2 className="h-4 w-4 text-primary" /> Offentlig dokumentasjon</CardTitle><CardDescription>En kandidat blir ikke et aktivt signal før en konkret offentlig kilde er registrert og vurdert.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
                 {candidate.evidence.map((evidence) => <a key={evidence.url} href={evidence.url} target="_blank" rel="noreferrer" className="block rounded-md border p-3 hover:border-primary"><div className="flex items-center justify-between gap-2"><span className="font-medium">{evidence.title}</span><Badge variant="outline" className="text-[10px]">URL kontrollert</Badge></div><p className="mt-2 text-sm text-muted-foreground italic">«{evidence.excerpt}»</p><p className="mt-2 text-xs text-muted-foreground">{evidence.sourceType} · {format(new Date(evidence.publishedAt), "d. MMM yyyy", { locale: nb })}</p></a>)}
+                {duplicateEvidenceUrl ? <div role="alert" className="flex items-start gap-3 rounded-md border border-accent bg-accent/20 p-3 text-sm"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground" /><div className="min-w-0 flex-1"><p className="font-medium">Denne kilden er allerede registrert</p><p className="mt-1 text-muted-foreground">Vi sendte ikke inn kilden på nytt. Åpne den eksisterende kilden nedenfor, eller behold skjemaet hvis du vil rette opplysningene.</p><a href={duplicateEvidenceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 font-medium text-primary hover:underline">Åpne eksisterende kilde <ExternalLink className="h-3 w-3" /></a></div><Button aria-label="Lukk duplikatmelding" size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => setDuplicateEvidenceUrl(null)}><X className="h-4 w-4" /></Button></div> : null}
                 <div className="grid gap-3 rounded-md border border-primary/20 bg-primary/5 p-4">
                   <Input placeholder="Kildetittel" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
                   <Input placeholder="https://…" value={form.url} onChange={(event) => setForm({ ...form, url: event.target.value })} />
@@ -166,6 +176,12 @@ export default function CandidateDetailPage() {
       </div>
     </div>
   );
+}
+
+function isDuplicateEvidenceError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const apiError = error as { status?: unknown; response?: { status?: unknown } };
+  return apiError.status === 409 || apiError.response?.status === 409;
 }
 
 function Meta({ label, value }: { label: string; value: string }) {
