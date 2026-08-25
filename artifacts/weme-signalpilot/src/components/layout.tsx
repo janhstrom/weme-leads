@@ -24,7 +24,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
         <nav className="flex-1 flex flex-col gap-2 px-2">
           <Link
-            href="/"
+            href="/signals"
             className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isDashboard ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'}`}
           >
             <Inbox className="w-5 h-5 shrink-0" />
@@ -35,7 +35,7 @@ export function Layout({ children }: { children: ReactNode }) {
             className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isSignals ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'}`}
           >
             <ListFilter className="w-5 h-5 shrink-0" />
-            <span className="hidden lg:inline-block text-sm">All signals</span>
+            <span className="hidden lg:inline-block text-sm">Alle signaler</span>
           </Link>
           <Link
             href="/candidates"

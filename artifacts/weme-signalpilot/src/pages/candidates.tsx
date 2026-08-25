@@ -35,7 +35,7 @@ import { useToast } from "@workspace/weme-earth-tones-system/hooks/use-toast";
 import { Building2, CheckCheck, ChevronRight, DatabaseZap, Eye, FileUp, ListChecks, Radio, Search, Sparkles, UsersRound } from "lucide-react";
 
 type SourceType = CandidateSnapshotSourceType;
-type ListView = "universe" | "monitoring" | "review";
+type ListView = "universe" | "monitoring" | "review" | "crm_review";
 type WorkScope = "universe" | "relevant" | "monitoring";
 type ManualRelevanceStatus = Exclude<Candidate["relevanceStatus"], "insufficient_data">;
 
@@ -172,7 +172,7 @@ function importErrorMessage(error: unknown) {
 
 export default function CandidatesPage() {
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<ListView>("universe");
+  const [view, setView] = useState<ListView>(() => new URLSearchParams(window.location.search).get("view") === "crm-review" ? "crm_review" : "universe");
   const [workScope, setWorkScope] = useState<WorkScope>("monitoring");
   const [sourceType, setSourceType] = useState<SourceType>("dnb_bisnode");
   const [snapshotDate, setSnapshotDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -193,7 +193,8 @@ export default function CandidatesPage() {
       const inView =
         view === "universe" ||
         (view === "monitoring" && candidate.monitoringStatus === "monitoring") ||
-        (view === "review" && (candidate.relevanceStatus === "needs_review" || candidate.matchStatus === "needs_review"));
+         (view === "review" && (candidate.relevanceStatus === "needs_review" || candidate.matchStatus === "needs_review")) ||
+         (view === "crm_review" && ["not_found", "ambiguous", "unavailable"].includes(candidate.crmEnrichment?.status ?? ""));
       return inView && (!needle || [candidate.companyName, candidate.domain, candidate.industry].filter(Boolean).join(" ").toLocaleLowerCase("nb-NO").includes(needle));
     });
   }, [candidates, search, view]);
@@ -319,6 +320,7 @@ export default function CandidatesPage() {
 
   const monitoredCount = candidates?.filter((candidate) => candidate.monitoringStatus === "monitoring").length ?? 0;
   const reviewCount = candidates?.filter((candidate) => candidate.relevanceStatus === "needs_review" || candidate.matchStatus === "needs_review").length ?? 0;
+  const crmReviewCount = candidates?.filter((candidate) => ["not_found", "ambiguous", "unavailable"].includes(candidate.crmEnrichment?.status ?? "")).length ?? 0;
   const selectedCandidates = visibleCandidates.filter((candidate) => selectedCandidateIds.includes(candidate.id));
   const toggleCandidateSelection = (candidateId: number) => {
     setSelectedCandidateIds((current) => current.includes(candidateId) ? current.filter((id) => id !== candidateId) : [...current, candidateId]);
@@ -335,10 +337,11 @@ export default function CandidatesPage() {
       </header>
       <div className="flex-1 overflow-auto p-6 bg-background">
         <div className="max-w-6xl mx-auto space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <Stat label="I hovedlisten" value={candidates?.length ?? 0} icon={<Building2 className="h-4 w-4 text-primary" />} />
             <Stat label="Overvåkes" value={monitoredCount} icon={<Radio className="h-4 w-4 text-accent" />} />
             <Stat label="Må vurderes" value={reviewCount} icon={<Eye className="h-4 w-4 text-destructive" />} />
+            <Stat label="CRM-avklaring" value={crmReviewCount} icon={<DatabaseZap className="h-4 w-4 text-accent" />} />
           </div>
 
             <Card className="border-primary/20 bg-primary/5">
@@ -384,6 +387,7 @@ export default function CandidatesPage() {
                 ["universe", "Hovedliste", candidates?.length ?? 0],
                 ["monitoring", "Overvåkes", monitoredCount],
                 ["review", "Til vurdering", reviewCount],
+                 ["crm_review", "CRM-avklaring", crmReviewCount],
               ] as const).map(([nextView, label, count]) => (
                 <Button key={nextView} size="sm" variant={view === nextView ? "default" : "outline"} onClick={() => { setView(nextView); setSelectedCandidateIds([]); }}>{label} ({count})</Button>
               ))}
@@ -399,7 +403,9 @@ export default function CandidatesPage() {
           </div>
            <p className="text-xs text-muted-foreground">CRM-oppdateringen behandler alle selskaper i gjeldende utvalg i puljer på 100 og skriver aldri tilbake til CRM. CRM brukes aldri til å fjerne selskaper fra hovedlisten.</p>
 
-          {view === "review" ? <Card className="border-accent/40 bg-accent/10">
+           {view === "crm_review" ? <Card className="border-accent/40 bg-accent/10"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><DatabaseZap className="h-4 w-4 text-accent-foreground" /> CRM-avklaringskø</CardTitle><CardDescription>Viser kandidater med manglende, tvetydig eller midlertidig utilgjengelig CRM-match. Ingen treff slås sammen automatisk; åpne kandidaten for å se identifikatorer, historikk og kontaktgrunnlag.</CardDescription></CardHeader></Card> : null}
+
+           {view === "review" ? <Card className="border-accent/40 bg-accent/10">
             <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><CheckCheck className="h-4 w-4 text-accent-foreground" /> Samlet vurdering</CardTitle><CardDescription>Bruk dette for en gruppe du vil behandle likt. Sterke systemtreff blir allerede merket relevante; velg «Mulig relevant» når informasjonen er for tynn til en endelig beslutning.</CardDescription></CardHeader>
             <CardContent className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center gap-2">

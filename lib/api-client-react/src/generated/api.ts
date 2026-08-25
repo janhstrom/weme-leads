@@ -34,6 +34,8 @@ import type {
   CandidateRelevanceInput,
   CandidateSnapshotDateCorrection,
   CandidateSnapshotDateCorrectionResult,
+  CandidateSource,
+  CandidateSourceInput,
   ConflictResponse,
   CrmContactCandidate,
   CrmContactSelectionInput,
@@ -47,6 +49,7 @@ import type {
   ImportSignalBatchBody,
   ListCandidatesParams,
   ListSignalsParams,
+  MonitoringRun,
   NotFoundResponse,
   SearchCrmContactsParams,
   Signal,
@@ -303,6 +306,231 @@ export const useRefreshDashboard = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getRefreshDashboardMutationOptions(options));
+    }
+
+export const getListMonitoringActionsUrl = () => {
+
+
+
+
+  return `/api/monitoring/actions`
+}
+
+/**
+ * @summary List current actionable signals from completed monitoring runs
+ */
+export const listMonitoringActions = async ( options?: Parameters<typeof customFetch>[1]): Promise<Signal[]> => {
+
+  return customFetch<Signal[]>(getListMonitoringActionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMonitoringActionsQueryKey = () => {
+    return [
+    `/api/monitoring/actions`
+    ] as const;
+    }
+
+
+export const getListMonitoringActionsQueryOptions = <TData = Awaited<ReturnType<typeof listMonitoringActions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMonitoringActions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMonitoringActionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMonitoringActions>>> = ({ signal }) => listMonitoringActions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMonitoringActions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMonitoringActionsQueryResult = NonNullable<Awaited<ReturnType<typeof listMonitoringActions>>>
+export type ListMonitoringActionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List current actionable signals from completed monitoring runs
+ */
+
+export function useListMonitoringActions<TData = Awaited<ReturnType<typeof listMonitoringActions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMonitoringActions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMonitoringActionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetLatestMonitoringRunUrl = () => {
+
+
+
+
+  return `/api/monitoring/runs/latest`
+}
+
+/**
+ * @summary Get the latest monitoring run and outcome
+ */
+export const getLatestMonitoringRun = async ( options?: Parameters<typeof customFetch>[1]): Promise<MonitoringRun> => {
+
+  return customFetch<MonitoringRun>(getGetLatestMonitoringRunUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLatestMonitoringRunQueryKey = () => {
+    return [
+    `/api/monitoring/runs/latest`
+    ] as const;
+    }
+
+
+export const getGetLatestMonitoringRunQueryOptions = <TData = Awaited<ReturnType<typeof getLatestMonitoringRun>>, TError = ErrorType<NotFoundResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLatestMonitoringRun>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLatestMonitoringRunQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLatestMonitoringRun>>> = ({ signal }) => getLatestMonitoringRun({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLatestMonitoringRun>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLatestMonitoringRunQueryResult = NonNullable<Awaited<ReturnType<typeof getLatestMonitoringRun>>>
+export type GetLatestMonitoringRunQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get the latest monitoring run and outcome
+ */
+
+export function useGetLatestMonitoringRun<TData = Awaited<ReturnType<typeof getLatestMonitoringRun>>, TError = ErrorType<NotFoundResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLatestMonitoringRun>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLatestMonitoringRunQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartMonitoringRunUrl = () => {
+
+
+
+
+  return `/api/monitoring/runs`
+}
+
+/**
+ * @summary Start a manual monitoring run for all monitored candidates
+ */
+export const startMonitoringRun = async ( options?: Parameters<typeof customFetch>[1]): Promise<MonitoringRun> => {
+
+  return customFetch<MonitoringRun>(getStartMonitoringRunUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStartMonitoringRunMutationOptions = <TError = ErrorType<ErrorResponse | BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startMonitoringRun>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startMonitoringRun>>, TError,void, TContext> => {
+
+const mutationKey = ['startMonitoringRun'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startMonitoringRun>>, void> = () => {
+
+
+          return  startMonitoringRun(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartMonitoringRunMutationResult = NonNullable<Awaited<ReturnType<typeof startMonitoringRun>>>
+
+    export type StartMonitoringRunMutationError = ErrorType<ErrorResponse | BadRequestResponse>
+
+    /**
+ * @summary Start a manual monitoring run for all monitored candidates
+ */
+export const useStartMonitoringRun = <TError = ErrorType<ErrorResponse | BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startMonitoringRun>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startMonitoringRun>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getStartMonitoringRunMutationOptions(options));
     }
 
 export const getListSignalsUrl = (params?: ListSignalsParams,) => {
@@ -1069,6 +1297,155 @@ export function useGetCandidate<TData = Awaited<ReturnType<typeof getCandidate>>
 
 
 
+
+export const getListCandidateSourcesUrl = (id: number,) => {
+
+
+
+
+  return `/api/candidates/${id}/sources`
+}
+
+/**
+ * @summary List configured official RSS or Atom sources for a candidate
+ */
+export const listCandidateSources = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<CandidateSource[]> => {
+
+  return customFetch<CandidateSource[]>(getListCandidateSourcesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCandidateSourcesQueryKey = (id: number,) => {
+    return [
+    `/api/candidates/${id}/sources`
+    ] as const;
+    }
+
+
+export const getListCandidateSourcesQueryOptions = <TData = Awaited<ReturnType<typeof listCandidateSources>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCandidateSources>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCandidateSourcesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCandidateSources>>> = ({ signal }) => listCandidateSources(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCandidateSources>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCandidateSourcesQueryResult = NonNullable<Awaited<ReturnType<typeof listCandidateSources>>>
+export type ListCandidateSourcesQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary List configured official RSS or Atom sources for a candidate
+ */
+
+export function useListCandidateSources<TData = Awaited<ReturnType<typeof listCandidateSources>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCandidateSources>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCandidateSourcesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCandidateSourceUrl = (id: number,) => {
+
+
+
+
+  return `/api/candidates/${id}/sources`
+}
+
+/**
+ * @summary Add an official RSS or Atom source for a monitored candidate
+ */
+export const createCandidateSource = async (id: number,
+    candidateSourceInput: CandidateSourceInput, options?: Parameters<typeof customFetch>[1]): Promise<CandidateSource> => {
+
+  return customFetch<CandidateSource>(getCreateCandidateSourceUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(candidateSourceInput)
+  }
+);}
+
+
+
+
+
+export const getCreateCandidateSourceMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCandidateSource>>, TError,{id: number;data: BodyType<CandidateSourceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCandidateSource>>, TError,{id: number;data: BodyType<CandidateSourceInput>}, TContext> => {
+
+const mutationKey = ['createCandidateSource'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCandidateSource>>, {id: number;data: BodyType<CandidateSourceInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createCandidateSource(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCandidateSourceMutationResult = NonNullable<Awaited<ReturnType<typeof createCandidateSource>>>
+    export type CreateCandidateSourceMutationBody = BodyType<CandidateSourceInput>
+    export type CreateCandidateSourceMutationError = ErrorType<BadRequestResponse | NotFoundResponse | ErrorResponse>
+
+    /**
+ * @summary Add an official RSS or Atom source for a monitored candidate
+ */
+export const useCreateCandidateSource = <TError = ErrorType<BadRequestResponse | NotFoundResponse | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCandidateSource>>, TError,{id: number;data: BodyType<CandidateSourceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCandidateSource>>,
+        TError,
+        {id: number;data: BodyType<CandidateSourceInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCandidateSourceMutationOptions(options));
+    }
 
 export const getImportCandidateSnapshotsUrl = () => {
 

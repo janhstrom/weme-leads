@@ -7,6 +7,7 @@ import {
   serial,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -64,12 +65,19 @@ export const signalpilotSignalsTable = pgTable("signalpilot_signals", {
   reviewReason: text("review_reason"),
   reviewComment: text("review_comment"),
   crmTaskCreated: boolean("crm_task_created").notNull().default(false),
+  candidateId: integer("candidate_id"),
+  monitoringRunId: integer("monitoring_run_id"),
+  signalKey: text("signal_key"),
+  actionPriority: integer("action_priority").notNull().default(0),
+  isActionable: boolean("is_actionable").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
-});
+}, (table) => ({
+  signalKeyUnique: uniqueIndex("signalpilot_signals_signal_key_unique").on(table.signalKey),
+}));
 
 export const insertSignalpilotSignalSchema = createInsertSchema(signalpilotSignalsTable).omit({
   id: true,

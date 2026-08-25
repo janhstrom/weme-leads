@@ -266,7 +266,7 @@ export function shouldRemoveLegacyPilotSignal(signal: Pick<SignalpilotSignal, "c
   return signal.evidence.some((item) => legacyPilotSourceCompanies.get(item.url) === signal.companyName);
 }
 
-function toSignalResponse(signal: SignalpilotSignal): SignalResponse {
+export function toSignalResponse(signal: SignalpilotSignal): SignalResponse {
   const freshnessDays = Math.max(
     0,
     Math.floor((Date.now() - Date.parse(`${signal.publishedAt}T00:00:00Z`)) / DAY),
@@ -385,7 +385,6 @@ export function refreshDashboardErrorResponse(error: unknown): {
 }
 
 async function getDashboardSummary() {
-  await ensurePilotSignals();
   const signals = await db.select().from(signalpilotSignalsTable);
 
   return GetDashboardSummaryResponse.parse({
@@ -402,7 +401,6 @@ async function getDashboardSummary() {
 }
 
 async function findSignal(id: number): Promise<SignalpilotSignal | undefined> {
-  await ensurePilotSignals();
   const [signal] = await db
     .select()
     .from(signalpilotSignalsTable)
@@ -431,7 +429,6 @@ router.get("/signals", async (req, res): Promise<void> => {
     return;
   }
 
-  await ensurePilotSignals();
   let signals = await db
     .select()
     .from(signalpilotSignalsTable)

@@ -389,7 +389,6 @@ router.get("/candidates", async (req, res): Promise<void> => {
     res.status(400).json({ error: query.error.message });
     return;
   }
-  await ensureCandidatesFromSignals();
   let candidates = await db.select().from(leadCandidatesTable).orderBy(desc(leadCandidatesTable.priorityScore), asc(leadCandidatesTable.companyName));
   if (query.data.search) {
     const needle = query.data.search.toLocaleLowerCase("nb-NO");
@@ -418,7 +417,6 @@ router.get("/candidates/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  await ensureCandidatesFromSignals();
   const [candidate] = await db.select().from(leadCandidatesTable).where(eq(leadCandidatesTable.id, params.data.id));
   if (!candidate) {
     res.status(404).json({ error: "Kandidaten finnes ikke." });
@@ -509,7 +507,6 @@ router.patch("/candidates/:id/relevance", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Velg en gyldig relevansstatus." });
     return;
   }
-  await ensureCandidatesFromSignals();
   const [candidate] = await db
     .update(leadCandidatesTable)
     .set({
@@ -557,7 +554,6 @@ router.patch("/candidates/:id/monitoring", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Velg om selskapet skal overvåkes eller ikke." });
     return;
   }
-  await ensureCandidatesFromSignals();
   const [candidate] = await db
     .update(leadCandidatesTable)
     .set({
@@ -728,7 +724,6 @@ router.post("/candidates/analysis-batches", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Velg mellom 1 og 100 kandidater." });
     return;
   }
-  await ensureCandidatesFromSignals();
   let candidates = await db.select().from(leadCandidatesTable).orderBy(desc(leadCandidatesTable.priorityScore), asc(leadCandidatesTable.companyName));
   if (body.data.scope === "relevant") {
     candidates = candidates.filter((candidate) => candidate.relevanceStatus === "relevant");

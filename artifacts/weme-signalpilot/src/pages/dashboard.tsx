@@ -1,40 +1,35 @@
-import { useGetDashboardSummary, useListSignals, useRefreshDashboard, ListSignalsParams, Signal } from "@workspace/api-client-react";
+import {
+  getGetLatestMonitoringRunQueryKey,
+  getListMonitoringActionsQueryKey,
+  useGetLatestMonitoringRun,
+  useListMonitoringActions,
+  useStartMonitoringRun,
+  Signal,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@workspace/weme-earth-tones-system/components/ui/card";
 import { Badge } from "@workspace/weme-earth-tones-system/components/ui/badge";
 import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
 import { Input } from "@workspace/weme-earth-tones-system/components/ui/input";
-import { Search, Building2, Calendar, Zap, ArrowRight, CheckCircle2, Clock, CheckCircle, FileSearch, Info, PlayCircle, AlertTriangle, ExternalLink } from "lucide-react";
-import { useState, useMemo } from "react";
+import { Building2, Calendar, Zap, ArrowRight, CheckCircle2, Clock, CheckCircle, FileSearch, Info, PlayCircle, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { nb } from "date-fns/locale";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function DashboardPage() {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ListSignalsParams['status'] | 'all'>("til_vurdering");
   const queryClient = useQueryClient();
-
-  const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary();
-  const refreshMutation = useRefreshDashboard({
+  const { data: latestRun, isLoading: isLoadingRun } = useGetLatestMonitoringRun();
+  const { data: signals, isLoading: isLoadingSignals } = useListMonitoringActions();
+  const runMutation = useStartMonitoringRun({
     mutation: {
       onSuccess: async () => {
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] }),
-          queryClient.invalidateQueries({ queryKey: ["/api/signals"] }),
+          queryClient.invalidateQueries({ queryKey: getGetLatestMonitoringRunQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getListMonitoringActionsQueryKey() }),
         ]);
       },
     },
   });
-  
-  const queryParams = useMemo(() => {
-    const params: ListSignalsParams = {};
-    if (search) params.search = search;
-    if (statusFilter !== 'all') params.status = statusFilter;
-    return params;
-  }, [search, statusFilter]);
-
-  const { data: signals, isLoading: isLoadingSignals } = useListSignals(queryParams);
 
   return (
     <div className="h-full flex flex-col">
@@ -46,34 +41,29 @@ export default function DashboardPage() {
       <div className="flex-1 overflow-auto p-6 bg-background">
         <div className="max-w-6xl mx-auto space-y-6">
           
-          {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <SummaryCard 
-              title="Til vurdering" 
-              value={summary?.pending} 
-              loading={isLoadingSummary} 
+              title="Følg opp nå" 
+              value={signals?.length} 
+              loading={isLoadingSignals} 
               icon={<Clock className="w-4 h-4 text-accent" />} 
-              onClick={() => setStatusFilter("til_vurdering")}
-              active={statusFilter === "til_vurdering"}
             />
             <SummaryCard 
-              title="Godkjent" 
-              value={summary?.approved} 
-              loading={isLoadingSummary} 
+              title="Nye signaler" 
+              value={latestRun?.signalsCreated} 
+              loading={isLoadingRun} 
               icon={<CheckCircle2 className="w-4 h-4 text-chart-2" />} 
-              onClick={() => setStatusFilter("godkjent")}
-              active={statusFilter === "godkjent"}
             />
             <SummaryCard 
-              title="Høy prioritet (A)" 
-              value={summary?.highPriority} 
-              loading={isLoadingSummary} 
+              title="CRM-avklaring" 
+              value={latestRun?.crmUnresolvedCount} 
+              loading={isLoadingRun} 
               icon={<Zap className="w-4 h-4 text-destructive" />} 
             />
             <SummaryCard 
-              title="Oppgaver opprettet" 
-              value={summary?.crmTasks} 
-              loading={isLoadingSummary} 
+              title="Kildeavvik" 
+              value={latestRun?.sourceErrorCount} 
+              loading={isLoadingRun} 
               icon={<Building2 className="w-4 h-4 text-primary" />} 
             />
           </div>
@@ -83,21 +73,21 @@ export default function DashboardPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Info className="h-4 w-4 text-primary" />
-                  Slik kjører WeMe Leads i v1
+                  Løpende signalkø
                 </CardTitle>
                 <button
                   type="button"
-                  onClick={() => refreshMutation.mutate()}
-                  disabled={refreshMutation.isPending}
+                  onClick={() => runMutation.mutate()}
+                  disabled={runMutation.isPending || latestRun?.status === "running"}
                   className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <FileSearch className={`h-4 w-4 ${refreshMutation.isPending ? "animate-pulse" : ""}`} />
-                  {refreshMutation.isPending ? "Oppfrisker kilder…" : "Oppfrisk pilotkilder"}
+                  <FileSearch className={`h-4 w-4 ${runMutation.isPending || latestRun?.status === "running" ? "animate-pulse" : ""}`} />
+                  {runMutation.isPending || latestRun?.status === "running" ? "Kjører overvåkning…" : "Kjør overvåkning nå"}
                 </button>
               </div>
-              {refreshMutation.isError && (
+              {runMutation.isError && (
                 <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
-                  Oppfriskningen mislyktes. Forrige kjente resultat vises fortsatt. {refreshMutation.error instanceof Error ? refreshMutation.error.message : "Prøv igjen senere."}
+                  Kjøringen kunne ikke startes. {runMutation.error instanceof Error ? runMutation.error.message : "Prøv igjen senere."}
                 </p>
               )}
             </CardHeader>
@@ -105,90 +95,33 @@ export default function DashboardPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold">
                   <PlayCircle className="h-4 w-4 text-primary" />
-                  Hva innboksen viser nå
+                  Hva køen viser nå
                 </div>
                 <p className="text-muted-foreground">
-                  Dette er signalene fra kildegrunnlaget som er registrert i systemet nå. Antallet her er et startpunkt, ikke en konklusjon om hvor mange relevante selskaper som finnes.
+                  Bare nye, URL-verifiserte funn fra aktive overvåkningskilder vises her. Klikk på et signal for kilde, CRM-kontekst og anbefalt kontaktrolle.
                 </p>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold">
                   <FileSearch className="h-4 w-4 text-primary" />
-                  Hovedliste før signaler
+                  Slik bestemmes omfanget
                 </div>
                 <p className="text-muted-foreground">
-                  Alle selskaper beholdes i hovedlisten og får en relevansvurdering. Du velger selv hvilke relevante selskaper som skal følges i overvåkningslisten.
+                  Kjøringen omfatter kun kandidater som overvåkes. Brønnøysund sjekker organisasjonsnummeret, og CRM oppdateres kun med lesing.
                 </p>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold">
                   <Building2 className="h-4 w-4 text-primary" />
-                  Overvåkning, signal og CRM-oppslag
+                  Avklar først når det trengs
                 </div>
                 <p className="text-muted-foreground">
-                  En konkret offentlig kilde blir et signal. CRM brukes som åpent oppslag for historikk og kontaktvalg — gammel CRM-data begrenser aldri hovedlisten eller overvåkningen.
+                  <Link href="/candidates?view=crm-review" className="font-medium text-primary hover:underline">Se CRM-avklaringskøen</Link> for manglende, tvetydige eller midlertidig utilgjengelige treff. Ingen selskap fjernes automatisk.
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          {summary?.rejectedPilotSources && summary.rejectedPilotSources.length > 0 && (
-            <Card className="border-destructive/30 bg-destructive/5 shadow-none">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <AlertTriangle className="h-4 w-4 text-destructive" />
-                  Forkastede pilotkilder
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Kontrollert ved siste oppfriskning {formatDistanceToNow(parseISO(summary.pilotSourcesLastRefreshedAt), { addSuffix: true, locale: nb })}. Disse kildene ble hoppet over og er ikke med i innboksen.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {summary.rejectedPilotSources.map((source, index) => (
-                  <div key={`${source.url}-${index}`} className="rounded-lg border border-destructive/20 bg-card p-3 text-sm">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className="font-semibold">{source.company}</span>
-                      <a href={source.url} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 text-primary hover:underline">
-                        <span className="truncate">{source.url}</span>
-                        <ExternalLink className="h-3 w-3 shrink-0" />
-                      </a>
-                    </div>
-                    <p className="mt-1 text-muted-foreground">Årsak: {source.reason}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-            <div className="flex gap-2">
-              {(['all', 'til_vurdering', 'godkjent', 'avvist', 'følg_videre'] as const).map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setStatusFilter(status as any)}
-                  className={`text-sm px-3 py-1.5 rounded-full font-medium transition-colors ${
-                    statusFilter === status 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                  }`}
-                >
-                  {status === 'all' ? 'Alle' : status.replace('_', ' ')}
-                </button>
-              ))}
-            </div>
-            <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input 
-                placeholder="Søk etter selskaper..." 
-                className="pl-9 bg-card"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* List */}
           <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
             {isLoadingSignals ? (
               <div className="p-6 space-y-4">
@@ -197,8 +130,8 @@ export default function DashboardPage() {
             ) : signals?.length === 0 ? (
               <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center">
                 <CheckCircle className="w-12 h-12 mb-4 text-muted" />
-                <p className="text-lg font-medium text-foreground">Ingen signaler funnet</p>
-                <p className="text-sm">Ingen signaler matcher filtrene dine akkurat nå.</p>
+                  <p className="text-lg font-medium text-foreground">Ingen aktive oppfølginger ennå</p>
+                  <p className="mt-1 max-w-md text-sm">Legg en kandidat i overvåkning og registrer et offisielt RSS- eller Atom-feed på kandidaten før neste kjøring.</p>
               </div>
             ) : (
               <div className="divide-y divide-border">
@@ -233,7 +166,7 @@ function SummaryCard({ title, value, loading, icon, onClick, active }: { title: 
   );
 }
 
-function SignalRow({ signal }: { signal: Signal }) {
+export function SignalRow({ signal }: { signal: Signal }) {
   return (
     <Link href={`/signals/${signal.id}`} className="block p-4 sm:px-6 hover:bg-secondary/30 transition-colors group">
       <div className="flex items-start justify-between gap-4">

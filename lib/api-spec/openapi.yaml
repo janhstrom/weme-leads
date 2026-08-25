@@ -13,6 +13,7 @@ tags:
   - name: signals
   - name: candidates
   - name: crm
+  - name: monitoring
 paths:
   /healthz:
     get:
@@ -56,6 +57,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /monitoring/actions:
+    get:
+      operationId: listMonitoringActions
+      tags: [monitoring]
+      summary: List current actionable signals from completed monitoring runs
+      responses:
+        "200":
+          description: Actionable signals
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Signal" }
+  /monitoring/runs/latest:
+    get:
+      operationId: getLatestMonitoringRun
+      tags: [monitoring]
+      summary: Get the latest monitoring run and outcome
+      responses:
+        "200":
+          description: Latest run
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MonitoringRun" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /monitoring/runs:
+    post:
+      operationId: startMonitoringRun
+      tags: [monitoring]
+      summary: Start a manual monitoring run for all monitored candidates
+      responses:
+        "200":
+          description: Completed monitoring run
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MonitoringRun" }
+        "409":
+          description: A monitoring run is already in progress
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "500": { $ref: "#/components/responses/BadRequest" }
   /signals:
     get:
       operationId: listSignals
@@ -283,6 +326,46 @@ paths:
               schema: { $ref: "#/components/schemas/Candidate" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /candidates/{id}/sources:
+    get:
+      operationId: listCandidateSources
+      tags: [candidates, monitoring]
+      summary: List configured official RSS or Atom sources for a candidate
+      parameters:
+        - $ref: "#/components/parameters/CandidateId"
+      responses:
+        "200":
+          description: Candidate sources
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CandidateSource" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: createCandidateSource
+      tags: [candidates, monitoring]
+      summary: Add an official RSS or Atom source for a monitored candidate
+      parameters:
+        - $ref: "#/components/parameters/CandidateId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CandidateSourceInput" }
+      responses:
+        "201":
+          description: Configured candidate source
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CandidateSource" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The candidate already has this source URL
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
   /candidates/import:
     post:
       operationId: importCandidateSnapshots
@@ -889,3 +972,40 @@ components:
         candidates:
           type: array
           items: { $ref: "#/components/schemas/Candidate" }
+    CandidateSource:
+      type: object
+      required: [id, candidateId, sourceType, url, label, isActive, createdAt, updatedAt]
+      properties:
+        id: { type: number }
+        candidateId: { type: number }
+        sourceType: { type: string, enum: [rss, atom] }
+        url: { type: string }
+        label: { type: string }
+        isActive: { type: boolean }
+        lastCheckedAt: { type: ["string", "null"], format: date-time }
+        lastError: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CandidateSourceInput:
+      type: object
+      required: [sourceType, url, label]
+      properties:
+        sourceType: { type: string, enum: [rss, atom] }
+        url: { type: string, minLength: 8 }
+        label: { type: string, minLength: 2, maxLength: 120 }
+    MonitoringRun:
+      type: object
+      required: [id, status, trigger, requestedCount, processedCount, signalsCreated, crmMatchedCount, crmUnresolvedCount, sourceErrorCount, startedAt, completedAt, errorSummary]
+      properties:
+        id: { type: number }
+        status: { type: string, enum: [running, completed, completed_with_errors, failed] }
+        trigger: { type: string, enum: [manual, scheduled] }
+        requestedCount: { type: number }
+        processedCount: { type: number }
+        signalsCreated: { type: number }
+        crmMatchedCount: { type: number }
+        crmUnresolvedCount: { type: number }
+        sourceErrorCount: { type: number }
+        errorSummary: { type: ["string", "null"] }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: ["string", "null"], format: date-time }

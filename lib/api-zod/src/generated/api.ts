@@ -53,6 +53,100 @@ export const RefreshDashboardResponse = zod.object({
 
 
 /**
+ * @summary List current actionable signals from completed monitoring runs
+ */
+export const ListMonitoringActionsResponseItem = zod.object({
+  "id": zod.number(),
+  "company": zod.object({
+  "name": zod.string(),
+  "employees": zod.number(),
+  "industry": zod.string(),
+  "domain": zod.string()
+}),
+  "signalType": zod.string(),
+  "strength": zod.enum(['A', 'B', 'C']),
+  "status": zod.enum(['til_vurdering', 'godkjent', 'avvist', 'allerede_kjent', 'følg_videre']),
+  "summary": zod.string(),
+  "rationale": zod.string().optional(),
+  "publishedAt": zod.coerce.date().optional(),
+  "freshnessDays": zod.number().optional(),
+  "evidence": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['url_verified']),
+  "verifiedAt": zod.coerce.date()
+})),
+  "contacts": zod.array(zod.object({
+  "id": zod.number(),
+  "crmContactId": zod.number().nullish(),
+  "name": zod.string(),
+  "title": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "linkedinUrl": zod.string().nullish(),
+  "confidence": zod.enum(['bekreftet', 'fra_crm', 'fra_sales_navigator', 'ikke_verifisert']),
+  "rationale": zod.string().optional()
+})),
+  "crm": zod.object({
+  "status": zod.string(),
+  "matchCount": zod.number(),
+  "note": zod.string().nullish(),
+  "writeStatus": zod.enum(['not_started', 'pending', 'completed', 'partial', 'failed']).optional(),
+  "crmContactId": zod.number().nullish(),
+  "noteCreatedAt": zod.coerce.date().nullish(),
+  "taskCreatedAt": zod.coerce.date().nullish(),
+  "taskId": zod.number().nullish()
+}),
+  "suggestedOpening": zod.string().optional(),
+  "dialogueDraft": zod.string().optional(),
+  "reviewReason": zod.string().nullish(),
+  "reviewComment": zod.string().nullish()
+})
+export const ListMonitoringActionsResponse = zod.array(ListMonitoringActionsResponseItem)
+
+
+/**
+ * @summary Get the latest monitoring run and outcome
+ */
+export const GetLatestMonitoringRunResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['running', 'completed', 'completed_with_errors', 'failed']),
+  "trigger": zod.enum(['manual', 'scheduled']),
+  "requestedCount": zod.number(),
+  "processedCount": zod.number(),
+  "signalsCreated": zod.number(),
+  "crmMatchedCount": zod.number(),
+  "crmUnresolvedCount": zod.number(),
+  "sourceErrorCount": zod.number(),
+  "errorSummary": zod.string().nullable(),
+  "startedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Start a manual monitoring run for all monitored candidates
+ */
+export const StartMonitoringRunResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['running', 'completed', 'completed_with_errors', 'failed']),
+  "trigger": zod.enum(['manual', 'scheduled']),
+  "requestedCount": zod.number(),
+  "processedCount": zod.number(),
+  "signalsCreated": zod.number(),
+  "crmMatchedCount": zod.number(),
+  "crmUnresolvedCount": zod.number(),
+  "sourceErrorCount": zod.number(),
+  "errorSummary": zod.string().nullable(),
+  "startedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullable()
+})
+
+
+/**
  * @summary List signals
  */
 export const ListSignalsQueryParams = zod.object({
@@ -658,6 +752,62 @@ export const GetCandidateResponse = zod.object({
   "verificationStatus": zod.enum(['url_verified']),
   "verifiedAt": zod.coerce.date()
 })),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List configured official RSS or Atom sources for a candidate
+ */
+export const ListCandidateSourcesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListCandidateSourcesResponseItem = zod.object({
+  "id": zod.number(),
+  "candidateId": zod.number(),
+  "sourceType": zod.enum(['rss', 'atom']),
+  "url": zod.string(),
+  "label": zod.string(),
+  "isActive": zod.boolean(),
+  "lastCheckedAt": zod.coerce.date().nullish(),
+  "lastError": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListCandidateSourcesResponse = zod.array(ListCandidateSourcesResponseItem)
+
+
+/**
+ * @summary Add an official RSS or Atom source for a monitored candidate
+ */
+export const CreateCandidateSourceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const createCandidateSourceBodyUrlMin = 8;
+
+export const createCandidateSourceBodyLabelMin = 2;
+export const createCandidateSourceBodyLabelMax = 120;
+
+
+
+export const CreateCandidateSourceBody = zod.object({
+  "sourceType": zod.enum(['rss', 'atom']),
+  "url": zod.string().min(createCandidateSourceBodyUrlMin),
+  "label": zod.string().min(createCandidateSourceBodyLabelMin).max(createCandidateSourceBodyLabelMax)
+})
+
+export const CreateCandidateSourceResponse = zod.object({
+  "id": zod.number(),
+  "candidateId": zod.number(),
+  "sourceType": zod.enum(['rss', 'atom']),
+  "url": zod.string(),
+  "label": zod.string(),
+  "isActive": zod.boolean(),
+  "lastCheckedAt": zod.coerce.date().nullish(),
+  "lastError": zod.string().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })

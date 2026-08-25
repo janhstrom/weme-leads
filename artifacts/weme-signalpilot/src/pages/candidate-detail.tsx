@@ -5,12 +5,15 @@ import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 import {
   Candidate,
+  getListCandidateSourcesQueryKey,
   getSearchCrmContactsQueryKey,
   getGetCandidateQueryKey,
   getListCandidatesQueryKey,
   useAddCandidateEvidence,
+  useCreateCandidateSource,
   useEnrichCandidateCrm,
   useGetCandidate,
+  useListCandidateSources,
   useSearchCrmContacts,
   useUpdateCandidateMonitoring,
   useUpdateCandidateRelevance,
@@ -34,6 +37,7 @@ export default function CandidateDetailPage() {
   const { data: candidate, isLoading, isError } = useGetCandidate(id);
   const [crmQuery, setCrmQuery] = useState("");
   const [form, setForm] = useState({ title: "", url: "", sourceType: "Selskapsnyhet", publishedAt: "", excerpt: "" });
+  const [sourceForm, setSourceForm] = useState<{ sourceType: "rss" | "atom"; label: string; url: string }>({ sourceType: "rss", label: "", url: "" });
   const [relevanceChoice, setRelevanceChoice] = useState<ManualRelevanceStatus | null>(null);
   const [decisionReason, setDecisionReason] = useState("");
   const [duplicateEvidenceUrl, setDuplicateEvidenceUrl] = useState<string | null>(null);
@@ -43,6 +47,7 @@ export default function CandidateDetailPage() {
     evidenceMutation.mutate({ id: candidate.id, data: form });
   };
   const crmSearchParams = { query: crmQuery, companyDomain: candidate?.domain ?? "" };
+  const sources = useListCandidateSources(id, { query: { enabled: Number.isFinite(id) && id > 0, queryKey: getListCandidateSourcesQueryKey(id) } });
   const crm = useSearchCrmContacts(
     crmSearchParams,
     { query: { enabled: Boolean(candidate?.domain && crmQuery.trim().length >= 2), queryKey: getSearchCrmContactsQueryKey(crmSearchParams) } },
@@ -64,6 +69,16 @@ export default function CandidateDetailPage() {
         }
         toast({ title: "Kilden kunne ikke lagres", description: "Kontroller feltene og at URL-en er tilgjengelig.", variant: "destructive" });
       },
+    },
+  });
+  const sourceMutation = useCreateCandidateSource({
+    mutation: {
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: getListCandidateSourcesQueryKey(id) });
+        setSourceForm({ sourceType: "rss", label: "", url: "" });
+        toast({ title: "Offisiell kilde lagt til", description: "Kilden blir kontrollert i neste overvåkningskjøring." });
+      },
+      onError: () => toast({ title: "Kilden kunne ikke lagres", description: "Bruk en konkret HTTPS-URL til et offisielt RSS- eller Atom-feed.", variant: "destructive" }),
     },
   });
   const updateCandidateInCache = (updated: Candidate) => {
@@ -193,6 +208,19 @@ export default function CandidateDetailPage() {
                   <div className="grid gap-3 sm:grid-cols-2"><Input placeholder="Kildetype" value={form.sourceType} onChange={(event) => setForm({ ...form, sourceType: event.target.value })} /><Input type="date" value={form.publishedAt} onChange={(event) => setForm({ ...form, publishedAt: event.target.value })} /></div>
                   <Textarea placeholder="Kort, relevant sitat fra kilden" value={form.excerpt} onChange={(event) => setForm({ ...form, excerpt: event.target.value })} />
                   <Button onClick={submitEvidence} disabled={evidenceMutation.isPending}>Kontroller og legg til kilde</Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Radio className="h-4 w-4 text-primary" /> Offisielle overvåkningskilder</CardTitle><CardDescription>Legg inn selskapets RSS- eller Atom-feed fra presserom/nyheter. Vi leser bare kildene du eksplisitt har registrert.</CardDescription></CardHeader>
+              <CardContent className="space-y-4">
+                {sources.data?.length ? <div className="space-y-2">{sources.data.map((source) => <div key={source.id} className="rounded-md border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><p className="font-medium">{source.label}</p><Badge variant="outline">{source.sourceType.toUpperCase()}</Badge>{source.lastError ? <Badge variant="outline" className="border-destructive/40 text-destructive">Sist kildefeil</Badge> : null}</div><p className="mt-1 truncate text-xs text-muted-foreground">{source.url}</p>{source.lastError ? <p className="mt-2 text-xs text-destructive">{source.lastError}</p> : <p className="mt-2 text-xs text-muted-foreground">{source.lastCheckedAt ? `Sist kontrollert ${format(new Date(source.lastCheckedAt), "d. MMM yyyy HH:mm", { locale: nb })}` : "Ikke kontrollert ennå"}</p>}</div>)}</div> : <p className="text-sm text-muted-foreground">Ingen automatiske kilder er konfigurert ennå. Manuelle evidenskilder over blir ikke crawlet.</p>}
+                <div className="grid gap-3 rounded-md border border-primary/20 bg-primary/5 p-4">
+                  <div className="grid gap-3 sm:grid-cols-[140px_1fr]"><select value={sourceForm.sourceType} onChange={(event) => setSourceForm({ ...sourceForm, sourceType: event.target.value as "rss" | "atom" })} className="h-10 rounded-md border border-input bg-card px-3 text-sm"><option value="rss">RSS</option><option value="atom">Atom</option></select><Input placeholder="Kildenavn, f.eks. Hydro Newsroom" value={sourceForm.label} onChange={(event) => setSourceForm({ ...sourceForm, label: event.target.value })} /></div>
+                  <Input placeholder="https://…/feed.xml" value={sourceForm.url} onChange={(event) => setSourceForm({ ...sourceForm, url: event.target.value })} />
+                  <Button onClick={() => sourceMutation.mutate({ id: candidate.id, data: sourceForm })} disabled={sourceMutation.isPending || candidate.monitoringStatus !== "monitoring"}>{sourceMutation.isPending ? "Lagrer kilde…" : "Legg til offisiell feed"}</Button>
+                  {candidate.monitoringStatus !== "monitoring" ? <p className="text-xs text-muted-foreground">Legg først kandidaten i overvåkning for å aktivere en feed.</p> : null}
                 </div>
               </CardContent>
             </Card>

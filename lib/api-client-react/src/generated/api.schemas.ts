@@ -626,6 +626,83 @@ export interface CandidateAnalysisBatch {
   candidates: Candidate[];
 }
 
+export type CandidateSourceSourceType = typeof CandidateSourceSourceType[keyof typeof CandidateSourceSourceType];
+
+
+export const CandidateSourceSourceType = {
+  rss: 'rss',
+  atom: 'atom',
+} as const;
+
+export interface CandidateSource {
+  id: number;
+  candidateId: number;
+  sourceType: CandidateSourceSourceType;
+  url: string;
+  label: string;
+  isActive: boolean;
+  /** @nullable */
+  lastCheckedAt?: string | null;
+  /** @nullable */
+  lastError?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CandidateSourceInputSourceType = typeof CandidateSourceInputSourceType[keyof typeof CandidateSourceInputSourceType];
+
+
+export const CandidateSourceInputSourceType = {
+  rss: 'rss',
+  atom: 'atom',
+} as const;
+
+export interface CandidateSourceInput {
+  sourceType: CandidateSourceInputSourceType;
+  /** @minLength 8 */
+  url: string;
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
+  label: string;
+}
+
+export type MonitoringRunStatus = typeof MonitoringRunStatus[keyof typeof MonitoringRunStatus];
+
+
+export const MonitoringRunStatus = {
+  running: 'running',
+  completed: 'completed',
+  completed_with_errors: 'completed_with_errors',
+  failed: 'failed',
+} as const;
+
+export type MonitoringRunTrigger = typeof MonitoringRunTrigger[keyof typeof MonitoringRunTrigger];
+
+
+export const MonitoringRunTrigger = {
+  manual: 'manual',
+  scheduled: 'scheduled',
+} as const;
+
+export interface MonitoringRun {
+  id: number;
+  status: MonitoringRunStatus;
+  trigger: MonitoringRunTrigger;
+  requestedCount: number;
+  processedCount: number;
+  signalsCreated: number;
+  crmMatchedCount: number;
+  crmUnresolvedCount: number;
+  sourceErrorCount: number;
+  /** @nullable */
+  errorSummary: string | null;
+  startedAt: string;
+  /** @nullable */
+  completedAt: string | null;
+}
+
 /**
  * Not found
  */
