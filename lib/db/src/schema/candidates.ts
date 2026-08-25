@@ -11,9 +11,43 @@ import {
 } from "drizzle-orm/pg-core";
 
 export type CandidateMatchStatus = "new" | "exact" | "domain_match" | "name_match" | "needs_review";
-export type CandidateRelevanceStatus = "relevant" | "possible" | "not_relevant" | "needs_review";
+export type CandidateRelevanceStatus = "relevant" | "possible" | "not_relevant" | "needs_review" | "insufficient_data";
 export type CandidateRelevanceSource = "system" | "manual";
 export type CandidateMonitoringStatus = "monitoring" | "not_monitoring";
+export type CandidateRelevanceConfidence = "high" | "medium" | "low" | "insufficient";
+export type CandidateCrmMatchMethod = "organization_number" | "domain" | "name";
+export type CandidateCrmEnrichmentStatus = "matched" | "not_found" | "ambiguous" | "unavailable";
+
+export type CandidateCrmContact = {
+  id: number;
+  name: string;
+  title: string | null;
+  email: string | null;
+  owner: string | null;
+  lifecycleStage: string | null;
+  leadStatus: string | null;
+  contactRole: string | null;
+  updatedAt: string | null;
+};
+
+export type CandidateCrmEnrichment = {
+  status: CandidateCrmEnrichmentStatus;
+  matchMethod: CandidateCrmMatchMethod | null;
+  matchedCompanyName: string | null;
+  matchedDomain: string | null;
+  industry: string | null;
+  contactCount: number;
+  lifecycleStages: string[];
+  leadStatuses: string[];
+  owners: string[];
+  relevantContacts: CandidateCrmContact[];
+  noteCount: number;
+  latestNoteAt: string | null;
+  lastActivityAt: string | null;
+  source: "weme_crm";
+  evaluatedAt: string;
+  availabilityMessage: string | null;
+};
 
 export type CandidateSnapshotData = {
   employees?: number | null;
@@ -39,10 +73,16 @@ export const leadCandidatesTable = pgTable(
     relevanceStatus: text("relevance_status").notNull().default("needs_review").$type<CandidateRelevanceStatus>(),
     relevanceReason: text("relevance_reason"),
     relevanceSource: text("relevance_source").notNull().default("system").$type<CandidateRelevanceSource>(),
+    relevanceConfidence: text("relevance_confidence")
+      .notNull()
+      .default("insufficient")
+      .$type<CandidateRelevanceConfidence>(),
     monitoringStatus: text("monitoring_status").notNull().default("not_monitoring").$type<CandidateMonitoringStatus>(),
     monitoringReason: text("monitoring_reason"),
     priorityScore: integer("priority_score").notNull().default(0),
     priorityReasons: jsonb("priority_reasons").$type<string[]>().notNull().default([]),
+    crmEnrichment: jsonb("crm_enrichment").$type<CandidateCrmEnrichment | null>(),
+    crmEnrichedAt: timestamp("crm_enriched_at", { withTimezone: true }),
     lastAnalyzedAt: timestamp("last_analyzed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })

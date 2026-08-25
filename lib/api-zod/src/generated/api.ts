@@ -479,6 +479,12 @@ export const ListCandidatesQueryParams = zod.object({
   "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']).optional()
 })
 
+export const listCandidatesResponseCrmEnrichmentOneContactCountMin = 0;
+
+export const listCandidatesResponseCrmEnrichmentOneNoteCountMin = 0;
+
+
+
 export const ListCandidatesResponseItem = zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -487,13 +493,43 @@ export const ListCandidatesResponseItem = zod.object({
   "industry": zod.string().nullish(),
   "employees": zod.number().nullish(),
   "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
-  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review', 'insufficient_data']),
   "relevanceReason": zod.string().nullish(),
   "relevanceSource": zod.enum(['system', 'manual']),
+  "relevanceConfidence": zod.enum(['high', 'medium', 'low', 'insufficient']),
   "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
   "monitoringReason": zod.string().nullish(),
   "priorityScore": zod.number(),
   "priorityReasons": zod.array(zod.string()),
+  "crmEnrichment": zod.union([zod.object({
+  "status": zod.enum(['matched', 'not_found', 'ambiguous', 'unavailable']),
+  "matchMethod": zod.union([zod.literal('organization_number'),zod.literal('domain'),zod.literal('name'),zod.literal(null)]).nullable(),
+  "matchedCompanyName": zod.string().nullable(),
+  "matchedDomain": zod.string().nullable(),
+  "industry": zod.string().nullable(),
+  "contactCount": zod.number().min(listCandidatesResponseCrmEnrichmentOneContactCountMin),
+  "lifecycleStages": zod.array(zod.string()),
+  "leadStatuses": zod.array(zod.string()),
+  "owners": zod.array(zod.string()),
+  "relevantContacts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "title": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "owner": zod.string().nullable(),
+  "lifecycleStage": zod.string().nullable(),
+  "leadStatus": zod.string().nullable(),
+  "contactRole": zod.string().nullable(),
+  "updatedAt": zod.coerce.date().nullable()
+})),
+  "noteCount": zod.number().min(listCandidatesResponseCrmEnrichmentOneNoteCountMin),
+  "latestNoteAt": zod.coerce.date().nullable(),
+  "lastActivityAt": zod.coerce.date().nullable(),
+  "source": zod.enum(['weme_crm']),
+  "evaluatedAt": zod.coerce.date(),
+  "availabilityMessage": zod.string().nullable()
+}),zod.null()]),
+  "crmEnrichedAt": zod.coerce.date().nullable(),
   "lastAnalyzedAt": zod.coerce.date().nullish(),
   "snapshots": zod.array(zod.object({
   "id": zod.number(),
@@ -539,6 +575,12 @@ export const GetCandidateParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const getCandidateResponseCrmEnrichmentOneContactCountMin = 0;
+
+export const getCandidateResponseCrmEnrichmentOneNoteCountMin = 0;
+
+
+
 export const GetCandidateResponse = zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -547,13 +589,43 @@ export const GetCandidateResponse = zod.object({
   "industry": zod.string().nullish(),
   "employees": zod.number().nullish(),
   "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
-  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review', 'insufficient_data']),
   "relevanceReason": zod.string().nullish(),
   "relevanceSource": zod.enum(['system', 'manual']),
+  "relevanceConfidence": zod.enum(['high', 'medium', 'low', 'insufficient']),
   "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
   "monitoringReason": zod.string().nullish(),
   "priorityScore": zod.number(),
   "priorityReasons": zod.array(zod.string()),
+  "crmEnrichment": zod.union([zod.object({
+  "status": zod.enum(['matched', 'not_found', 'ambiguous', 'unavailable']),
+  "matchMethod": zod.union([zod.literal('organization_number'),zod.literal('domain'),zod.literal('name'),zod.literal(null)]).nullable(),
+  "matchedCompanyName": zod.string().nullable(),
+  "matchedDomain": zod.string().nullable(),
+  "industry": zod.string().nullable(),
+  "contactCount": zod.number().min(getCandidateResponseCrmEnrichmentOneContactCountMin),
+  "lifecycleStages": zod.array(zod.string()),
+  "leadStatuses": zod.array(zod.string()),
+  "owners": zod.array(zod.string()),
+  "relevantContacts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "title": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "owner": zod.string().nullable(),
+  "lifecycleStage": zod.string().nullable(),
+  "leadStatus": zod.string().nullable(),
+  "contactRole": zod.string().nullable(),
+  "updatedAt": zod.coerce.date().nullable()
+})),
+  "noteCount": zod.number().min(getCandidateResponseCrmEnrichmentOneNoteCountMin),
+  "latestNoteAt": zod.coerce.date().nullable(),
+  "lastActivityAt": zod.coerce.date().nullable(),
+  "source": zod.enum(['weme_crm']),
+  "evaluatedAt": zod.coerce.date(),
+  "availabilityMessage": zod.string().nullable()
+}),zod.null()]),
+  "crmEnrichedAt": zod.coerce.date().nullable(),
   "lastAnalyzedAt": zod.coerce.date().nullish(),
   "snapshots": zod.array(zod.object({
   "id": zod.number(),
@@ -642,6 +714,113 @@ export const CorrectCandidateSnapshotDateResponse = zod.object({
 
 
 /**
+ * @summary Refresh read-only CRM context and automatic assessments for selected candidates
+ */
+
+export const enrichCandidateCrmBodyCandidateIdsMax = 100;
+
+
+
+export const EnrichCandidateCrmBody = zod.object({
+  "candidateIds": zod.array(zod.number().min(1)).min(1).max(enrichCandidateCrmBodyCandidateIdsMax)
+})
+
+export const enrichCandidateCrmResponseCandidatesItemCrmEnrichmentOneContactCountMin = 0;
+
+export const enrichCandidateCrmResponseCandidatesItemCrmEnrichmentOneNoteCountMin = 0;
+
+
+
+export const EnrichCandidateCrmResponse = zod.object({
+  "requestedCount": zod.number(),
+  "enrichedCount": zod.number(),
+  "noMatchCount": zod.number(),
+  "ambiguousCount": zod.number(),
+  "unavailableCount": zod.number(),
+  "candidates": zod.array(zod.object({
+  "id": zod.number(),
+  "companyName": zod.string(),
+  "organizationNumber": zod.string().nullish(),
+  "domain": zod.string().nullish(),
+  "industry": zod.string().nullish(),
+  "employees": zod.number().nullish(),
+  "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review', 'insufficient_data']),
+  "relevanceReason": zod.string().nullish(),
+  "relevanceSource": zod.enum(['system', 'manual']),
+  "relevanceConfidence": zod.enum(['high', 'medium', 'low', 'insufficient']),
+  "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
+  "monitoringReason": zod.string().nullish(),
+  "priorityScore": zod.number(),
+  "priorityReasons": zod.array(zod.string()),
+  "crmEnrichment": zod.union([zod.object({
+  "status": zod.enum(['matched', 'not_found', 'ambiguous', 'unavailable']),
+  "matchMethod": zod.union([zod.literal('organization_number'),zod.literal('domain'),zod.literal('name'),zod.literal(null)]).nullable(),
+  "matchedCompanyName": zod.string().nullable(),
+  "matchedDomain": zod.string().nullable(),
+  "industry": zod.string().nullable(),
+  "contactCount": zod.number().min(enrichCandidateCrmResponseCandidatesItemCrmEnrichmentOneContactCountMin),
+  "lifecycleStages": zod.array(zod.string()),
+  "leadStatuses": zod.array(zod.string()),
+  "owners": zod.array(zod.string()),
+  "relevantContacts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "title": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "owner": zod.string().nullable(),
+  "lifecycleStage": zod.string().nullable(),
+  "leadStatus": zod.string().nullable(),
+  "contactRole": zod.string().nullable(),
+  "updatedAt": zod.coerce.date().nullable()
+})),
+  "noteCount": zod.number().min(enrichCandidateCrmResponseCandidatesItemCrmEnrichmentOneNoteCountMin),
+  "latestNoteAt": zod.coerce.date().nullable(),
+  "lastActivityAt": zod.coerce.date().nullable(),
+  "source": zod.enum(['weme_crm']),
+  "evaluatedAt": zod.coerce.date(),
+  "availabilityMessage": zod.string().nullable()
+}),zod.null()]),
+  "crmEnrichedAt": zod.coerce.date().nullable(),
+  "lastAnalyzedAt": zod.coerce.date().nullish(),
+  "snapshots": zod.array(zod.object({
+  "id": zod.number(),
+  "sourceType": zod.enum(['dnb_bisnode', 'sales_navigator', 'manual']),
+  "sourceRowId": zod.string().nullish(),
+  "snapshotDate": zod.coerce.date(),
+  "originalCompanyName": zod.string(),
+  "importedAt": zod.coerce.date(),
+  "data": zod.object({
+  "employees": zod.number().nullish(),
+  "revenue": zod.string().nullish(),
+  "owner": zod.string().nullish(),
+  "personName": zod.string().nullish(),
+  "roleTitle": zod.string().nullish(),
+  "profileUrl": zod.string().nullish(),
+  "fields": zod.record(zod.string(), zod.string())
+})
+})),
+  "changes": zod.array(zod.object({
+  "kind": zod.enum(['employee_change', 'relevant_role', 'source_refresh']),
+  "label": zod.string(),
+  "detail": zod.string()
+})),
+  "evidence": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string(),
+  "sourceType": zod.string(),
+  "publishedAt": zod.coerce.date(),
+  "excerpt": zod.string(),
+  "verificationStatus": zod.enum(['url_verified']),
+  "verifiedAt": zod.coerce.date()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+})
+
+
+/**
  * @summary Apply one manual relevance decision to a selected group of candidates
  */
 export const bulkUpdateCandidateRelevanceBodyCandidateIdsMax = 1000;
@@ -675,6 +854,12 @@ export const AddCandidateEvidenceBody = zod.object({
   "excerpt": zod.string()
 })
 
+export const addCandidateEvidenceResponseCrmEnrichmentOneContactCountMin = 0;
+
+export const addCandidateEvidenceResponseCrmEnrichmentOneNoteCountMin = 0;
+
+
+
 export const AddCandidateEvidenceResponse = zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -683,13 +868,43 @@ export const AddCandidateEvidenceResponse = zod.object({
   "industry": zod.string().nullish(),
   "employees": zod.number().nullish(),
   "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
-  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review', 'insufficient_data']),
   "relevanceReason": zod.string().nullish(),
   "relevanceSource": zod.enum(['system', 'manual']),
+  "relevanceConfidence": zod.enum(['high', 'medium', 'low', 'insufficient']),
   "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
   "monitoringReason": zod.string().nullish(),
   "priorityScore": zod.number(),
   "priorityReasons": zod.array(zod.string()),
+  "crmEnrichment": zod.union([zod.object({
+  "status": zod.enum(['matched', 'not_found', 'ambiguous', 'unavailable']),
+  "matchMethod": zod.union([zod.literal('organization_number'),zod.literal('domain'),zod.literal('name'),zod.literal(null)]).nullable(),
+  "matchedCompanyName": zod.string().nullable(),
+  "matchedDomain": zod.string().nullable(),
+  "industry": zod.string().nullable(),
+  "contactCount": zod.number().min(addCandidateEvidenceResponseCrmEnrichmentOneContactCountMin),
+  "lifecycleStages": zod.array(zod.string()),
+  "leadStatuses": zod.array(zod.string()),
+  "owners": zod.array(zod.string()),
+  "relevantContacts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "title": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "owner": zod.string().nullable(),
+  "lifecycleStage": zod.string().nullable(),
+  "leadStatus": zod.string().nullable(),
+  "contactRole": zod.string().nullable(),
+  "updatedAt": zod.coerce.date().nullable()
+})),
+  "noteCount": zod.number().min(addCandidateEvidenceResponseCrmEnrichmentOneNoteCountMin),
+  "latestNoteAt": zod.coerce.date().nullable(),
+  "lastActivityAt": zod.coerce.date().nullable(),
+  "source": zod.enum(['weme_crm']),
+  "evaluatedAt": zod.coerce.date(),
+  "availabilityMessage": zod.string().nullable()
+}),zod.null()]),
+  "crmEnrichedAt": zod.coerce.date().nullable(),
   "lastAnalyzedAt": zod.coerce.date().nullish(),
   "snapshots": zod.array(zod.object({
   "id": zod.number(),
@@ -739,6 +954,12 @@ export const UpdateCandidateRelevanceBody = zod.object({
   "reason": zod.string().nullish()
 })
 
+export const updateCandidateRelevanceResponseCrmEnrichmentOneContactCountMin = 0;
+
+export const updateCandidateRelevanceResponseCrmEnrichmentOneNoteCountMin = 0;
+
+
+
 export const UpdateCandidateRelevanceResponse = zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -747,13 +968,43 @@ export const UpdateCandidateRelevanceResponse = zod.object({
   "industry": zod.string().nullish(),
   "employees": zod.number().nullish(),
   "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
-  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review', 'insufficient_data']),
   "relevanceReason": zod.string().nullish(),
   "relevanceSource": zod.enum(['system', 'manual']),
+  "relevanceConfidence": zod.enum(['high', 'medium', 'low', 'insufficient']),
   "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
   "monitoringReason": zod.string().nullish(),
   "priorityScore": zod.number(),
   "priorityReasons": zod.array(zod.string()),
+  "crmEnrichment": zod.union([zod.object({
+  "status": zod.enum(['matched', 'not_found', 'ambiguous', 'unavailable']),
+  "matchMethod": zod.union([zod.literal('organization_number'),zod.literal('domain'),zod.literal('name'),zod.literal(null)]).nullable(),
+  "matchedCompanyName": zod.string().nullable(),
+  "matchedDomain": zod.string().nullable(),
+  "industry": zod.string().nullable(),
+  "contactCount": zod.number().min(updateCandidateRelevanceResponseCrmEnrichmentOneContactCountMin),
+  "lifecycleStages": zod.array(zod.string()),
+  "leadStatuses": zod.array(zod.string()),
+  "owners": zod.array(zod.string()),
+  "relevantContacts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "title": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "owner": zod.string().nullable(),
+  "lifecycleStage": zod.string().nullable(),
+  "leadStatus": zod.string().nullable(),
+  "contactRole": zod.string().nullable(),
+  "updatedAt": zod.coerce.date().nullable()
+})),
+  "noteCount": zod.number().min(updateCandidateRelevanceResponseCrmEnrichmentOneNoteCountMin),
+  "latestNoteAt": zod.coerce.date().nullable(),
+  "lastActivityAt": zod.coerce.date().nullable(),
+  "source": zod.enum(['weme_crm']),
+  "evaluatedAt": zod.coerce.date(),
+  "availabilityMessage": zod.string().nullable()
+}),zod.null()]),
+  "crmEnrichedAt": zod.coerce.date().nullable(),
   "lastAnalyzedAt": zod.coerce.date().nullish(),
   "snapshots": zod.array(zod.object({
   "id": zod.number(),
@@ -803,6 +1054,12 @@ export const UpdateCandidateMonitoringBody = zod.object({
   "reason": zod.string().nullish()
 })
 
+export const updateCandidateMonitoringResponseCrmEnrichmentOneContactCountMin = 0;
+
+export const updateCandidateMonitoringResponseCrmEnrichmentOneNoteCountMin = 0;
+
+
+
 export const UpdateCandidateMonitoringResponse = zod.object({
   "id": zod.number(),
   "companyName": zod.string(),
@@ -811,13 +1068,43 @@ export const UpdateCandidateMonitoringResponse = zod.object({
   "industry": zod.string().nullish(),
   "employees": zod.number().nullish(),
   "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
-  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review', 'insufficient_data']),
   "relevanceReason": zod.string().nullish(),
   "relevanceSource": zod.enum(['system', 'manual']),
+  "relevanceConfidence": zod.enum(['high', 'medium', 'low', 'insufficient']),
   "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
   "monitoringReason": zod.string().nullish(),
   "priorityScore": zod.number(),
   "priorityReasons": zod.array(zod.string()),
+  "crmEnrichment": zod.union([zod.object({
+  "status": zod.enum(['matched', 'not_found', 'ambiguous', 'unavailable']),
+  "matchMethod": zod.union([zod.literal('organization_number'),zod.literal('domain'),zod.literal('name'),zod.literal(null)]).nullable(),
+  "matchedCompanyName": zod.string().nullable(),
+  "matchedDomain": zod.string().nullable(),
+  "industry": zod.string().nullable(),
+  "contactCount": zod.number().min(updateCandidateMonitoringResponseCrmEnrichmentOneContactCountMin),
+  "lifecycleStages": zod.array(zod.string()),
+  "leadStatuses": zod.array(zod.string()),
+  "owners": zod.array(zod.string()),
+  "relevantContacts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "title": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "owner": zod.string().nullable(),
+  "lifecycleStage": zod.string().nullable(),
+  "leadStatus": zod.string().nullable(),
+  "contactRole": zod.string().nullable(),
+  "updatedAt": zod.coerce.date().nullable()
+})),
+  "noteCount": zod.number().min(updateCandidateMonitoringResponseCrmEnrichmentOneNoteCountMin),
+  "latestNoteAt": zod.coerce.date().nullable(),
+  "lastActivityAt": zod.coerce.date().nullable(),
+  "source": zod.enum(['weme_crm']),
+  "evaluatedAt": zod.coerce.date(),
+  "availabilityMessage": zod.string().nullable()
+}),zod.null()]),
+  "crmEnrichedAt": zod.coerce.date().nullable(),
   "lastAnalyzedAt": zod.coerce.date().nullish(),
   "snapshots": zod.array(zod.object({
   "id": zod.number(),
@@ -868,6 +1155,12 @@ export const CreateCandidateAnalysisBatchBody = zod.object({
   "limit": zod.number().min(1).max(createCandidateAnalysisBatchBodyLimitMax).optional()
 })
 
+export const createCandidateAnalysisBatchResponseCandidatesItemCrmEnrichmentOneContactCountMin = 0;
+
+export const createCandidateAnalysisBatchResponseCandidatesItemCrmEnrichmentOneNoteCountMin = 0;
+
+
+
 export const CreateCandidateAnalysisBatchResponse = zod.object({
   "id": zod.number(),
   "requestedCount": zod.number(),
@@ -882,13 +1175,43 @@ export const CreateCandidateAnalysisBatchResponse = zod.object({
   "industry": zod.string().nullish(),
   "employees": zod.number().nullish(),
   "matchStatus": zod.enum(['new', 'exact', 'domain_match', 'name_match', 'needs_review']),
-  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review', 'insufficient_data']),
   "relevanceReason": zod.string().nullish(),
   "relevanceSource": zod.enum(['system', 'manual']),
+  "relevanceConfidence": zod.enum(['high', 'medium', 'low', 'insufficient']),
   "monitoringStatus": zod.enum(['monitoring', 'not_monitoring']),
   "monitoringReason": zod.string().nullish(),
   "priorityScore": zod.number(),
   "priorityReasons": zod.array(zod.string()),
+  "crmEnrichment": zod.union([zod.object({
+  "status": zod.enum(['matched', 'not_found', 'ambiguous', 'unavailable']),
+  "matchMethod": zod.union([zod.literal('organization_number'),zod.literal('domain'),zod.literal('name'),zod.literal(null)]).nullable(),
+  "matchedCompanyName": zod.string().nullable(),
+  "matchedDomain": zod.string().nullable(),
+  "industry": zod.string().nullable(),
+  "contactCount": zod.number().min(createCandidateAnalysisBatchResponseCandidatesItemCrmEnrichmentOneContactCountMin),
+  "lifecycleStages": zod.array(zod.string()),
+  "leadStatuses": zod.array(zod.string()),
+  "owners": zod.array(zod.string()),
+  "relevantContacts": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "title": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "owner": zod.string().nullable(),
+  "lifecycleStage": zod.string().nullable(),
+  "leadStatus": zod.string().nullable(),
+  "contactRole": zod.string().nullable(),
+  "updatedAt": zod.coerce.date().nullable()
+})),
+  "noteCount": zod.number().min(createCandidateAnalysisBatchResponseCandidatesItemCrmEnrichmentOneNoteCountMin),
+  "latestNoteAt": zod.coerce.date().nullable(),
+  "lastActivityAt": zod.coerce.date().nullable(),
+  "source": zod.enum(['weme_crm']),
+  "evaluatedAt": zod.coerce.date(),
+  "availabilityMessage": zod.string().nullable()
+}),zod.null()]),
+  "crmEnrichedAt": zod.coerce.date().nullable(),
   "lastAnalyzedAt": zod.coerce.date().nullish(),
   "snapshots": zod.array(zod.object({
   "id": zod.number(),

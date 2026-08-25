@@ -14,4 +14,5 @@ export const CandidateRelevanceStatus = {
   possible: 'possible',
   not_relevant: 'not_relevant',
   needs_review: 'needs_review',
+  insufficient_data: 'insufficient_data',
 } as const;

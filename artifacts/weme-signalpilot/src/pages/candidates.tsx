@@ -10,6 +10,7 @@ import {
   useBulkUpdateCandidateRelevance,
   useCreateCandidateAnalysisBatch,
   useCorrectCandidateSnapshotDate,
+  useEnrichCandidateCrm,
   useImportCandidateSnapshots,
   useListCandidates,
   useUpdateCandidateMonitoring,
@@ -31,11 +32,12 @@ import { Checkbox } from "@workspace/weme-earth-tones-system/components/ui/check
 import { Input } from "@workspace/weme-earth-tones-system/components/ui/input";
 import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
 import { useToast } from "@workspace/weme-earth-tones-system/hooks/use-toast";
-import { Building2, CheckCheck, ChevronRight, Eye, FileUp, ListChecks, Radio, Search, Sparkles, UsersRound } from "lucide-react";
+import { Building2, CheckCheck, ChevronRight, DatabaseZap, Eye, FileUp, ListChecks, Radio, Search, Sparkles, UsersRound } from "lucide-react";
 
 type SourceType = CandidateSnapshotSourceType;
 type ListView = "universe" | "monitoring" | "review";
 type WorkScope = "universe" | "relevant" | "monitoring";
+type ManualRelevanceStatus = Exclude<Candidate["relevanceStatus"], "insufficient_data">;
 
 function rowValue(row: Record<string, string>, aliases: string[]) {
   const normalized = Object.entries(row).find(([key]) => aliases.includes(key.toLocaleLowerCase("nb-NO").replace(/[^a-z0-9æøå]/g, "")));
@@ -176,7 +178,7 @@ export default function CandidatesPage() {
   const [snapshotDate, setSnapshotDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [isImporting, setIsImporting] = useState(false);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<number[]>([]);
-  const [bulkRelevanceStatus, setBulkRelevanceStatus] = useState<Candidate["relevanceStatus"]>("possible");
+  const [bulkRelevanceStatus, setBulkRelevanceStatus] = useState<ManualRelevanceStatus>("possible");
   const [bulkReason, setBulkReason] = useState("");
   const [confirmBulkDecision, setConfirmBulkDecision] = useState(false);
   const [confirmDateCorrection, setConfirmDateCorrection] = useState(false);
@@ -244,6 +246,22 @@ export default function CandidatesPage() {
       onError: () => toast({ title: "Kunne ikke opprette gjennomgangsliste", variant: "destructive" }),
     },
   });
+  const crmEnrichmentMutation = useEnrichCandidateCrm({
+    mutation: {
+      onSuccess: (result) => {
+        queryClient.invalidateQueries({ queryKey: getListCandidatesQueryKey() });
+        toast({
+          title: "CRM-grunnlag oppdatert",
+          description: `${result.enrichedCount} sikre treff, ${result.noMatchCount} uten treff, ${result.ambiguousCount} uavklarte og ${result.unavailableCount} midlertidig utilgjengelige.`,
+        });
+      },
+      onError: () => toast({
+        title: "CRM-grunnlaget kunne ikke oppdateres",
+        description: "Ingen manuelle relevansvalg eller kildehistorikk er endret.",
+        variant: "destructive",
+      }),
+    },
+  });
 
   const handleFile = async (file: File | undefined) => {
     if (!file || isImporting) return;
@@ -276,6 +294,7 @@ export default function CandidatesPage() {
   const monitoredCount = candidates?.filter((candidate) => candidate.monitoringStatus === "monitoring").length ?? 0;
   const reviewCount = candidates?.filter((candidate) => candidate.relevanceStatus === "needs_review" || candidate.matchStatus === "needs_review").length ?? 0;
   const selectedCandidates = visibleCandidates.filter((candidate) => selectedCandidateIds.includes(candidate.id));
+  const crmBatchCandidates = visibleCandidates.slice(0, 100);
   const toggleCandidateSelection = (candidateId: number) => {
     setSelectedCandidateIds((current) => current.includes(candidateId) ? current.filter((id) => id !== candidateId) : [...current, candidateId]);
   };
@@ -297,14 +316,14 @@ export default function CandidatesPage() {
             <Stat label="Må vurderes" value={reviewCount} icon={<Eye className="h-4 w-4 text-destructive" />} />
           </div>
 
-          <Card className="border-primary/20 bg-primary/5">
+            <Card className="border-primary/20 bg-primary/5">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4 w-4 text-primary" /> Slik brukes selskapene</CardTitle>
-              <CardDescription>Importerte selskaper blir vurdert fra firmadata, roller og endringer. Du bestemmer deretter hvilke relevante selskaper som skal overvåkes.</CardDescription>
+              <CardDescription>Importerte selskaper vurderes fra snapshots, sikre CRM-treff og dokumenterte endringer. Du bestemmer deretter hvilke relevante selskaper som skal overvåkes.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm md:grid-cols-3">
               <SourceRole title="1. Hovedliste" description="Alle importerte selskaper beholdes og får en relevansvurdering." />
-              <SourceRole title="2. Relevans" description="Systemet foreslår status med begrunnelse. Du kan endre den på selskapsdetaljen." />
+              <SourceRole title="2. Relevans" description="Systemet foreslår status med kildegrunnlag. Manuelle valg på selskapsdetaljen overstyrer forslaget." />
               <SourceRole title="3. Overvåkning" description="Bare selskaper du velger å overvåke skal følges for nye signaler." />
             </CardContent>
           </Card>
@@ -349,10 +368,11 @@ export default function CandidatesPage() {
               <select value={workScope} onChange={(event) => setWorkScope(event.target.value as WorkScope)} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
                 <option value="monitoring">Overvåkningslisten</option><option value="relevant">Alle relevante</option><option value="universe">Hele hovedlisten</option>
               </select>
-              <Button variant="outline" onClick={() => batchMutation.mutate({ data: { scope: workScope } })} disabled={batchMutation.isPending}><ListChecks className="mr-2 h-4 w-4" /> {batchMutation.isPending ? "Oppretter…" : "Opprett gjennomgangsliste"}</Button>
+               <Button variant="outline" onClick={() => batchMutation.mutate({ data: { scope: workScope } })} disabled={batchMutation.isPending}><ListChecks className="mr-2 h-4 w-4" /> {batchMutation.isPending ? "Oppretter…" : "Opprett gjennomgangsliste"}</Button>
+               <Button variant="outline" onClick={() => crmEnrichmentMutation.mutate({ data: { candidateIds: crmBatchCandidates.map((candidate) => candidate.id) } })} disabled={!crmBatchCandidates.length || crmEnrichmentMutation.isPending}><DatabaseZap className="mr-2 h-4 w-4" /> {crmEnrichmentMutation.isPending ? "Oppdaterer CRM…" : `Oppdater CRM (${crmBatchCandidates.length})`}</Button>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">Gjennomgangslisten velger selskaper fra valget ditt. Relevans beregnes når kilde-snapshots oppdateres; CRM brukes aldri til å fjerne selskaper.</p>
+          <p className="text-xs text-muted-foreground">CRM-oppdateringen behandler inntil 100 selskaper fra gjeldende utvalg og skriver aldri tilbake til CRM. CRM brukes aldri til å fjerne selskaper fra hovedlisten.</p>
 
           {view === "review" ? <Card className="border-accent/40 bg-accent/10">
             <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><CheckCheck className="h-4 w-4 text-accent-foreground" /> Samlet vurdering</CardTitle><CardDescription>Bruk dette for en gruppe du vil behandle likt. Sterke systemtreff blir allerede merket relevante; velg «Mulig relevant» når informasjonen er for tynn til en endelig beslutning.</CardDescription></CardHeader>
@@ -364,7 +384,7 @@ export default function CandidatesPage() {
               </div>
               <div className="grid gap-3 md:grid-cols-[220px_1fr_auto] md:items-end">
                 <label className="grid gap-1 text-sm font-medium">Sett relevans
-                  <select value={bulkRelevanceStatus} onChange={(event) => setBulkRelevanceStatus(event.target.value as Candidate["relevanceStatus"])} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
+                  <select value={bulkRelevanceStatus} onChange={(event) => setBulkRelevanceStatus(event.target.value as ManualRelevanceStatus)} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
                     <option value="relevant">Relevant</option><option value="possible">Mulig relevant</option><option value="not_relevant">Ikke relevant</option><option value="needs_review">Må vurderes</option>
                   </select>
                 </label>
@@ -417,7 +437,7 @@ function CandidateRow({ candidate, pending, selectable, selected, onToggleSelect
     <Link href={`/candidates/${candidate.id}`} className="group min-w-0 flex-1">
       <div className="flex flex-wrap items-center gap-2"><span className="text-lg font-semibold group-hover:text-primary">{candidate.companyName}</span><RelevanceBadge status={candidate.relevanceStatus} /><MonitoringBadge status={candidate.monitoringStatus} /></div>
       <p className="mt-1 text-sm text-muted-foreground">{candidate.relevanceReason ?? candidate.priorityReasons[0]}</p>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"><span>{candidate.snapshots.length} snapshots</span>{candidate.employees ? <span>{candidate.employees.toLocaleString("nb-NO")} ansatte</span> : null}<span>{candidate.evidence.length} offentlige kilder</span></div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"><span>{candidate.snapshots.length} snapshots</span>{candidate.employees ? <span>{candidate.employees.toLocaleString("nb-NO")} ansatte</span> : null}<span>{candidate.evidence.length} offentlige kilder</span>{candidate.crmEnrichment ? <span>{crmStatusLabel(candidate.crmEnrichment.status)}</span> : <span>CRM ikke oppdatert</span>}</div>
     </Link>
     <Button size="sm" variant={candidate.monitoringStatus === "monitoring" ? "outline" : "default"} onClick={onToggleMonitoring} disabled={pending}>{candidate.monitoringStatus === "monitoring" ? "Trekk fra" : "Overvåk"}</Button>
     <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -425,12 +445,16 @@ function CandidateRow({ candidate, pending, selectable, selected, onToggleSelect
 }
 
 export function RelevanceBadge({ status }: { status: Candidate["relevanceStatus"] }) {
-  const styles = { relevant: "bg-primary text-primary-foreground", possible: "bg-accent text-accent-foreground", not_relevant: "bg-muted text-muted-foreground", needs_review: "bg-destructive text-destructive-foreground" };
+  const styles = { relevant: "bg-primary text-primary-foreground", possible: "bg-accent text-accent-foreground", not_relevant: "bg-muted text-muted-foreground", needs_review: "bg-destructive text-destructive-foreground", insufficient_data: "bg-secondary text-secondary-foreground" };
   return <Badge variant="outline" className={`${styles[status]} border-transparent text-[10px] uppercase`}>{relevanceLabel(status)}</Badge>;
 }
 
 function relevanceLabel(status: Candidate["relevanceStatus"]) {
-  return { relevant: "Relevant", possible: "Mulig relevant", not_relevant: "Ikke relevant", needs_review: "Må vurderes" }[status];
+  return { relevant: "Relevant", possible: "Mulig relevant", not_relevant: "Ikke relevant", needs_review: "Må vurderes", insufficient_data: "Utilstrekkelig data" }[status];
+}
+
+function crmStatusLabel(status: NonNullable<Candidate["crmEnrichment"]>["status"]) {
+  return { matched: "CRM sikkert treff", not_found: "CRM uten treff", ambiguous: "CRM uavklart", unavailable: "CRM utilgjengelig" }[status];
 }
 
 export function MonitoringBadge({ status }: { status: Candidate["monitoringStatus"] }) {

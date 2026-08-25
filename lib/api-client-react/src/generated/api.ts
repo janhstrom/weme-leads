@@ -24,6 +24,8 @@ import type {
   Candidate,
   CandidateAnalysisBatch,
   CandidateBatchInput,
+  CandidateCrmEnrichmentBatchInput,
+  CandidateCrmEnrichmentBatchResult,
   CandidateImportInput,
   CandidateImportResult,
   CandidateMonitoringInput,
@@ -1208,6 +1210,77 @@ export const useCorrectCandidateSnapshotDate = <TError = ErrorType<BadRequestRes
         TContext
       > => {
       return useMutation(getCorrectCandidateSnapshotDateMutationOptions(options));
+    }
+
+export const getEnrichCandidateCrmUrl = () => {
+
+
+
+
+  return `/api/candidates/crm-enrichment`
+}
+
+/**
+ * @summary Refresh read-only CRM context and automatic assessments for selected candidates
+ */
+export const enrichCandidateCrm = async (candidateCrmEnrichmentBatchInput: CandidateCrmEnrichmentBatchInput, options?: Parameters<typeof customFetch>[1]): Promise<CandidateCrmEnrichmentBatchResult> => {
+
+  return customFetch<CandidateCrmEnrichmentBatchResult>(getEnrichCandidateCrmUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(candidateCrmEnrichmentBatchInput)
+  }
+);}
+
+
+
+
+
+export const getEnrichCandidateCrmMutationOptions = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enrichCandidateCrm>>, TError,{data: BodyType<CandidateCrmEnrichmentBatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof enrichCandidateCrm>>, TError,{data: BodyType<CandidateCrmEnrichmentBatchInput>}, TContext> => {
+
+const mutationKey = ['enrichCandidateCrm'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof enrichCandidateCrm>>, {data: BodyType<CandidateCrmEnrichmentBatchInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  enrichCandidateCrm(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EnrichCandidateCrmMutationResult = NonNullable<Awaited<ReturnType<typeof enrichCandidateCrm>>>
+    export type EnrichCandidateCrmMutationBody = BodyType<CandidateCrmEnrichmentBatchInput>
+    export type EnrichCandidateCrmMutationError = ErrorType<BadRequestResponse>
+
+    /**
+ * @summary Refresh read-only CRM context and automatic assessments for selected candidates
+ */
+export const useEnrichCandidateCrm = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enrichCandidateCrm>>, TError,{data: BodyType<CandidateCrmEnrichmentBatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof enrichCandidateCrm>>,
+        TError,
+        {data: BodyType<CandidateCrmEnrichmentBatchInput>},
+        TContext
+      > => {
+      return useMutation(getEnrichCandidateCrmMutationOptions(options));
     }
 
 export const getBulkUpdateCandidateRelevanceUrl = () => {

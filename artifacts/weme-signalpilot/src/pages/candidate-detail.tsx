@@ -9,6 +9,7 @@ import {
   getGetCandidateQueryKey,
   getListCandidatesQueryKey,
   useAddCandidateEvidence,
+  useEnrichCandidateCrm,
   useGetCandidate,
   useSearchCrmContacts,
   useUpdateCandidateMonitoring,
@@ -21,7 +22,9 @@ import { Input } from "@workspace/weme-earth-tones-system/components/ui/input";
 import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
 import { Textarea } from "@workspace/weme-earth-tones-system/components/ui/textarea";
 import { useToast } from "@workspace/weme-earth-tones-system/hooks/use-toast";
-import { AlertCircle, ArrowLeft, Building2, Eye, ExternalLink, FileSearch, Link2, Radio, Search, UserRound, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, Building2, DatabaseZap, Eye, ExternalLink, FileSearch, Link2, Radio, Search, UserRound, X } from "lucide-react";
+
+type ManualRelevanceStatus = Exclude<Candidate["relevanceStatus"], "insufficient_data">;
 
 export default function CandidateDetailPage() {
   const [, params] = useRoute("/candidates/:id");
@@ -31,7 +34,7 @@ export default function CandidateDetailPage() {
   const { data: candidate, isLoading, isError } = useGetCandidate(id);
   const [crmQuery, setCrmQuery] = useState("");
   const [form, setForm] = useState({ title: "", url: "", sourceType: "Selskapsnyhet", publishedAt: "", excerpt: "" });
-  const [relevanceChoice, setRelevanceChoice] = useState<Candidate["relevanceStatus"] | null>(null);
+  const [relevanceChoice, setRelevanceChoice] = useState<ManualRelevanceStatus | null>(null);
   const [decisionReason, setDecisionReason] = useState("");
   const [duplicateEvidenceUrl, setDuplicateEvidenceUrl] = useState<string | null>(null);
   const submitEvidence = () => {
@@ -88,6 +91,25 @@ export default function CandidateDetailPage() {
       onError: () => toast({ title: "Kunne ikke oppdatere overvåkning", variant: "destructive" }),
     },
   });
+  const crmEnrichmentMutation = useEnrichCandidateCrm({
+    mutation: {
+      onSuccess: (result) => {
+        const updated = result.candidates.find((item) => item.id === id);
+        if (updated) updateCandidateInCache(updated);
+        toast({
+          title: "CRM-grunnlag oppdatert",
+          description: updated?.crmEnrichment
+            ? crmEnrichmentMessage(updated.crmEnrichment.status)
+            : "CRM-oppslaget ble gjennomført.",
+        });
+      },
+      onError: () => toast({
+        title: "CRM-grunnlaget kunne ikke oppdateres",
+        description: "Ingen manuelle relevansvalg eller kildehistorikk er endret.",
+        variant: "destructive",
+      }),
+    },
+  });
 
   if (isLoading) return <div className="p-6 space-y-4"><Skeleton className="h-8 w-56" /><Skeleton className="h-64 w-full" /></div>;
   if (isError || !candidate) return <div className="p-6 text-destructive">Kandidaten kunne ikke lastes.</div>;
@@ -100,6 +122,7 @@ export default function CandidateDetailPage() {
           <h1 className="text-lg font-semibold">{candidate.companyName}</h1>
           <Badge variant="outline">{candidate.priorityScore} prioritetspoeng</Badge>
           <Badge variant="secondary">{candidate.relevanceStatus.replace("_", " ")}</Badge>
+           <Badge variant="outline">{candidate.relevanceSource === "manual" ? "Manuell overstyring" : `System · ${confidenceLabel(candidate.relevanceConfidence)}`}</Badge>
           <Badge variant={candidate.monitoringStatus === "monitoring" ? "default" : "outline"}>{candidate.monitoringStatus === "monitoring" ? "Overvåkes" : "Ikke overvåket"}</Badge>
         </div>
       </header>
@@ -119,18 +142,27 @@ export default function CandidateDetailPage() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Eye className="h-4 w-4 text-primary" /> Relevans og overvåkning</CardTitle><CardDescription>Hovedlisten beholder selskapet uansett valg. Du styrer om det er relevant og om det skal overvåkes.</CardDescription></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Eye className="h-4 w-4 text-primary" /> Automatisk relevans</CardTitle><CardDescription>{candidate.relevanceSource === "manual" ? "Systemets kildegrunnlag er bevart, men statusen under er manuelt overstyrt." : "Systemforslaget kombinerer snapshots, sikre CRM-treff og dokumenterte endringer."}</CardDescription></CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2"><Badge variant="secondary">{candidate.relevanceStatus.replace("_", " ")}</Badge><Badge variant="outline">{confidenceLabel(candidate.relevanceConfidence)} sikkerhet</Badge>{candidate.lastAnalyzedAt ? <span className="text-xs text-muted-foreground">Sist beregnet {format(new Date(candidate.lastAnalyzedAt), "d. MMM yyyy HH:mm", { locale: nb })}</span> : null}</div>
+                <p className="text-sm">{candidate.relevanceReason ?? "Ingen automatisk begrunnelse er lagret ennå."}</p>
+                <div className="grid gap-2 sm:grid-cols-2">{candidate.priorityReasons.slice(0, 4).map((reason) => <div key={reason} className="rounded-md bg-secondary/60 p-3 text-sm">{reason}</div>)}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Eye className="h-4 w-4 text-primary" /> Manuell relevans og overvåkning</CardTitle><CardDescription>Hovedlisten beholder selskapet uansett valg. Et manuelt valg overstyrer systemforslaget, men ikke kildene.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
                   <label className="grid gap-1 text-sm font-medium">Relevans
-                    <select value={relevanceChoice ?? candidate.relevanceStatus} onChange={(event) => setRelevanceChoice(event.target.value as Candidate["relevanceStatus"])} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
+                    <select value={relevanceChoice ?? (candidate.relevanceStatus === "insufficient_data" ? "possible" : candidate.relevanceStatus)} onChange={(event) => setRelevanceChoice(event.target.value as ManualRelevanceStatus)} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
                       <option value="relevant">Relevant</option>
                       <option value="possible">Mulig relevant</option>
                       <option value="needs_review">Må vurderes</option>
                       <option value="not_relevant">Ikke relevant</option>
                     </select>
                   </label>
-                  <Button onClick={() => relevanceMutation.mutate({ id: candidate.id, data: { relevanceStatus: relevanceChoice ?? candidate.relevanceStatus, reason: decisionReason || null } })} disabled={relevanceMutation.isPending}>Lagre relevans</Button>
+                  <Button onClick={() => relevanceMutation.mutate({ id: candidate.id, data: { relevanceStatus: relevanceChoice ?? (candidate.relevanceStatus === "insufficient_data" ? "possible" : candidate.relevanceStatus), reason: decisionReason || null } })} disabled={relevanceMutation.isPending}>Lagre relevans</Button>
                 </div>
                 <Textarea placeholder="Valgfri begrunnelse for ditt valg" value={decisionReason} onChange={(event) => setDecisionReason(event.target.value)} />
                 <div className="flex flex-col gap-2 rounded-md bg-secondary/60 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
@@ -168,7 +200,15 @@ export default function CandidateDetailPage() {
 
           <aside className="space-y-6">
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><UserRound className="h-4 w-4 text-primary" /> CRM-oppslag</CardTitle><CardDescription>Kun kontekst og kontaktvalg. Gamle CRM-data begrenser ikke denne kandidaten.</CardDescription></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><DatabaseZap className="h-4 w-4 text-primary" /> CRM-kontekst</CardTitle><CardDescription>Leses kun fra CRM. Treffer gir kontekst og prioritet, men kan aldri fjerne selskapet fra hovedlisten.</CardDescription></CardHeader>
+              <CardContent className="space-y-3">
+                {candidate.crmEnrichment ? <CrmEnrichmentSummary enrichment={candidate.crmEnrichment} /> : <p className="text-sm text-muted-foreground">CRM-grunnlaget er ikke oppdatert ennå.</p>}
+                <Button className="w-full" variant="outline" onClick={() => crmEnrichmentMutation.mutate({ data: { candidateIds: [candidate.id] } })} disabled={crmEnrichmentMutation.isPending}><DatabaseZap className="mr-2 h-4 w-4" />{crmEnrichmentMutation.isPending ? "Oppdaterer CRM…" : "Oppdater CRM-grunnlag"}</Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><UserRound className="h-4 w-4 text-primary" /> CRM-kontaktsøk</CardTitle><CardDescription>Manuelt oppslag for kontaktvalg. Dette endrer ikke vurderingen.</CardDescription></CardHeader>
               <CardContent className="space-y-3">
                 <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" placeholder="Søk navn eller e-post" value={crmQuery} onChange={(event) => setCrmQuery(event.target.value)} /></div>
                 {!candidate.domain ? <p className="text-sm text-muted-foreground">Legg inn domene via import for å gjøre CRM-oppslag.</p> : null}
@@ -191,4 +231,29 @@ function isDuplicateEvidenceError(error: unknown) {
 
 function Meta({ label, value }: { label: string; value: string }) {
   return <div><p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p><p className="mt-1 font-medium">{value}</p></div>;
+}
+
+function confidenceLabel(confidence: Candidate["relevanceConfidence"]) {
+  return { high: "Høy", medium: "Middels", low: "Lav", insufficient: "Utilstrekkelig" }[confidence];
+}
+
+function crmEnrichmentMessage(status: NonNullable<Candidate["crmEnrichment"]>["status"]) {
+  return {
+    matched: "Sikkert CRM-treff er lagret som kildegrunnlag.",
+    not_found: "Fant ingen sikker CRM-match. Kandidaten beholdes uendret i hovedlisten.",
+    ambiguous: "Flere mulige CRM-treff ble funnet. Ingen ble slått sammen automatisk.",
+    unavailable: "CRM var midlertidig utilgjengelig. Prøv igjen senere.",
+  }[status];
+}
+
+function CrmEnrichmentSummary({ enrichment }: { enrichment: NonNullable<Candidate["crmEnrichment"]> }) {
+  if (enrichment.status !== "matched") {
+    return <div className="rounded-md bg-secondary/60 p-3 text-sm"><p className="font-medium">{crmEnrichmentMessage(enrichment.status)}</p>{enrichment.availabilityMessage ? <p className="mt-1 text-muted-foreground">{enrichment.availabilityMessage}</p> : null}<p className="mt-2 text-xs text-muted-foreground">Kontrollert {format(new Date(enrichment.evaluatedAt), "d. MMM yyyy HH:mm", { locale: nb })}</p></div>;
+  }
+  const method = { organization_number: "organisasjonsnummer", domain: "domene", name: "eksakt selskapsnavn" }[enrichment.matchMethod ?? "name"];
+  return <div className="space-y-3 text-sm">
+    <div className="rounded-md bg-secondary/60 p-3"><p className="font-medium">{enrichment.matchedCompanyName ?? "Sikkert CRM-treff"}</p><p className="mt-1 text-muted-foreground">Matchet via {method} · {enrichment.contactCount} kontakter</p>{enrichment.lastActivityAt ? <p className="mt-1 text-xs text-muted-foreground">Siste aktivitet {format(new Date(enrichment.lastActivityAt), "d. MMM yyyy", { locale: nb })}</p> : null}</div>
+    {enrichment.relevantContacts.length ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Relevante roller</p><div className="mt-2 space-y-2">{enrichment.relevantContacts.map((contact) => <div key={contact.id} className="rounded-md border p-2"><p className="font-medium">{contact.name}</p><p className="text-muted-foreground">{contact.title ?? contact.contactRole ?? "Rolle ikke oppgitt"}</p></div>)}</div></div> : null}
+    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span>{enrichment.lifecycleStages.length ? enrichment.lifecycleStages.join(", ") : "Ingen salgsfase"}</span><span>{enrichment.noteCount} CRM-notater</span></div>
+  </div>;
 }

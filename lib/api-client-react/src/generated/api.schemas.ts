@@ -286,6 +286,82 @@ export interface CandidateChange {
   detail: string;
 }
 
+export interface CandidateCrmContact {
+  id: number;
+  name: string;
+  /** @nullable */
+  title: string | null;
+  /** @nullable */
+  email: string | null;
+  /** @nullable */
+  owner: string | null;
+  /** @nullable */
+  lifecycleStage: string | null;
+  /** @nullable */
+  leadStatus: string | null;
+  /** @nullable */
+  contactRole: string | null;
+  /** @nullable */
+  updatedAt: string | null;
+}
+
+export type CandidateCrmEnrichmentStatus = typeof CandidateCrmEnrichmentStatus[keyof typeof CandidateCrmEnrichmentStatus];
+
+
+export const CandidateCrmEnrichmentStatus = {
+  matched: 'matched',
+  not_found: 'not_found',
+  ambiguous: 'ambiguous',
+  unavailable: 'unavailable',
+} as const;
+
+/**
+ * @nullable
+ */
+export type CandidateCrmEnrichmentMatchMethod = typeof CandidateCrmEnrichmentMatchMethod[keyof typeof CandidateCrmEnrichmentMatchMethod] | null;
+
+
+export const CandidateCrmEnrichmentMatchMethod = {
+  organization_number: 'organization_number',
+  domain: 'domain',
+  name: 'name',
+} as const;
+
+export type CandidateCrmEnrichmentSource = typeof CandidateCrmEnrichmentSource[keyof typeof CandidateCrmEnrichmentSource];
+
+
+export const CandidateCrmEnrichmentSource = {
+  weme_crm: 'weme_crm',
+} as const;
+
+export interface CandidateCrmEnrichment {
+  status: CandidateCrmEnrichmentStatus;
+  /** @nullable */
+  matchMethod: CandidateCrmEnrichmentMatchMethod;
+  /** @nullable */
+  matchedCompanyName: string | null;
+  /** @nullable */
+  matchedDomain: string | null;
+  /** @nullable */
+  industry: string | null;
+  /** @minimum 0 */
+  contactCount: number;
+  lifecycleStages: string[];
+  leadStatuses: string[];
+  owners: string[];
+  relevantContacts: CandidateCrmContact[];
+  /** @minimum 0 */
+  noteCount: number;
+  /** @nullable */
+  latestNoteAt: string | null;
+  /** @nullable */
+  lastActivityAt: string | null;
+  source: CandidateCrmEnrichmentSource;
+  evaluatedAt: string;
+  /** @nullable */
+  availabilityMessage: string | null;
+}
+
 export type CandidateMatchStatus = typeof CandidateMatchStatus[keyof typeof CandidateMatchStatus];
 
 
@@ -305,6 +381,7 @@ export const CandidateRelevanceStatus = {
   possible: 'possible',
   not_relevant: 'not_relevant',
   needs_review: 'needs_review',
+  insufficient_data: 'insufficient_data',
 } as const;
 
 export type CandidateRelevanceSource = typeof CandidateRelevanceSource[keyof typeof CandidateRelevanceSource];
@@ -313,6 +390,16 @@ export type CandidateRelevanceSource = typeof CandidateRelevanceSource[keyof typ
 export const CandidateRelevanceSource = {
   system: 'system',
   manual: 'manual',
+} as const;
+
+export type CandidateRelevanceConfidence = typeof CandidateRelevanceConfidence[keyof typeof CandidateRelevanceConfidence];
+
+
+export const CandidateRelevanceConfidence = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+  insufficient: 'insufficient',
 } as const;
 
 export type CandidateMonitoringStatus = typeof CandidateMonitoringStatus[keyof typeof CandidateMonitoringStatus];
@@ -339,11 +426,15 @@ export interface Candidate {
   /** @nullable */
   relevanceReason?: string | null;
   relevanceSource: CandidateRelevanceSource;
+  relevanceConfidence: CandidateRelevanceConfidence;
   monitoringStatus: CandidateMonitoringStatus;
   /** @nullable */
   monitoringReason?: string | null;
   priorityScore: number;
   priorityReasons: string[];
+  crmEnrichment: CandidateCrmEnrichment | null;
+  /** @nullable */
+  crmEnrichedAt: string | null;
   /** @nullable */
   lastAnalyzedAt?: string | null;
   snapshots: CandidateSnapshot[];
@@ -422,6 +513,24 @@ export interface CandidateSnapshotDateCorrection {
 
 export interface CandidateSnapshotDateCorrectionResult {
   updatedCount: number;
+}
+
+export interface CandidateCrmEnrichmentBatchInput {
+  /**
+     * @minItems 1
+     * @maxItems 100
+     * @items.minimum 1
+     */
+  candidateIds: number[];
+}
+
+export interface CandidateCrmEnrichmentBatchResult {
+  requestedCount: number;
+  enrichedCount: number;
+  noMatchCount: number;
+  ambiguousCount: number;
+  unavailableCount: number;
+  candidates: Candidate[];
 }
 
 export type CandidateBatchInputScope = typeof CandidateBatchInputScope[keyof typeof CandidateBatchInputScope];

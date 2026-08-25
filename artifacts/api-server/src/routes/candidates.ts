@@ -22,6 +22,8 @@ import {
   CorrectCandidateSnapshotDateResponse,
   CreateCandidateAnalysisBatchBody,
   CreateCandidateAnalysisBatchResponse,
+  EnrichCandidateCrmBody,
+  EnrichCandidateCrmResponse,
   GetCandidateParams,
   GetCandidateResponse,
   ImportCandidateSnapshotsBody,
@@ -41,6 +43,7 @@ import {
   normalizeCandidateDomain,
   normalizeCandidateName,
 } from "../lib/candidate-matching";
+import { enrichCandidateFromCrm } from "../lib/candidate-crm";
 
 const router: IRouter = Router();
 const DAY = 1000 * 60 * 60 * 24;
@@ -65,17 +68,20 @@ function inferRelevance(priorityScore: number, priorityReasons: string[]) {
     return {
       relevanceStatus: "relevant" as const,
       relevanceReason: priorityReasons[0] ?? "Systemvurdering basert på tilgjengelig kildegrunnlag.",
+      relevanceConfidence: "high" as const,
     };
   }
   if (priorityScore > 0) {
     return {
       relevanceStatus: "possible" as const,
       relevanceReason: priorityReasons[0] ?? "Noe kildegrunnlag finnes, men trenger vurdering.",
+      relevanceConfidence: priorityScore >= 10 ? "medium" as const : "low" as const,
     };
   }
   return {
-    relevanceStatus: "possible" as const,
-    relevanceReason: "Begrenset kildegrunnlag: beholdt som mulig relevant, men ikke lagt i manuell vurderingskø.",
+    relevanceStatus: "insufficient_data" as const,
+    relevanceReason: "Utilstrekkelig datagrunnlag: beholdes i hovedlisten til flere sikre observasjoner finnes.",
+    relevanceConfidence: "insufficient" as const,
   };
 }
 
@@ -119,6 +125,27 @@ function calculatePriority(candidate: CandidateRecord, snapshots: CandidateSnaps
   if (latestSnapshot && (Date.now() - latestSnapshot.getTime()) / DAY <= 90) {
     score += 5;
     reasons.push("Aktualitet: kilde oppdatert siste 90 dager");
+  }
+  const crm = candidate.crmEnrichment;
+  if (crm?.status === "matched") {
+    score += crm.matchMethod === "organization_number" ? 10 : crm.matchMethod === "domain" ? 8 : 5;
+    reasons.push(`CRM: sikkert treff via ${crm.matchMethod === "organization_number" ? "organisasjonsnummer" : crm.matchMethod === "domain" ? "domene" : "selskapsnavn"}`);
+    if (crm.relevantContacts.length > 0) {
+      score += Math.min(15, 6 + crm.relevantContacts.length * 3);
+      reasons.push(`CRM: ${crm.relevantContacts.length} relevant${crm.relevantContacts.length === 1 ? " kontaktrolle" : "e kontaktroller"} funnet`);
+    }
+    if (crm.lifecycleStages.some((stage) => stage.toLocaleLowerCase("nb-NO") === "opportunity")) {
+      score += 6;
+      reasons.push("CRM: aktiv Opportunity-relasjon");
+    }
+    if (crm.lastActivityAt && (Date.now() - Date.parse(crm.lastActivityAt)) / DAY <= 180) {
+      score += 4;
+      reasons.push("CRM: aktivitet eller kontakt oppdatert siste 180 dager");
+    }
+  } else if (crm?.status === "ambiguous") {
+    reasons.push("CRM: flere mulige selskaper — ikke brukt i systemvurderingen");
+  } else if (crm?.status === "unavailable") {
+    reasons.push("CRM: oppslag var midlertidig utilgjengelig");
   }
   if (reasons.length === 0) reasons.push("Trenger mer kildegrunnlag før prioritering");
   return { score, reasons };
@@ -195,10 +222,13 @@ async function toCandidateResponse(candidate: CandidateRecord) {
     relevanceStatus: candidate.relevanceStatus,
     relevanceReason: candidate.relevanceReason,
     relevanceSource: candidate.relevanceSource,
+    relevanceConfidence: candidate.relevanceConfidence,
     monitoringStatus: candidate.monitoringStatus,
     monitoringReason: candidate.monitoringReason,
     priorityScore: candidate.priorityScore,
     priorityReasons: candidate.priorityReasons,
+    crmEnrichment: candidate.crmEnrichment,
+    crmEnrichedAt: candidate.crmEnrichedAt,
     lastAnalyzedAt: candidate.lastAnalyzedAt,
     snapshots: snapshots.map((snapshot) => ({
       id: snapshot.id,
@@ -227,10 +257,35 @@ async function refreshCandidatePriority(candidateId: number) {
     .set({
       priorityScore: priority.score,
       priorityReasons: priority.reasons,
-      ...(candidate.relevanceSource === "system" ? systemRelevance : {}),
+      ...(candidate.relevanceSource === "system"
+        ? systemRelevance
+        : { relevanceConfidence: systemRelevance.relevanceConfidence }),
       updatedAt: new Date(),
     })
     .where(eq(leadCandidatesTable.id, candidateId));
+}
+
+async function refreshCandidateCrmEnrichment(candidate: CandidateRecord) {
+  const crmEnrichment = await enrichCandidateFromCrm({
+    companyName: candidate.companyName,
+    organizationNumber: candidate.organizationNumber,
+    domain: candidate.domain,
+  }, {
+    apiKey: process.env.WEME_CRM_API_KEY,
+    baseUrl: process.env.WEME_CRM_BASE_URL,
+  });
+  await db
+    .update(leadCandidatesTable)
+    .set({
+      crmEnrichment,
+      crmEnrichedAt: new Date(crmEnrichment.evaluatedAt),
+      lastAnalyzedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(leadCandidatesTable.id, candidate.id));
+  await refreshCandidatePriority(candidate.id);
+  const [updated] = await db.select().from(leadCandidatesTable).where(eq(leadCandidatesTable.id, candidate.id));
+  return updated;
 }
 
 async function ensureCandidatesFromSignals() {
@@ -404,6 +459,47 @@ router.patch("/candidates/snapshot-date", async (req, res): Promise<void> => {
     }
   }
   res.json(CorrectCandidateSnapshotDateResponse.parse({ updatedCount: snapshots.length }));
+});
+
+router.post("/candidates/crm-enrichment", async (req, res): Promise<void> => {
+  const body = EnrichCandidateCrmBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Velg mellom 1 og 100 kandidater som skal CRM-berikes." });
+    return;
+  }
+  const candidateIds = [...new Set(body.data.candidateIds)];
+  const candidates = await db
+    .select()
+    .from(leadCandidatesTable)
+    .where(inArray(leadCandidatesTable.id, candidateIds));
+  if (!process.env.WEME_CRM_API_KEY) {
+    req.log.warn("CRM enrichment requested without CRM API key");
+  }
+  const refreshed = [];
+  for (const candidateId of candidateIds) {
+    const candidate = candidates.find((item) => item.id === candidateId);
+    if (!candidate) continue;
+    const updated = await refreshCandidateCrmEnrichment(candidate);
+    if (updated) refreshed.push(updated);
+  }
+  const responseCandidates = await Promise.all(refreshed.map(toCandidateResponse));
+  const counts = responseCandidates.reduce(
+    (summary, candidate) => {
+      if (candidate.crmEnrichment?.status === "matched") summary.enrichedCount += 1;
+      if (candidate.crmEnrichment?.status === "not_found") summary.noMatchCount += 1;
+      if (candidate.crmEnrichment?.status === "ambiguous") summary.ambiguousCount += 1;
+      if (candidate.crmEnrichment?.status === "unavailable") summary.unavailableCount += 1;
+      return summary;
+    },
+    {
+      requestedCount: candidateIds.length,
+      enrichedCount: 0,
+      noMatchCount: 0,
+      ambiguousCount: 0,
+      unavailableCount: 0,
+    },
+  );
+  res.json(EnrichCandidateCrmResponse.parse({ ...counts, candidates: responseCandidates }));
 });
 
 router.patch("/candidates/:id/relevance", async (req, res): Promise<void> => {

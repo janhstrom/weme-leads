@@ -6,8 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CandidateChange } from './candidateChange';
+import type { CandidateCrmEnrichment } from './candidateCrmEnrichment';
 import type { CandidateMatchStatus } from './candidateMatchStatus';
 import type { CandidateMonitoringStatus } from './candidateMonitoringStatus';
+import type { CandidateRelevanceConfidence } from './candidateRelevanceConfidence';
 import type { CandidateRelevanceSource } from './candidateRelevanceSource';
 import type { CandidateRelevanceStatus } from './candidateRelevanceStatus';
 import type { CandidateSnapshot } from './candidateSnapshot';
@@ -29,11 +31,15 @@ export interface Candidate {
   /** @nullable */
   relevanceReason?: string | null;
   relevanceSource: CandidateRelevanceSource;
+  relevanceConfidence: CandidateRelevanceConfidence;
   monitoringStatus: CandidateMonitoringStatus;
   /** @nullable */
   monitoringReason?: string | null;
   priorityScore: number;
   priorityReasons: string[];
+  crmEnrichment: CandidateCrmEnrichment | null;
+  /** @nullable */
+  crmEnrichedAt: Date | null;
   /** @nullable */
   lastAnalyzedAt?: Date | null;
   snapshots: CandidateSnapshot[];

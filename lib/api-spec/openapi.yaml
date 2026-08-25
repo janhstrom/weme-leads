@@ -317,6 +317,24 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CandidateSnapshotDateCorrectionResult" }
         "400": { $ref: "#/components/responses/BadRequest" }
+  /candidates/crm-enrichment:
+    post:
+      operationId: enrichCandidateCrm
+      tags: [candidates]
+      summary: Refresh read-only CRM context and automatic assessments for selected candidates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CandidateCrmEnrichmentBatchInput" }
+      responses:
+        "200":
+          description: CRM enrichment result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CandidateCrmEnrichmentBatchResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "502": { $ref: "#/components/responses/BadRequest" }
   /candidates/relevance/bulk:
     patch:
       operationId: bulkUpdateCandidateRelevance
@@ -674,9 +692,50 @@ components:
         kind: { type: string, enum: [employee_change, relevant_role, source_refresh] }
         label: { type: string }
         detail: { type: string }
+    CandidateCrmContact:
+      type: object
+      required: [id, name, title, email, owner, lifecycleStage, leadStatus, contactRole, updatedAt]
+      properties:
+        id: { type: number }
+        name: { type: string }
+        title: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        owner: { type: ["string", "null"] }
+        lifecycleStage: { type: ["string", "null"] }
+        leadStatus: { type: ["string", "null"] }
+        contactRole: { type: ["string", "null"] }
+        updatedAt: { type: ["string", "null"], format: date-time }
+    CandidateCrmEnrichment:
+      type: object
+      required: [status, matchMethod, matchedCompanyName, matchedDomain, industry, contactCount, lifecycleStages, leadStatuses, owners, relevantContacts, noteCount, latestNoteAt, lastActivityAt, source, evaluatedAt, availabilityMessage]
+      properties:
+        status: { type: string, enum: [matched, not_found, ambiguous, unavailable] }
+        matchMethod: { type: ["string", "null"], enum: [organization_number, domain, name, null] }
+        matchedCompanyName: { type: ["string", "null"] }
+        matchedDomain: { type: ["string", "null"] }
+        industry: { type: ["string", "null"] }
+        contactCount: { type: number, minimum: 0 }
+        lifecycleStages:
+          type: array
+          items: { type: string }
+        leadStatuses:
+          type: array
+          items: { type: string }
+        owners:
+          type: array
+          items: { type: string }
+        relevantContacts:
+          type: array
+          items: { $ref: "#/components/schemas/CandidateCrmContact" }
+        noteCount: { type: number, minimum: 0 }
+        latestNoteAt: { type: ["string", "null"], format: date-time }
+        lastActivityAt: { type: ["string", "null"], format: date-time }
+        source: { type: string, enum: [weme_crm] }
+        evaluatedAt: { type: string, format: date-time }
+        availabilityMessage: { type: ["string", "null"] }
     Candidate:
       type: object
-      required: [id, companyName, matchStatus, relevanceStatus, relevanceSource, monitoringStatus, priorityScore, priorityReasons, snapshots, changes, evidence, createdAt, updatedAt]
+      required: [id, companyName, matchStatus, relevanceStatus, relevanceSource, relevanceConfidence, monitoringStatus, priorityScore, priorityReasons, crmEnrichment, crmEnrichedAt, snapshots, changes, evidence, createdAt, updatedAt]
       properties:
         id: { type: number }
         companyName: { type: string }
@@ -685,15 +744,21 @@ components:
         industry: { type: ["string", "null"] }
         employees: { type: ["number", "null"] }
         matchStatus: { type: string, enum: [new, exact, domain_match, name_match, needs_review] }
-        relevanceStatus: { type: string, enum: [relevant, possible, not_relevant, needs_review] }
+        relevanceStatus: { type: string, enum: [relevant, possible, not_relevant, needs_review, insufficient_data] }
         relevanceReason: { type: ["string", "null"] }
         relevanceSource: { type: string, enum: [system, manual] }
+        relevanceConfidence: { type: string, enum: [high, medium, low, insufficient] }
         monitoringStatus: { type: string, enum: [monitoring, not_monitoring] }
         monitoringReason: { type: ["string", "null"] }
         priorityScore: { type: number }
         priorityReasons:
           type: array
           items: { type: string }
+        crmEnrichment:
+          anyOf:
+            - $ref: "#/components/schemas/CandidateCrmEnrichment"
+            - type: "null"
+        crmEnrichedAt: { type: ["string", "null"], format: date-time }
         lastAnalyzedAt: { type: ["string", "null"], format: date-time }
         snapshots:
           type: array
@@ -757,6 +822,27 @@ components:
       required: [updatedCount]
       properties:
         updatedCount: { type: number }
+    CandidateCrmEnrichmentBatchInput:
+      type: object
+      required: [candidateIds]
+      properties:
+        candidateIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { type: number, minimum: 1 }
+    CandidateCrmEnrichmentBatchResult:
+      type: object
+      required: [requestedCount, enrichedCount, noMatchCount, ambiguousCount, unavailableCount, candidates]
+      properties:
+        requestedCount: { type: number }
+        enrichedCount: { type: number }
+        noMatchCount: { type: number }
+        ambiguousCount: { type: number }
+        unavailableCount: { type: number }
+        candidates:
+          type: array
+          items: { $ref: "#/components/schemas/Candidate" }
     CandidateBatchInput:
       type: object
       properties:
