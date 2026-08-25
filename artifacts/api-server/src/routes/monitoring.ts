@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Router, type IRouter } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   db,
   leadCandidateEvidenceTable,
@@ -16,10 +16,14 @@ import {
   CreateCandidateSourceBody,
   CreateCandidateSourceParams,
   CreateCandidateSourceResponse,
+  GetLatestEventMappingRunResponse,
   GetLatestMonitoringRunResponse,
+  ListEventMappingItemsParams,
+  ListEventMappingItemsResponse,
   ListCandidateSourcesParams,
   ListCandidateSourcesResponse,
   ListMonitoringActionsResponse,
+  StartEventMappingRunResponse,
   StartMonitoringRunResponse,
 } from "@workspace/api-zod";
 import { enrichCandidateFromCrm } from "../lib/candidate-crm";
@@ -31,6 +35,7 @@ const RUN_LOCK_MAX_AGE_MS = 60 * 60 * 1_000;
 const MAX_SOURCE_ENTRY_AGE_DAYS = 180;
 const CHANGE_KEYWORDS = /\b(nedbemanning|omstilling|omorganiser|organisasjonsendring|strategi|strategisk|oppkjøp|fusjon|sammenslå|lanser|digital|teknologi|automatis|kunst(ig)? intelligens|ai\b|kompetanse|opplæring|lederskap|workforce|restructur|transformation|acquisition|merger|launch|digitali[sz]|automation|workforce adjustment)\b/i;
 let activeMonitoringJob: Promise<MonitoringRun> | null = null;
+let activeEventMappingJob: Promise<MonitoringRun> | null = null;
 
 type Candidate = typeof leadCandidatesTable.$inferSelect;
 type CandidateSource = typeof leadCandidateSourcesTable.$inferSelect;
@@ -142,6 +147,7 @@ function monitoringRunResponse(run: MonitoringRun) {
     id: run.id,
     status: run.status,
     trigger: run.trigger,
+    kind: run.kind,
     requestedCount: run.requestedCount,
     processedCount: run.processedCount,
     signalsCreated: run.signalsCreated,
@@ -275,6 +281,181 @@ async function collectSignals(candidate: Candidate, crm: CandidateCrmEnrichment,
   return { created, sourceErrors };
 }
 
+function htmlAttribute(tag: string, name: string) {
+  return tag.match(new RegExp(`\\b${name}=["']([^"']+)["']`, "i"))?.[1] ?? null;
+}
+
+async function discoverOfficialFeed(candidate: Candidate): Promise<CandidateSource[]> {
+  if (!candidate.domain) return [];
+  let homepage: URL;
+  try {
+    homepage = new URL(`https://${candidate.domain}`);
+  } catch {
+    return [];
+  }
+
+  try {
+    const response = await fetchTextWithTimeout(homepage.toString());
+    const currentPage = new URL(response.url);
+    const html = await response.text();
+    const discovered = [...html.matchAll(/<link\b[^>]*>/gi)]
+      .map((match) => match[0])
+      .flatMap((tag) => {
+        const href = htmlAttribute(tag, "href");
+        const type = htmlAttribute(tag, "type")?.toLowerCase();
+        if (!href || !type || !/(application\/rss\+xml|application\/atom\+xml)/.test(type)) return [];
+        try {
+          const url = new URL(href, currentPage);
+          if (url.protocol !== "https:" || url.hostname !== currentPage.hostname) return [];
+          return [{ url: url.toString(), sourceType: type.includes("atom") ? "atom" as const : "rss" as const }];
+        } catch {
+          return [];
+        }
+      })
+      .at(0);
+    if (!discovered) return [];
+
+    const [created] = await db.insert(leadCandidateSourcesTable).values({
+      candidateId: candidate.id,
+      sourceType: discovered.sourceType,
+      url: discovered.url,
+      label: "Automatisk oppdaget offisiell feed",
+    }).onConflictDoNothing().returning();
+    if (created) return [created];
+    return db.select().from(leadCandidateSourcesTable).where(and(
+      eq(leadCandidateSourcesTable.candidateId, candidate.id),
+      eq(leadCandidateSourcesTable.url, discovered.url),
+    ));
+  } catch {
+    return [];
+  }
+}
+
+type EventMappingResult = {
+  outcome: "event_found" | "no_event" | "no_source" | "source_error";
+  signalsCreated: number;
+  sourceErrorCount: number;
+  message: string;
+};
+
+async function collectEventMappingSignals(candidate: Candidate, runId: number): Promise<EventMappingResult> {
+  let sources = await db.select().from(leadCandidateSourcesTable).where(and(
+    eq(leadCandidateSourcesTable.candidateId, candidate.id),
+    eq(leadCandidateSourcesTable.isActive, "true"),
+  ));
+  if (!sources.length) sources = await discoverOfficialFeed(candidate);
+  if (!sources.length) {
+    return {
+      outcome: "no_source",
+      signalsCreated: 0,
+      sourceErrorCount: 0,
+      message: "Ingen registrert eller maskinlesbar RSS-/Atom-kilde ble funnet på kandidatens eget domene.",
+    };
+  }
+
+  let signalsCreated = 0;
+  let sourceErrorCount = 0;
+  let verifiedEventCount = 0;
+  let successfulSourceCount = 0;
+
+  for (const source of sources) {
+    try {
+      const xml = await (await fetchTextWithTimeout(source.url)).text();
+      const entries = parseFeed(xml).filter((entry) => CHANGE_KEYWORDS.test(`${entry.title} ${entry.excerpt}`));
+      for (const entry of entries) {
+        await verifyPublicUrl(entry.url);
+        verifiedEventCount += 1;
+        const signalKey = createHash("sha256").update(`${candidate.id}|${entry.url}`).digest("hex");
+        const excerpt = plainText(entry.excerpt).slice(0, 900);
+        const [inserted] = await db.insert(signalpilotSignalsTable).values({
+          companyName: candidate.companyName,
+          employees: candidate.employees ?? 0,
+          industry: candidate.industry ?? "Ikke oppgitt",
+          domain: candidate.domain ?? "",
+          signalType: "Kartlagt offentlig hendelse",
+          strength: "C",
+          status: "til_vurdering",
+          summary: excerpt,
+          rationale: "Engangskartleggingen fant en fersk offentlig hendelse. Kandidaten er ikke lagt til i løpende overvåkning.",
+          publishedAt: entry.publishedAt,
+          evidence: [{
+            title: entry.title,
+            url: entry.url,
+            sourceType: source.label,
+            publishedAt: entry.publishedAt,
+            excerpt,
+            verificationStatus: "url_verified",
+            verifiedAt: new Date().toISOString(),
+          }],
+          contacts: [{
+            id: -1,
+            name: "CRM ikke hentet",
+            title: "Kartlegging uten CRM-oppslag",
+            confidence: "ikke_verifisert",
+            rationale: "Engangskartleggingen leser ikke CRM.",
+          }],
+          crm: {
+            status: "Ikke hentet i engangskartlegging",
+            matchCount: 0,
+          },
+          suggestedOpening: "En fersk, offentlig hendelse er registrert. Vurder relevans og riktig kontaktrolle før eventuell oppfølging.",
+          dialogueDraft: "Ingen melding er foreslått. Kartleggingen er kun et kildegrunnlag.",
+          candidateId: candidate.id,
+          monitoringRunId: runId,
+          signalKey,
+          actionPriority: candidate.priorityScore,
+          isActionable: false,
+        }).onConflictDoNothing({ target: signalpilotSignalsTable.signalKey }).returning({ id: signalpilotSignalsTable.id });
+        if (inserted) {
+          signalsCreated += 1;
+          await db.insert(leadCandidateEvidenceTable).values({
+            candidateId: candidate.id,
+            title: entry.title,
+            url: entry.url,
+            sourceType: source.label,
+            publishedAt: entry.publishedAt,
+            excerpt,
+            verificationStatus: "url_verified",
+          }).onConflictDoNothing();
+        }
+      }
+      successfulSourceCount += 1;
+      await db.update(leadCandidateSourcesTable).set({ lastCheckedAt: new Date(), lastError: null }).where(eq(leadCandidateSourcesTable.id, source.id));
+    } catch (error) {
+      sourceErrorCount += 1;
+      await db.update(leadCandidateSourcesTable).set({
+        lastCheckedAt: new Date(),
+        lastError: error instanceof Error ? error.message.slice(0, 500) : "Ukjent kildefeil",
+      }).where(eq(leadCandidateSourcesTable.id, source.id));
+    }
+  }
+
+  if (verifiedEventCount > 0) {
+    return {
+      outcome: "event_found",
+      signalsCreated,
+      sourceErrorCount,
+      message: signalsCreated
+        ? `${signalsCreated} ny(e) kildebelagt(e) hendelse(r) ble lagret.`
+        : "Fersk, allerede registrert hendelse ble bekreftet uten å opprette duplikat.",
+    };
+  }
+  if (!successfulSourceCount) {
+    return {
+      outcome: "source_error",
+      signalsCreated: 0,
+      sourceErrorCount,
+      message: "Ingen kvalifisert kilde kunne hentes eller kontrolleres.",
+    };
+  }
+  return {
+    outcome: "no_event",
+    signalsCreated: 0,
+    sourceErrorCount,
+    message: "Kvalifisert offentlig kilde ble kontrollert, men ga ingen ferske hendelser som traff endringskriteriene.",
+  };
+}
+
 async function expireStaleRunLocks() {
   const running = await db.select().from(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.status, "running"));
   const staleBefore = Date.now() - RUN_LOCK_MAX_AGE_MS;
@@ -300,6 +481,7 @@ export async function runMonitoringScan(trigger: "manual" | "scheduled") {
   const [run] = await db.insert(leadMonitoringRunsTable).values({
     status: "running",
     trigger,
+    kind: "monitoring",
     requestedCount: candidates.length,
   }).returning();
 
@@ -361,6 +543,83 @@ export async function runMonitoringScan(trigger: "manual" | "scheduled") {
   return completed;
 }
 
+export async function runEventMappingScan() {
+  await expireStaleRunLocks();
+  const [activeRun] = await db.select().from(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.status, "running")).orderBy(desc(leadMonitoringRunsTable.startedAt));
+  if (activeRun) throw new MonitoringRunInProgressError("En annen offentlig kildekjøring pågår allerede.");
+
+  const candidates = await db.select().from(leadCandidatesTable)
+    .where(eq(leadCandidatesTable.relevanceStatus, "possible"))
+    .orderBy(desc(leadCandidatesTable.priorityScore));
+  const [run] = await db.insert(leadMonitoringRunsTable).values({
+    status: "running",
+    trigger: "manual",
+    kind: "event_mapping",
+    requestedCount: candidates.length,
+  }).returning();
+
+  let processedCount = 0;
+  let signalsCreated = 0;
+  let sourceErrorCount = 0;
+  const failures: string[] = [];
+  let nextIndex = 0;
+  const workerCount = Math.min(3, candidates.length);
+
+  const processCandidate = async (candidate: Candidate) => {
+    try {
+      const result = await collectEventMappingSignals(candidate, run.id);
+      processedCount += 1;
+      signalsCreated += result.signalsCreated;
+      sourceErrorCount += result.sourceErrorCount;
+      await db.insert(leadMonitoringRunItemsTable).values({
+        runId: run.id,
+        candidateId: candidate.id,
+        status: "processed",
+        brregStatus: "not_requested",
+        crmStatus: "not_requested",
+        signalsCreated: result.signalsCreated,
+        sourceErrorCount: result.sourceErrorCount,
+        outcome: result.outcome,
+        message: result.message,
+      });
+    } catch (error) {
+      const message = `${candidate.companyName}: ${error instanceof Error ? error.message : "ukjent feil"}`;
+      failures.push(message);
+      await db.insert(leadMonitoringRunItemsTable).values({
+        runId: run.id,
+        candidateId: candidate.id,
+        status: "failed",
+        brregStatus: "not_requested",
+        crmStatus: "not_requested",
+        signalsCreated: 0,
+        sourceErrorCount: 0,
+        outcome: "source_error",
+        message: message.slice(0, 1_000),
+      });
+    }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < candidates.length) {
+      const candidate = candidates[nextIndex];
+      nextIndex += 1;
+      await processCandidate(candidate);
+    }
+  }));
+
+  const [completed] = await db.update(leadMonitoringRunsTable).set({
+    status: failures.length || sourceErrorCount ? "completed_with_errors" : "completed",
+    processedCount,
+    signalsCreated,
+    crmMatchedCount: 0,
+    crmUnresolvedCount: 0,
+    sourceErrorCount,
+    errorSummary: failures.length ? failures.slice(0, 3).join(" · ") : null,
+    completedAt: new Date(),
+  }).where(eq(leadMonitoringRunsTable.id, run.id)).returning();
+  return completed;
+}
+
 router.get("/monitoring/actions", async (_req, res): Promise<void> => {
   const freshSince = new Date(Date.now() - MAX_SOURCE_ENTRY_AGE_DAYS * 24 * 60 * 60 * 1_000).toISOString().slice(0, 10);
   const signals = await db.select().from(signalpilotSignalsTable).where(and(
@@ -373,7 +632,7 @@ router.get("/monitoring/actions", async (_req, res): Promise<void> => {
 });
 
 router.get("/monitoring/runs/latest", async (_req, res): Promise<void> => {
-  const [run] = await db.select().from(leadMonitoringRunsTable).orderBy(desc(leadMonitoringRunsTable.startedAt)).limit(1);
+  const [run] = await db.select().from(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.kind, "monitoring")).orderBy(desc(leadMonitoringRunsTable.startedAt)).limit(1);
   if (!run) {
     res.status(404).json({ error: "Ingen overvåkningskjøring er registrert ennå." });
     return;
@@ -393,7 +652,7 @@ router.post("/monitoring/runs", async (_req, res): Promise<void> => {
   });
   for (let attempt = 0; attempt < 10; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 25));
-    const [run] = await db.select().from(leadMonitoringRunsTable).orderBy(desc(leadMonitoringRunsTable.startedAt)).limit(1);
+    const [run] = await db.select().from(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.kind, "monitoring")).orderBy(desc(leadMonitoringRunsTable.startedAt)).limit(1);
     if (run) {
       res.json(StartMonitoringRunResponse.parse(monitoringRunResponse(run)));
       return;
@@ -409,6 +668,82 @@ router.post("/monitoring/runs", async (_req, res): Promise<void> => {
       res.status(500).json({ error: error instanceof Error ? error.message : "Overvåkningskjøringen feilet." });
     }
   }
+});
+
+router.get("/event-mapping/runs/latest", async (_req, res): Promise<void> => {
+  const [run] = await db.select().from(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.kind, "event_mapping")).orderBy(desc(leadMonitoringRunsTable.startedAt)).limit(1);
+  if (!run) {
+    res.status(404).json({ error: "Ingen kartlegging av nylige hendelser er registrert ennå." });
+    return;
+  }
+  res.json(GetLatestEventMappingRunResponse.parse(monitoringRunResponse(run)));
+});
+
+router.post("/event-mapping/runs", async (_req, res): Promise<void> => {
+  if (activeEventMappingJob) {
+    res.status(409).json({ error: "En kartlegging av nylige hendelser pågår allerede." });
+    return;
+  }
+  const job = runEventMappingScan();
+  activeEventMappingJob = job;
+  void job.catch(() => undefined).finally(() => {
+    activeEventMappingJob = null;
+  });
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const [run] = await db.select().from(leadMonitoringRunsTable).where(and(
+      eq(leadMonitoringRunsTable.kind, "event_mapping"),
+      eq(leadMonitoringRunsTable.status, "running"),
+    )).orderBy(desc(leadMonitoringRunsTable.startedAt)).limit(1);
+    if (run) {
+      res.json(StartEventMappingRunResponse.parse(monitoringRunResponse(run)));
+      return;
+    }
+  }
+  try {
+    const run = await job;
+    res.json(StartEventMappingRunResponse.parse(monitoringRunResponse(run)));
+  } catch (error) {
+    if (error instanceof MonitoringRunInProgressError) {
+      res.status(409).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Kartleggingen feilet." });
+    }
+  }
+});
+
+router.get("/event-mapping/runs/:id/items", async (req, res): Promise<void> => {
+  const params = ListEventMappingItemsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Ugyldig kjørings-ID." });
+    return;
+  }
+  const [run] = await db.select().from(leadMonitoringRunsTable).where(and(
+    eq(leadMonitoringRunsTable.id, params.data.id),
+    eq(leadMonitoringRunsTable.kind, "event_mapping"),
+  ));
+  if (!run) {
+    res.status(404).json({ error: "Kartleggingen finnes ikke." });
+    return;
+  }
+  const items = await db.select().from(leadMonitoringRunItemsTable).where(eq(leadMonitoringRunItemsTable.runId, run.id));
+  if (!items.length) {
+    res.json(ListEventMappingItemsResponse.parse([]));
+    return;
+  }
+  const candidates = await db.select({
+    id: leadCandidatesTable.id,
+    companyName: leadCandidatesTable.companyName,
+  }).from(leadCandidatesTable).where(inArray(leadCandidatesTable.id, items.map((item) => item.candidateId)));
+  const names = new Map(candidates.map((candidate) => [candidate.id, candidate.companyName]));
+  res.json(ListEventMappingItemsResponse.parse(items.map((item) => ({
+    candidateId: item.candidateId,
+    candidateName: names.get(item.candidateId) ?? "Ukjent kandidat",
+    outcome: item.outcome ?? "source_error",
+    signalsCreated: item.signalsCreated,
+    sourceErrorCount: item.sourceErrorCount,
+    message: item.message,
+  }))));
 });
 
 router.get("/candidates/:id/sources", async (req, res): Promise<void> => {

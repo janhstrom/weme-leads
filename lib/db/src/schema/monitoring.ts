@@ -13,6 +13,8 @@ import { leadCandidatesTable } from "./candidates";
 export type MonitoringRunStatus = "running" | "completed" | "completed_with_errors" | "failed";
 export type MonitoringRunTrigger = "manual" | "scheduled";
 export type MonitoringItemStatus = "processed" | "skipped" | "failed";
+export type MonitoringRunKind = "monitoring" | "event_mapping";
+export type MonitoringItemOutcome = "event_found" | "no_event" | "no_source" | "source_error";
 export type CandidateSourceType = "rss" | "atom";
 
 export const leadCandidateSourcesTable = pgTable(
@@ -46,6 +48,7 @@ export const leadMonitoringRunsTable = pgTable(
     id: serial("id").primaryKey(),
     status: text("status").notNull().$type<MonitoringRunStatus>(),
     trigger: text("trigger").notNull().$type<MonitoringRunTrigger>(),
+    kind: text("kind").notNull().default("monitoring").$type<MonitoringRunKind>(),
     requestedCount: integer("requested_count").notNull(),
     processedCount: integer("processed_count").notNull().default(0),
     signalsCreated: integer("signals_created").notNull().default(0),
@@ -76,6 +79,7 @@ export const leadMonitoringRunItemsTable = pgTable(
     crmStatus: text("crm_status").notNull(),
     signalsCreated: integer("signals_created").notNull().default(0),
     sourceErrorCount: integer("source_error_count").notNull().default(0),
+    outcome: text("outcome").$type<MonitoringItemOutcome>(),
     message: text("message"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

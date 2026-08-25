@@ -99,6 +99,54 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "500": { $ref: "#/components/responses/BadRequest" }
+  /event-mapping/runs/latest:
+    get:
+      operationId: getLatestEventMappingRun
+      tags: [monitoring]
+      summary: Get the latest one-time recent-event mapping run
+      responses:
+        "200":
+          description: Latest event mapping run
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MonitoringRun" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /event-mapping/runs:
+    post:
+      operationId: startEventMappingRun
+      tags: [monitoring]
+      summary: Map recent public events for all possible-relevance candidates without enabling monitoring
+      responses:
+        "200":
+          description: Started event mapping run
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MonitoringRun" }
+        "409":
+          description: Another public-source run is already in progress
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "500": { $ref: "#/components/responses/BadRequest" }
+  /event-mapping/runs/{id}/items:
+    get:
+      operationId: listEventMappingItems
+      tags: [monitoring]
+      summary: List candidate outcomes from one event mapping run
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: number }
+      responses:
+        "200":
+          description: Candidate event mapping outcomes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/EventMappingItem" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /signals:
     get:
       operationId: listSignals
@@ -995,11 +1043,12 @@ components:
         label: { type: string, minLength: 2, maxLength: 120 }
     MonitoringRun:
       type: object
-      required: [id, status, trigger, requestedCount, processedCount, signalsCreated, crmMatchedCount, crmUnresolvedCount, sourceErrorCount, startedAt, completedAt, errorSummary]
+      required: [id, status, trigger, kind, requestedCount, processedCount, signalsCreated, crmMatchedCount, crmUnresolvedCount, sourceErrorCount, startedAt, completedAt, errorSummary]
       properties:
         id: { type: number }
         status: { type: string, enum: [running, completed, completed_with_errors, failed] }
         trigger: { type: string, enum: [manual, scheduled] }
+        kind: { type: string, enum: [monitoring, event_mapping] }
         requestedCount: { type: number }
         processedCount: { type: number }
         signalsCreated: { type: number }
@@ -1009,3 +1058,13 @@ components:
         errorSummary: { type: ["string", "null"] }
         startedAt: { type: string, format: date-time }
         completedAt: { type: ["string", "null"], format: date-time }
+    EventMappingItem:
+      type: object
+      required: [candidateId, candidateName, outcome, signalsCreated, sourceErrorCount, message]
+      properties:
+        candidateId: { type: number }
+        candidateName: { type: string }
+        outcome: { type: string, enum: [event_found, no_event, no_source, source_error] }
+        signalsCreated: { type: number }
+        sourceErrorCount: { type: number }
+        message: { type: ["string", "null"] }

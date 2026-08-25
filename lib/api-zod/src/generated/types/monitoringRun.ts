@@ -5,6 +5,7 @@
  * WeMe Signalpilot API
  * OpenAPI spec version: 0.1.0
  */
+import type { MonitoringRunKind } from './monitoringRunKind';
 import type { MonitoringRunStatus } from './monitoringRunStatus';
 import type { MonitoringRunTrigger } from './monitoringRunTrigger';
 
@@ -12,6 +13,7 @@ export interface MonitoringRun {
   id: number;
   status: MonitoringRunStatus;
   trigger: MonitoringRunTrigger;
+  kind: MonitoringRunKind;
   requestedCount: number;
   processedCount: number;
   signalsCreated: number;

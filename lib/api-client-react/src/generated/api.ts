@@ -43,6 +43,7 @@ import type {
   CrmTaskResult,
   DashboardSummary,
   ErrorResponse,
+  EventMappingItem,
   EvidenceInput,
   HealthStatus,
   ImportSignalBatch201,
@@ -532,6 +533,231 @@ export const useStartMonitoringRun = <TError = ErrorType<ErrorResponse | BadRequ
       > => {
       return useMutation(getStartMonitoringRunMutationOptions(options));
     }
+
+export const getGetLatestEventMappingRunUrl = () => {
+
+
+
+
+  return `/api/event-mapping/runs/latest`
+}
+
+/**
+ * @summary Get the latest one-time recent-event mapping run
+ */
+export const getLatestEventMappingRun = async ( options?: Parameters<typeof customFetch>[1]): Promise<MonitoringRun> => {
+
+  return customFetch<MonitoringRun>(getGetLatestEventMappingRunUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLatestEventMappingRunQueryKey = () => {
+    return [
+    `/api/event-mapping/runs/latest`
+    ] as const;
+    }
+
+
+export const getGetLatestEventMappingRunQueryOptions = <TData = Awaited<ReturnType<typeof getLatestEventMappingRun>>, TError = ErrorType<NotFoundResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLatestEventMappingRun>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLatestEventMappingRunQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLatestEventMappingRun>>> = ({ signal }) => getLatestEventMappingRun({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLatestEventMappingRun>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLatestEventMappingRunQueryResult = NonNullable<Awaited<ReturnType<typeof getLatestEventMappingRun>>>
+export type GetLatestEventMappingRunQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get the latest one-time recent-event mapping run
+ */
+
+export function useGetLatestEventMappingRun<TData = Awaited<ReturnType<typeof getLatestEventMappingRun>>, TError = ErrorType<NotFoundResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLatestEventMappingRun>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLatestEventMappingRunQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartEventMappingRunUrl = () => {
+
+
+
+
+  return `/api/event-mapping/runs`
+}
+
+/**
+ * @summary Map recent public events for all possible-relevance candidates without enabling monitoring
+ */
+export const startEventMappingRun = async ( options?: Parameters<typeof customFetch>[1]): Promise<MonitoringRun> => {
+
+  return customFetch<MonitoringRun>(getStartEventMappingRunUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStartEventMappingRunMutationOptions = <TError = ErrorType<ErrorResponse | BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startEventMappingRun>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startEventMappingRun>>, TError,void, TContext> => {
+
+const mutationKey = ['startEventMappingRun'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startEventMappingRun>>, void> = () => {
+
+
+          return  startEventMappingRun(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartEventMappingRunMutationResult = NonNullable<Awaited<ReturnType<typeof startEventMappingRun>>>
+
+    export type StartEventMappingRunMutationError = ErrorType<ErrorResponse | BadRequestResponse>
+
+    /**
+ * @summary Map recent public events for all possible-relevance candidates without enabling monitoring
+ */
+export const useStartEventMappingRun = <TError = ErrorType<ErrorResponse | BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startEventMappingRun>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startEventMappingRun>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getStartEventMappingRunMutationOptions(options));
+    }
+
+export const getListEventMappingItemsUrl = (id: number,) => {
+
+
+
+
+  return `/api/event-mapping/runs/${id}/items`
+}
+
+/**
+ * @summary List candidate outcomes from one event mapping run
+ */
+export const listEventMappingItems = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<EventMappingItem[]> => {
+
+  return customFetch<EventMappingItem[]>(getListEventMappingItemsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEventMappingItemsQueryKey = (id: number,) => {
+    return [
+    `/api/event-mapping/runs/${id}/items`
+    ] as const;
+    }
+
+
+export const getListEventMappingItemsQueryOptions = <TData = Awaited<ReturnType<typeof listEventMappingItems>>, TError = ErrorType<NotFoundResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEventMappingItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEventMappingItemsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEventMappingItems>>> = ({ signal }) => listEventMappingItems(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEventMappingItems>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEventMappingItemsQueryResult = NonNullable<Awaited<ReturnType<typeof listEventMappingItems>>>
+export type ListEventMappingItemsQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary List candidate outcomes from one event mapping run
+ */
+
+export function useListEventMappingItems<TData = Awaited<ReturnType<typeof listEventMappingItems>>, TError = ErrorType<NotFoundResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEventMappingItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEventMappingItemsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListSignalsUrl = (params?: ListSignalsParams,) => {
   const normalizedParams = new URLSearchParams();

@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Activity, Inbox, Settings, ListFilter, Radar, UsersRound } from "lucide-react";
+import { Activity, Inbox, Settings, ListFilter, Radar, UsersRound, FileSearch } from "lucide-react";
 import { useHealthCheck } from "@workspace/api-client-react";
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -9,6 +9,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const isDashboard = location === "/";
   const isSignals = location.startsWith("/signals");
+  const isEventMapping = location.startsWith("/event-mapping");
   const isCandidates = location.startsWith("/candidates");
 
   return (
@@ -24,18 +25,25 @@ export function Layout({ children }: { children: ReactNode }) {
 
         <nav className="flex-1 flex flex-col gap-2 px-2">
           <Link
-            href="/signals"
+            href="/"
             className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isDashboard ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'}`}
           >
             <Inbox className="w-5 h-5 shrink-0" />
             <span className="hidden lg:inline-block text-sm">Inbox</span>
           </Link>
           <Link
-            href="/"
+            href="/signals"
             className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isSignals ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'}`}
           >
             <ListFilter className="w-5 h-5 shrink-0" />
             <span className="hidden lg:inline-block text-sm">Alle signaler</span>
+          </Link>
+          <Link
+            href="/event-mapping"
+            className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isEventMapping ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'}`}
+          >
+            <FileSearch className="w-5 h-5 shrink-0" />
+            <span className="hidden lg:inline-block text-sm">Kartlegging</span>
           </Link>
           <Link
             href="/candidates"

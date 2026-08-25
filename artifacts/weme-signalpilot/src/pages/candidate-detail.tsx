@@ -213,14 +213,13 @@ export default function CandidateDetailPage() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Radio className="h-4 w-4 text-primary" /> Offisielle overvåkningskilder</CardTitle><CardDescription>Legg inn selskapets RSS- eller Atom-feed fra presserom/nyheter. Vi leser bare kildene du eksplisitt har registrert.</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Radio className="h-4 w-4 text-primary" /> Offisielle RSS-/Atom-kilder</CardTitle><CardDescription>Legg inn selskapets feed fra presserom/nyheter. Den kan brukes både i engangskartlegging og ved eventuell senere overvåkning.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
                 {sources.data?.length ? <div className="space-y-2">{sources.data.map((source) => <div key={source.id} className="rounded-md border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><p className="font-medium">{source.label}</p><Badge variant="outline">{source.sourceType.toUpperCase()}</Badge>{source.lastError ? <Badge variant="outline" className="border-destructive/40 text-destructive">Sist kildefeil</Badge> : null}</div><p className="mt-1 truncate text-xs text-muted-foreground">{source.url}</p>{source.lastError ? <p className="mt-2 text-xs text-destructive">{source.lastError}</p> : <p className="mt-2 text-xs text-muted-foreground">{source.lastCheckedAt ? `Sist kontrollert ${format(new Date(source.lastCheckedAt), "d. MMM yyyy HH:mm", { locale: nb })}` : "Ikke kontrollert ennå"}</p>}</div>)}</div> : <p className="text-sm text-muted-foreground">Ingen automatiske kilder er konfigurert ennå. Manuelle evidenskilder over blir ikke crawlet.</p>}
                 <div className="grid gap-3 rounded-md border border-primary/20 bg-primary/5 p-4">
                   <div className="grid gap-3 sm:grid-cols-[140px_1fr]"><select value={sourceForm.sourceType} onChange={(event) => setSourceForm({ ...sourceForm, sourceType: event.target.value as "rss" | "atom" })} className="h-10 rounded-md border border-input bg-card px-3 text-sm"><option value="rss">RSS</option><option value="atom">Atom</option></select><Input placeholder="Kildenavn, f.eks. Hydro Newsroom" value={sourceForm.label} onChange={(event) => setSourceForm({ ...sourceForm, label: event.target.value })} /></div>
                   <Input placeholder="https://…/feed.xml" value={sourceForm.url} onChange={(event) => setSourceForm({ ...sourceForm, url: event.target.value })} />
-                  <Button onClick={() => sourceMutation.mutate({ id: candidate.id, data: sourceForm })} disabled={sourceMutation.isPending || candidate.monitoringStatus !== "monitoring"}>{sourceMutation.isPending ? "Lagrer kilde…" : "Legg til offisiell feed"}</Button>
-                  {candidate.monitoringStatus !== "monitoring" ? <p className="text-xs text-muted-foreground">Legg først kandidaten i overvåkning for å aktivere en feed.</p> : null}
+                  <Button onClick={() => sourceMutation.mutate({ id: candidate.id, data: sourceForm })} disabled={sourceMutation.isPending}>{sourceMutation.isPending ? "Lagrer kilde…" : "Legg til offisiell feed"}</Button>
                 </div>
               </CardContent>
             </Card>

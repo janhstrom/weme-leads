@@ -4,6 +4,7 @@ import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 
 import DashboardPage from '@/pages/dashboard';
 import AllSignalsPage from '@/pages/all-signals';
+import EventMappingPage from '@/pages/event-mapping';
 import CandidatesPage from '@/pages/candidates';
 import CandidateDetailPage from '@/pages/candidate-detail';
 import SignalDetailPage from '@/pages/signal-detail';
@@ -19,6 +20,7 @@ function Router() {
       <Switch>
         <Route path="/" component={DashboardPage} />
         <Route path="/signals" component={AllSignalsPage} />
+        <Route path="/event-mapping" component={EventMappingPage} />
         <Route path="/candidates" component={CandidatesPage} />
         <Route path="/candidates/:id" component={CandidateDetailPage} />
         <Route path="/signals/:id" component={SignalDetailPage} />

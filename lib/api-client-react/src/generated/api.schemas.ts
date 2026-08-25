@@ -686,10 +686,19 @@ export const MonitoringRunTrigger = {
   scheduled: 'scheduled',
 } as const;
 
+export type MonitoringRunKind = typeof MonitoringRunKind[keyof typeof MonitoringRunKind];
+
+
+export const MonitoringRunKind = {
+  monitoring: 'monitoring',
+  event_mapping: 'event_mapping',
+} as const;
+
 export interface MonitoringRun {
   id: number;
   status: MonitoringRunStatus;
   trigger: MonitoringRunTrigger;
+  kind: MonitoringRunKind;
   requestedCount: number;
   processedCount: number;
   signalsCreated: number;
@@ -701,6 +710,26 @@ export interface MonitoringRun {
   startedAt: string;
   /** @nullable */
   completedAt: string | null;
+}
+
+export type EventMappingItemOutcome = typeof EventMappingItemOutcome[keyof typeof EventMappingItemOutcome];
+
+
+export const EventMappingItemOutcome = {
+  event_found: 'event_found',
+  no_event: 'no_event',
+  no_source: 'no_source',
+  source_error: 'source_error',
+} as const;
+
+export interface EventMappingItem {
+  candidateId: number;
+  candidateName: string;
+  outcome: EventMappingItemOutcome;
+  signalsCreated: number;
+  sourceErrorCount: number;
+  /** @nullable */
+  message: string | null;
 }
 
 /**

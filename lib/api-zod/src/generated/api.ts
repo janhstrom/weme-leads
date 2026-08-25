@@ -115,6 +115,7 @@ export const GetLatestMonitoringRunResponse = zod.object({
   "id": zod.number(),
   "status": zod.enum(['running', 'completed', 'completed_with_errors', 'failed']),
   "trigger": zod.enum(['manual', 'scheduled']),
+  "kind": zod.enum(['monitoring', 'event_mapping']),
   "requestedCount": zod.number(),
   "processedCount": zod.number(),
   "signalsCreated": zod.number(),
@@ -134,6 +135,7 @@ export const StartMonitoringRunResponse = zod.object({
   "id": zod.number(),
   "status": zod.enum(['running', 'completed', 'completed_with_errors', 'failed']),
   "trigger": zod.enum(['manual', 'scheduled']),
+  "kind": zod.enum(['monitoring', 'event_mapping']),
   "requestedCount": zod.number(),
   "processedCount": zod.number(),
   "signalsCreated": zod.number(),
@@ -144,6 +146,64 @@ export const StartMonitoringRunResponse = zod.object({
   "startedAt": zod.coerce.date(),
   "completedAt": zod.coerce.date().nullable()
 })
+
+
+/**
+ * @summary Get the latest one-time recent-event mapping run
+ */
+export const GetLatestEventMappingRunResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['running', 'completed', 'completed_with_errors', 'failed']),
+  "trigger": zod.enum(['manual', 'scheduled']),
+  "kind": zod.enum(['monitoring', 'event_mapping']),
+  "requestedCount": zod.number(),
+  "processedCount": zod.number(),
+  "signalsCreated": zod.number(),
+  "crmMatchedCount": zod.number(),
+  "crmUnresolvedCount": zod.number(),
+  "sourceErrorCount": zod.number(),
+  "errorSummary": zod.string().nullable(),
+  "startedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Map recent public events for all possible-relevance candidates without enabling monitoring
+ */
+export const StartEventMappingRunResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['running', 'completed', 'completed_with_errors', 'failed']),
+  "trigger": zod.enum(['manual', 'scheduled']),
+  "kind": zod.enum(['monitoring', 'event_mapping']),
+  "requestedCount": zod.number(),
+  "processedCount": zod.number(),
+  "signalsCreated": zod.number(),
+  "crmMatchedCount": zod.number(),
+  "crmUnresolvedCount": zod.number(),
+  "sourceErrorCount": zod.number(),
+  "errorSummary": zod.string().nullable(),
+  "startedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary List candidate outcomes from one event mapping run
+ */
+export const ListEventMappingItemsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListEventMappingItemsResponseItem = zod.object({
+  "candidateId": zod.number(),
+  "candidateName": zod.string(),
+  "outcome": zod.enum(['event_found', 'no_event', 'no_source', 'source_error']),
+  "signalsCreated": zod.number(),
+  "sourceErrorCount": zod.number(),
+  "message": zod.string().nullable()
+})
+export const ListEventMappingItemsResponse = zod.array(ListEventMappingItemsResponseItem)
 
 
 /**
