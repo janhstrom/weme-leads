@@ -16,6 +16,10 @@ import {
   AddCandidateEvidenceBody,
   AddCandidateEvidenceParams,
   AddCandidateEvidenceResponse,
+  BulkUpdateCandidateRelevanceBody,
+  BulkUpdateCandidateRelevanceResponse,
+  CorrectCandidateSnapshotDateBody,
+  CorrectCandidateSnapshotDateResponse,
   CreateCandidateAnalysisBatchBody,
   CreateCandidateAnalysisBatchResponse,
   GetCandidateParams,
@@ -70,8 +74,8 @@ function inferRelevance(priorityScore: number, priorityReasons: string[]) {
     };
   }
   return {
-    relevanceStatus: "needs_review" as const,
-    relevanceReason: "For lite kildegrunnlag til å avgjøre relevans.",
+    relevanceStatus: "possible" as const,
+    relevanceReason: "Begrenset kildegrunnlag: beholdt som mulig relevant, men ikke lagt i manuell vurderingskø.",
   };
 }
 
@@ -368,6 +372,40 @@ router.get("/candidates/:id", async (req, res): Promise<void> => {
   res.json(GetCandidateResponse.parse(await toCandidateResponse(candidate)));
 });
 
+router.patch("/candidates/snapshot-date", async (req, res): Promise<void> => {
+  const body = CorrectCandidateSnapshotDateBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Velg gyldig kilde og begge snapshot-datoene." });
+    return;
+  }
+  const fromSnapshotDate = dateOnly(body.data.fromSnapshotDate);
+  const toSnapshotDate = dateOnly(body.data.toSnapshotDate);
+  if (fromSnapshotDate === toSnapshotDate) {
+    res.status(400).json({ error: "Den nye snapshot-datoen må være forskjellig fra dagens dato." });
+    return;
+  }
+  const snapshots = await db
+    .select({ candidateId: leadCandidateSnapshotsTable.candidateId })
+    .from(leadCandidateSnapshotsTable)
+    .where(and(
+      eq(leadCandidateSnapshotsTable.sourceType, body.data.sourceType),
+      eq(leadCandidateSnapshotsTable.snapshotDate, fromSnapshotDate),
+    ));
+  if (snapshots.length > 0) {
+    await db
+      .update(leadCandidateSnapshotsTable)
+      .set({ snapshotDate: toSnapshotDate })
+      .where(and(
+        eq(leadCandidateSnapshotsTable.sourceType, body.data.sourceType),
+        eq(leadCandidateSnapshotsTable.snapshotDate, fromSnapshotDate),
+      ));
+    for (const candidateId of new Set(snapshots.map((snapshot) => snapshot.candidateId))) {
+      await refreshCandidatePriority(candidateId);
+    }
+  }
+  res.json(CorrectCandidateSnapshotDateResponse.parse({ updatedCount: snapshots.length }));
+});
+
 router.patch("/candidates/:id/relevance", async (req, res): Promise<void> => {
   const params = UpdateCandidateRelevanceParams.safeParse(req.params);
   const body = UpdateCandidateRelevanceBody.safeParse(req.body);
@@ -391,6 +429,29 @@ router.patch("/candidates/:id/relevance", async (req, res): Promise<void> => {
     return;
   }
   res.json(UpdateCandidateRelevanceResponse.parse(await toCandidateResponse(candidate)));
+});
+
+router.patch("/candidates/relevance/bulk", async (req, res): Promise<void> => {
+  const body = BulkUpdateCandidateRelevanceBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Velg minst én kandidat og en gyldig relevansstatus." });
+    return;
+  }
+  const candidateIds = [...new Set(body.data.candidateIds)];
+  const updated = await db
+    .update(leadCandidatesTable)
+    .set({
+      relevanceStatus: body.data.relevanceStatus,
+      relevanceReason: nullable(body.data.reason),
+      relevanceSource: "manual",
+      updatedAt: new Date(),
+    })
+    .where(inArray(leadCandidatesTable.id, candidateIds))
+    .returning({ id: leadCandidatesTable.id });
+  res.json(BulkUpdateCandidateRelevanceResponse.parse({
+    updatedCount: updated.length,
+    relevanceStatus: body.data.relevanceStatus,
+  }));
 });
 
 router.patch("/candidates/:id/monitoring", async (req, res): Promise<void> => {

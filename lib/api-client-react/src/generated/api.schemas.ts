@@ -405,6 +405,25 @@ export interface CandidateImportResult {
   warnings: string[];
 }
 
+export type CandidateSnapshotDateCorrectionSourceType = typeof CandidateSnapshotDateCorrectionSourceType[keyof typeof CandidateSnapshotDateCorrectionSourceType];
+
+
+export const CandidateSnapshotDateCorrectionSourceType = {
+  dnb_bisnode: 'dnb_bisnode',
+  sales_navigator: 'sales_navigator',
+  manual: 'manual',
+} as const;
+
+export interface CandidateSnapshotDateCorrection {
+  sourceType: CandidateSnapshotDateCorrectionSourceType;
+  fromSnapshotDate: string;
+  toSnapshotDate: string;
+}
+
+export interface CandidateSnapshotDateCorrectionResult {
+  updatedCount: number;
+}
+
 export type CandidateBatchInputScope = typeof CandidateBatchInputScope[keyof typeof CandidateBatchInputScope];
 
 
@@ -437,6 +456,42 @@ export interface CandidateRelevanceInput {
   relevanceStatus: CandidateRelevanceInputRelevanceStatus;
   /** @nullable */
   reason?: string | null;
+}
+
+export type CandidateRelevanceBulkUpdateRelevanceStatus = typeof CandidateRelevanceBulkUpdateRelevanceStatus[keyof typeof CandidateRelevanceBulkUpdateRelevanceStatus];
+
+
+export const CandidateRelevanceBulkUpdateRelevanceStatus = {
+  relevant: 'relevant',
+  possible: 'possible',
+  not_relevant: 'not_relevant',
+  needs_review: 'needs_review',
+} as const;
+
+export interface CandidateRelevanceBulkUpdate {
+  /**
+     * @minItems 1
+     * @maxItems 1000
+     */
+  candidateIds: number[];
+  relevanceStatus: CandidateRelevanceBulkUpdateRelevanceStatus;
+  /** @nullable */
+  reason?: string | null;
+}
+
+export type CandidateRelevanceBulkUpdateResultRelevanceStatus = typeof CandidateRelevanceBulkUpdateResultRelevanceStatus[keyof typeof CandidateRelevanceBulkUpdateResultRelevanceStatus];
+
+
+export const CandidateRelevanceBulkUpdateResultRelevanceStatus = {
+  relevant: 'relevant',
+  possible: 'possible',
+  not_relevant: 'not_relevant',
+  needs_review: 'needs_review',
+} as const;
+
+export interface CandidateRelevanceBulkUpdateResult {
+  updatedCount: number;
+  relevanceStatus: CandidateRelevanceBulkUpdateResultRelevanceStatus;
 }
 
 export type CandidateMonitoringInputMonitoringStatus = typeof CandidateMonitoringInputMonitoringStatus[keyof typeof CandidateMonitoringInputMonitoringStatus];

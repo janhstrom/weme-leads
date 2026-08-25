@@ -300,6 +300,40 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CandidateImportResult" }
         "400": { $ref: "#/components/responses/BadRequest" }
+  /candidates/snapshot-date:
+    patch:
+      operationId: correctCandidateSnapshotDate
+      tags: [candidates]
+      summary: Correct the date on an imported source snapshot without reimporting rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CandidateSnapshotDateCorrection" }
+      responses:
+        "200":
+          description: Corrected snapshot count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CandidateSnapshotDateCorrectionResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /candidates/relevance/bulk:
+    patch:
+      operationId: bulkUpdateCandidateRelevance
+      tags: [candidates]
+      summary: Apply one manual relevance decision to a selected group of candidates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CandidateRelevanceBulkUpdate" }
+      responses:
+        "200":
+          description: Updated candidate count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CandidateRelevanceBulkUpdateResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
   /candidates/{id}/evidence:
     post:
       operationId: addCandidateEvidence
@@ -711,6 +745,18 @@ components:
         warnings:
           type: array
           items: { type: string }
+    CandidateSnapshotDateCorrection:
+      type: object
+      required: [sourceType, fromSnapshotDate, toSnapshotDate]
+      properties:
+        sourceType: { type: string, enum: [dnb_bisnode, sales_navigator, manual] }
+        fromSnapshotDate: { type: string, format: date }
+        toSnapshotDate: { type: string, format: date }
+    CandidateSnapshotDateCorrectionResult:
+      type: object
+      required: [updatedCount]
+      properties:
+        updatedCount: { type: number }
     CandidateBatchInput:
       type: object
       properties:
@@ -722,6 +768,23 @@ components:
       properties:
         relevanceStatus: { type: string, enum: [relevant, possible, not_relevant, needs_review] }
         reason: { type: ["string", "null"] }
+    CandidateRelevanceBulkUpdate:
+      type: object
+      required: [candidateIds, relevanceStatus]
+      properties:
+        candidateIds:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items: { type: number }
+        relevanceStatus: { type: string, enum: [relevant, possible, not_relevant, needs_review] }
+        reason: { type: ["string", "null"] }
+    CandidateRelevanceBulkUpdateResult:
+      type: object
+      required: [updatedCount, relevanceStatus]
+      properties:
+        updatedCount: { type: number }
+        relevanceStatus: { type: string, enum: [relevant, possible, not_relevant, needs_review] }
     CandidateMonitoringInput:
       type: object
       required: [monitoringStatus]

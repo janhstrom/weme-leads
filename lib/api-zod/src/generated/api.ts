@@ -628,6 +628,39 @@ export const ImportCandidateSnapshotsResponse = zod.object({
 
 
 /**
+ * @summary Correct the date on an imported source snapshot without reimporting rows
+ */
+export const CorrectCandidateSnapshotDateBody = zod.object({
+  "sourceType": zod.enum(['dnb_bisnode', 'sales_navigator', 'manual']),
+  "fromSnapshotDate": zod.coerce.date(),
+  "toSnapshotDate": zod.coerce.date()
+})
+
+export const CorrectCandidateSnapshotDateResponse = zod.object({
+  "updatedCount": zod.number()
+})
+
+
+/**
+ * @summary Apply one manual relevance decision to a selected group of candidates
+ */
+export const bulkUpdateCandidateRelevanceBodyCandidateIdsMax = 1000;
+
+
+
+export const BulkUpdateCandidateRelevanceBody = zod.object({
+  "candidateIds": zod.array(zod.number()).min(1).max(bulkUpdateCandidateRelevanceBodyCandidateIdsMax),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review']),
+  "reason": zod.string().nullish()
+})
+
+export const BulkUpdateCandidateRelevanceResponse = zod.object({
+  "updatedCount": zod.number(),
+  "relevanceStatus": zod.enum(['relevant', 'possible', 'not_relevant', 'needs_review'])
+})
+
+
+/**
  * @summary Add and URL-check a public source for a candidate
  */
 export const AddCandidateEvidenceParams = zod.object({

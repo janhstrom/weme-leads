@@ -27,7 +27,11 @@ import type {
   CandidateImportInput,
   CandidateImportResult,
   CandidateMonitoringInput,
+  CandidateRelevanceBulkUpdate,
+  CandidateRelevanceBulkUpdateResult,
   CandidateRelevanceInput,
+  CandidateSnapshotDateCorrection,
+  CandidateSnapshotDateCorrectionResult,
   ConflictResponse,
   CrmContactCandidate,
   CrmContactSelectionInput,
@@ -1133,6 +1137,148 @@ export const useImportCandidateSnapshots = <TError = ErrorType<BadRequestRespons
         TContext
       > => {
       return useMutation(getImportCandidateSnapshotsMutationOptions(options));
+    }
+
+export const getCorrectCandidateSnapshotDateUrl = () => {
+
+
+
+
+  return `/api/candidates/snapshot-date`
+}
+
+/**
+ * @summary Correct the date on an imported source snapshot without reimporting rows
+ */
+export const correctCandidateSnapshotDate = async (candidateSnapshotDateCorrection: CandidateSnapshotDateCorrection, options?: Parameters<typeof customFetch>[1]): Promise<CandidateSnapshotDateCorrectionResult> => {
+
+  return customFetch<CandidateSnapshotDateCorrectionResult>(getCorrectCandidateSnapshotDateUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(candidateSnapshotDateCorrection)
+  }
+);}
+
+
+
+
+
+export const getCorrectCandidateSnapshotDateMutationOptions = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof correctCandidateSnapshotDate>>, TError,{data: BodyType<CandidateSnapshotDateCorrection>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof correctCandidateSnapshotDate>>, TError,{data: BodyType<CandidateSnapshotDateCorrection>}, TContext> => {
+
+const mutationKey = ['correctCandidateSnapshotDate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof correctCandidateSnapshotDate>>, {data: BodyType<CandidateSnapshotDateCorrection>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  correctCandidateSnapshotDate(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CorrectCandidateSnapshotDateMutationResult = NonNullable<Awaited<ReturnType<typeof correctCandidateSnapshotDate>>>
+    export type CorrectCandidateSnapshotDateMutationBody = BodyType<CandidateSnapshotDateCorrection>
+    export type CorrectCandidateSnapshotDateMutationError = ErrorType<BadRequestResponse>
+
+    /**
+ * @summary Correct the date on an imported source snapshot without reimporting rows
+ */
+export const useCorrectCandidateSnapshotDate = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof correctCandidateSnapshotDate>>, TError,{data: BodyType<CandidateSnapshotDateCorrection>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof correctCandidateSnapshotDate>>,
+        TError,
+        {data: BodyType<CandidateSnapshotDateCorrection>},
+        TContext
+      > => {
+      return useMutation(getCorrectCandidateSnapshotDateMutationOptions(options));
+    }
+
+export const getBulkUpdateCandidateRelevanceUrl = () => {
+
+
+
+
+  return `/api/candidates/relevance/bulk`
+}
+
+/**
+ * @summary Apply one manual relevance decision to a selected group of candidates
+ */
+export const bulkUpdateCandidateRelevance = async (candidateRelevanceBulkUpdate: CandidateRelevanceBulkUpdate, options?: Parameters<typeof customFetch>[1]): Promise<CandidateRelevanceBulkUpdateResult> => {
+
+  return customFetch<CandidateRelevanceBulkUpdateResult>(getBulkUpdateCandidateRelevanceUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(candidateRelevanceBulkUpdate)
+  }
+);}
+
+
+
+
+
+export const getBulkUpdateCandidateRelevanceMutationOptions = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkUpdateCandidateRelevance>>, TError,{data: BodyType<CandidateRelevanceBulkUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bulkUpdateCandidateRelevance>>, TError,{data: BodyType<CandidateRelevanceBulkUpdate>}, TContext> => {
+
+const mutationKey = ['bulkUpdateCandidateRelevance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkUpdateCandidateRelevance>>, {data: BodyType<CandidateRelevanceBulkUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  bulkUpdateCandidateRelevance(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkUpdateCandidateRelevanceMutationResult = NonNullable<Awaited<ReturnType<typeof bulkUpdateCandidateRelevance>>>
+    export type BulkUpdateCandidateRelevanceMutationBody = BodyType<CandidateRelevanceBulkUpdate>
+    export type BulkUpdateCandidateRelevanceMutationError = ErrorType<BadRequestResponse>
+
+    /**
+ * @summary Apply one manual relevance decision to a selected group of candidates
+ */
+export const useBulkUpdateCandidateRelevance = <TError = ErrorType<BadRequestResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkUpdateCandidateRelevance>>, TError,{data: BodyType<CandidateRelevanceBulkUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof bulkUpdateCandidateRelevance>>,
+        TError,
+        {data: BodyType<CandidateRelevanceBulkUpdate>},
+        TContext
+      > => {
+      return useMutation(getBulkUpdateCandidateRelevanceMutationOptions(options));
     }
 
 export const getAddCandidateEvidenceUrl = (id: number,) => {
