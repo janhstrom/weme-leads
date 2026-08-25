@@ -122,12 +122,24 @@ async function parseCandidateFile(file: File) {
   throw new Error("Velg en CSV- eller Excel-fil (.xlsx).");
 }
 
+function importErrorMessage(error: unknown) {
+  const apiError = error as { status?: unknown; response?: { status?: unknown } };
+  if (apiError?.status === 413 || apiError?.response?.status === 413) {
+    return "Filen er fortsatt for stor til å behandles. Prøv å dele arket i mindre utdrag, eller fjern unødvendige kolonner.";
+  }
+  if (apiError?.status || apiError?.response?.status) {
+    return "Kunne ikke oppdatere hovedlisten. Kontroller at kilde, snapshot-dato og kolonner er gyldige.";
+  }
+  return error instanceof Error ? error.message : "Kontroller CSV- eller Excel-filen.";
+}
+
 export default function CandidatesPage() {
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ListView>("universe");
   const [workScope, setWorkScope] = useState<WorkScope>("monitoring");
   const [sourceType, setSourceType] = useState<SourceType>("dnb_bisnode");
   const [snapshotDate, setSnapshotDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [isImporting, setIsImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -146,11 +158,10 @@ export default function CandidatesPage() {
 
   const importMutation = useImportCandidateSnapshots({
     mutation: {
-      onSuccess: (result) => {
+      onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListCandidatesQueryKey() });
-        toast({ title: "Hovedlisten er oppdatert", description: `${result.created} nye selskaper, ${result.matched} matchet og ${result.needsReview} trenger avklaring.` });
       },
-      onError: (error) => toast({ title: "Importen feilet", description: error instanceof Error ? error.message : "Kontroller CSV- eller Excel-filen.", variant: "destructive" }),
+      onError: () => undefined,
     },
   });
   const monitoringMutation = useUpdateCandidateMonitoring({
@@ -170,13 +181,29 @@ export default function CandidatesPage() {
   });
 
   const handleFile = async (file: File | undefined) => {
-    if (!file) return;
+    if (!file || isImporting) return;
+    let processedRecords = 0;
     try {
-      const payload: CandidateImportInput = { sourceType, snapshotDate, records: await parseCandidateFile(file) };
-      importMutation.mutate({ data: payload });
+      setIsImporting(true);
+      const records = await parseCandidateFile(file);
+      const batchSize = 100;
+      const totals = { created: 0, matched: 0, needsReview: 0, skipped: 0 };
+      for (let index = 0; index < records.length; index += batchSize) {
+        const result = await importMutation.mutateAsync({
+          data: { sourceType, snapshotDate, records: records.slice(index, index + batchSize) } satisfies CandidateImportInput,
+        });
+        totals.created += result.created;
+        totals.matched += result.matched;
+        totals.needsReview += result.needsReview;
+        totals.skipped += result.skipped;
+        processedRecords += Math.min(batchSize, records.length - index);
+      }
+      toast({ title: "Hovedlisten er oppdatert", description: `${totals.created} nye selskaper, ${totals.matched} matchet, ${totals.skipped} hoppet over og ${totals.needsReview} trenger avklaring.` });
     } catch (error) {
-      toast({ title: "Filen kunne ikke leses", description: error instanceof Error ? error.message : "Kontroller CSV- eller Excel-filen.", variant: "destructive" });
+      const partialImportNotice = processedRecords ? `De første ${processedRecords} radene kan være importert. ` : "";
+      toast({ title: "Importen stoppet", description: `${partialImportNotice}${importErrorMessage(error)}`, variant: "destructive" });
     } finally {
+      setIsImporting(false);
       if (fileRef.current) fileRef.current.value = "";
     }
   };
@@ -228,7 +255,7 @@ export default function CandidatesPage() {
                 </label>
                 <label className="grid gap-1 text-sm font-medium">Snapshot-dato<Input type="date" value={snapshotDate} onChange={(event) => setSnapshotDate(event.target.value)} /></label>
                 <input ref={fileRef} className="hidden" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={(event) => handleFile(event.target.files?.[0])} />
-                <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={importMutation.isPending}><FileUp className="mr-2 h-4 w-4" /> {importMutation.isPending ? "Oppdaterer…" : "Velg nytt snapshot"}</Button>
+                <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={isImporting}><FileUp className="mr-2 h-4 w-4" /> {isImporting ? "Oppdaterer…" : "Velg nytt snapshot"}</Button>
               </div>
             </div>
           </details>
