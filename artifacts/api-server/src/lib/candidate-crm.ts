@@ -48,17 +48,6 @@ type CrmContactPayload = {
   custom_properties?: unknown;
 };
 
-type CrmInfoPayload = CrmCompanyPayload & {
-  total_contacts?: unknown;
-  totalContacts?: unknown;
-  cities?: unknown;
-  countries?: unknown;
-  lifecycle_stages?: unknown;
-  lifecycleStages?: unknown;
-  lead_statuses?: unknown;
-  leadStatuses?: unknown;
-};
-
 export type CrmCandidateInput = {
   companyName: string;
   organizationNumber: string | null;
@@ -84,26 +73,6 @@ function stringValue(value: unknown): string | null {
 function numberValue(value: unknown): number | null {
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
-function stringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return [...new Set(value.map(stringValue).filter((item): item is string => Boolean(item)))];
-}
-
-function toCompany(payload: unknown): CrmCompanyPayload | null {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
-  return payload as CrmCompanyPayload;
-}
-
-function companyList(payload: unknown): CrmCompanyPayload[] {
-  if (Array.isArray(payload)) return payload.map(toCompany).filter((item): item is CrmCompanyPayload => Boolean(item));
-  if (!payload || typeof payload !== "object") return [];
-  const wrapped = payload as { companies?: unknown; results?: unknown; data?: unknown };
-  for (const item of [wrapped.companies, wrapped.results, wrapped.data]) {
-    if (Array.isArray(item)) return item.map(toCompany).filter((entry): entry is CrmCompanyPayload => Boolean(entry));
-  }
-  return [];
 }
 
 function companyContacts(payload: CrmContactPayload[], company: CrmCompanyPayload) {
@@ -258,7 +227,7 @@ async function crmGet<T>(input: {
       signal: controller.signal,
     });
     if (response.status === 429) throw new CrmRequestError("rate_limit", "CRM begrenset oppslaget. Prøv igjen litt senere.");
-    if (!response.ok) throw new CrmRequestError("upstream", "CRM kunne ikke hente selskapsdata.");
+    if (!response.ok) throw new CrmRequestError("upstream", `CRM kunne ikke hente selskapsdata (HTTP ${response.status}).`);
     return await response.json() as T;
   } catch (error) {
     if (error instanceof CrmRequestError) throw error;
@@ -274,18 +243,19 @@ export async function enrichCandidateFromCrm(
   config: { apiKey?: string; baseUrl?: string; fetchImpl?: typeof fetch } = {},
 ): Promise<CandidateCrmEnrichment> {
   const evaluatedAt = new Date().toISOString();
-  if (!config.apiKey) {
+  const apiKey = config.apiKey;
+  if (!apiKey) {
     return unavailableEnrichment(evaluatedAt, "CRM-tilkoblingen er ikke konfigurert.");
   }
   const baseUrl = (config.baseUrl ?? "https://crm.weme.eco/api").replace(/\/$/, "").replace(/\/agent$/, "");
   try {
-    const searchUrl = new URL(`${baseUrl}/agent/contacts`);
-    searchUrl.searchParams.set("search", candidate.companyName);
-    searchUrl.searchParams.set("limit", "50");
+    const searchParams = new URLSearchParams({ search: candidate.companyName });
+    const candidateDomain = normalizeCandidateDomain(candidate.domain);
+    if (candidateDomain) searchParams.set("domain", candidateDomain);
     const searchedContacts = contactList(await crmGet<unknown>({
       baseUrl,
-      apiKey: config.apiKey,
-      path: `${searchUrl.pathname}${searchUrl.search}`,
+      apiKey,
+      path: `/agent/contacts?${searchParams.toString()}`,
       fetchImpl: config.fetchImpl,
     }));
     const companies = companiesFromContacts(searchedContacts);
@@ -312,13 +282,13 @@ export async function enrichCandidateFromCrm(
     }
     const matchedName = companyName(match.company);
     if (!matchedName) return unavailableEnrichment(evaluatedAt, "CRM returnerte et treff uten verifiserbart selskapsnavn.");
-    const companySearchUrl = new URL(`${baseUrl}/agent/contacts`);
-    companySearchUrl.searchParams.set("search", matchedName);
-    companySearchUrl.searchParams.set("limit", "50");
+    const companySearchParams = new URLSearchParams({ search: matchedName });
+    const matchedDomain = companyDomain(match.company) ?? candidateDomain;
+    if (matchedDomain) companySearchParams.set("domain", matchedDomain);
     const companySearchContacts = contactList(await crmGet<unknown>({
       baseUrl,
-      apiKey: config.apiKey,
-      path: `${companySearchUrl.pathname}${companySearchUrl.search}`,
+      apiKey,
+      path: `/agent/contacts?${companySearchParams.toString()}`,
       fetchImpl: config.fetchImpl,
     }));
     const matchedContactPayloads = companyContacts(companySearchContacts, match.company);
@@ -327,7 +297,7 @@ export async function enrichCandidateFromCrm(
       contacts.slice(0, 10).map((contact) =>
         crmGet<unknown>({
           baseUrl,
-          apiKey: config.apiKey,
+          apiKey,
           path: `/agent/contacts/${contact.id}/notes`,
           fetchImpl: config.fetchImpl,
         }).then(noteList),

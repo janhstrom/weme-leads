@@ -31,43 +31,29 @@ test("lar tvetydige CRM-navnetreff være uavklart", () => {
 
 test("samler et sikkert CRM-treff uten å skrive tilbake til CRM", async () => {
   const requests: Array<{ url: string; method: string | undefined }> = [];
-  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const fetchImpl = async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
     const url = String(input);
     requests.push({ url, method: init?.method });
-    const body = url.includes("/companies/search")
+    const body = url.includes("/agent/contacts?")
       ? {
-          companies: [{
-            company_name: "Nord AS",
-            website: "https://nord.no",
-            organization_number: "912345678",
-          }],
+          contacts: [
+            {
+              id: 44,
+              first_name: "Ada",
+              last_name: "Leder",
+              company: "Nord AS",
+              website: "https://nord.no",
+              job_title: "Head of Digital Transformation",
+              owner: "WeMe",
+              lifecycle_stage: "Opportunity",
+              lead_status: "Open",
+              updated_at: "2026-08-20T09:00:00.000Z",
+              custom_properties: { orgnr: "912345678" },
+            },
+            { id: 45, first_name: "Per", last_name: "Prosjekt", company: "Nord AS", website: "https://nord.no" },
+          ],
         }
-      : url.endsWith("/info")
-        ? {
-            company_name: "Nord AS",
-            website: "https://nord.no",
-            industry: "Teknologi",
-            total_contacts: 2,
-            lifecycle_stages: ["Opportunity"],
-            lead_statuses: ["Open"],
-          }
-        : url.endsWith("/contacts")
-          ? {
-              contacts: [
-                {
-                  id: 44,
-                  first_name: "Ada",
-                  last_name: "Leder",
-                  job_title: "Head of Digital Transformation",
-                  owner: "WeMe",
-                  lifecycle_stage: "Opportunity",
-                  lead_status: "Open",
-                  updated_at: "2026-08-20T09:00:00.000Z",
-                },
-                { id: 45, first_name: "Per", last_name: "Prosjekt" },
-              ],
-            }
-          : { notes: [{ created_at: "2026-08-22T09:00:00.000Z" }] };
+      : { notes: [{ created_at: "2026-08-22T09:00:00.000Z" }] };
     return new Response(JSON.stringify(body), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -84,7 +70,7 @@ test("samler et sikkert CRM-treff uten å skrive tilbake til CRM", async () => {
   assert.equal(result.contactCount, 2);
   assert.equal(result.relevantContacts[0]?.name, "Ada Leder");
   assert.deepEqual(result.lifecycleStages, ["Opportunity"]);
-  assert.equal(result.noteCount, 1);
+  assert.equal(result.noteCount, 2);
   assert.equal(result.lastActivityAt, "2026-08-22T09:00:00.000Z");
   assert.equal(requests.length, 4);
   assert.ok(requests.every((request) => request.method === undefined));
