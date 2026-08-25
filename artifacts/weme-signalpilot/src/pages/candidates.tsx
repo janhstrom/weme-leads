@@ -111,17 +111,39 @@ function parseCandidateCsv(text: string) {
 
 function parseCandidateWorkbook(fileContents: ArrayBuffer) {
   const workbook = read(fileContents, { type: "array", cellDates: true });
-  const firstSheetName = workbook.SheetNames[0];
-  if (!firstSheetName) throw new Error("Excel-filen har ingen ark å importere.");
-  const worksheet = workbook.Sheets[firstSheetName];
-  const rows = utils.sheet_to_json<unknown[]>(worksheet, { header: 1, defval: "", raw: false });
-  const headerIndex = rows.findIndex((row) => row.some((cell) => companyHeaderAliases.includes(String(cell).toLocaleLowerCase("nb-NO").replace(/[^a-z0-9æøå]/g, ""))));
-  if (headerIndex < 0) throw new Error("Fant ikke en kolonne for selskapsnavn i første Excel-ark.");
-  const headers = rows[headerIndex].map((header) => String(header ?? "").trim());
-  const dataRows = rows.slice(headerIndex + 1)
-    .filter((row) => row.some((cell) => String(cell ?? "").trim()))
-    .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])));
-  return parseCandidateRows(dataRows, headerIndex + 2);
+  if (!workbook.SheetNames.length) throw new Error("Excel-filen har ingen ark å importere.");
+
+  const sheetCandidates = workbook.SheetNames.flatMap((sheetName, sheetIndex) => {
+    const worksheet = workbook.Sheets[sheetName];
+    const rows = utils.sheet_to_json<unknown[]>(worksheet, { header: 1, defval: "", raw: false });
+    const headerIndex = rows.findIndex((row) =>
+      row.some((cell) => companyHeaderAliases.includes(
+        String(cell).toLocaleLowerCase("nb-NO").replace(/[^a-z0-9æøå]/g, ""),
+      )),
+    );
+    if (headerIndex < 0) return [];
+
+    const headers = rows[headerIndex].map((header) => String(header ?? "").trim());
+    const dataRows = rows.slice(headerIndex + 1)
+      .filter((row) => row.some((cell) => String(cell ?? "").trim()))
+      .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])));
+    const populatedCompanyRows = dataRows.filter((row) => {
+      const fields = Object.fromEntries(
+        Object.entries(row).map(([key, value]) => [key, String(value ?? "").trim()]),
+      );
+      return Boolean(rowValue(fields, companyHeaderAliases));
+    }).length;
+
+    return [{ sheetIndex, headerIndex, dataRows, populatedCompanyRows }];
+  });
+
+  if (!sheetCandidates.length) throw new Error("Fant ikke en kolonne for selskapsnavn i Excel-arbeidsboken.");
+  const selectedSheet = sheetCandidates
+    .sort((a, b) => b.populatedCompanyRows - a.populatedCompanyRows || a.sheetIndex - b.sheetIndex)[0];
+  if (!selectedSheet.populatedCompanyRows) {
+    throw new Error("Fant en mulig selskapskolonne, men ingen selskapsnavn i Excel-arbeidsboken.");
+  }
+  return parseCandidateRows(selectedSheet.dataRows, selectedSheet.headerIndex + 2);
 }
 
 async function parseCandidateFile(file: File) {
