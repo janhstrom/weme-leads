@@ -1,0 +1,68 @@
+WeMe CRM – API-kontrakt for selskaps- og kontaktdata
+Base URL (produksjon)
+https://crm.weme.eco/api
+
+Auth: X-API-Key: <nøkkel> i header på alle agent-endepunkter.
+
+Datamodell
+Selskaper har ingen egen tabell. Selskapsdata aggregeres fra kontakter som deler samme company-felt (streng). Koblingen kontakt → selskap er altså company-feltet, ikke en ID.
+
+Kontaktfelter
+Felt	Type	Beskrivelse
+id	int	Unik kontakt-ID
+first_name / last_name	string	Navn
+email	string	Primær e-post
+phone	string	Primær telefon
+job_title	string	Stilling
+company	string	Selskapsnavn (kobling til selskap)
+company_logo_url	string	Logo-URL
+website	string	Nettside
+city / state / country	string	Lokasjon
+owner	string	CRM-eier (ansvarlig selger)
+lifecycle_stage	string	Lead, Customer, Opportunity, Subscriber
+lead_status	string	New, Open, In Progress, Unqualified
+contact_role	string	Investor, Kunde, Mentor, Partner, Ressurs, Leverandør, Coachpool
+contact_type_custom	string	Egendefinert type
+enrichment_status	string	AI-berikningsstatus
+custom_properties	JSON	Fritekst-felt, kan inneholde org.nr. hvis importert fra HubSpot
+created_at / updated_at	timestamp	ISO 8601
+Aggregert selskapsobjekt (returnert fra /company/...)
+Felt	Type	Beskrivelse
+company_name	string	Navn
+industry	string	Bransje
+website	string	Nettside
+total_contacts	int	Antall kontakter i CRM
+cities / countries	string[]	Lokasjoner
+lifecycle_stages	string[]	Salgsfaser i bruk
+lead_statuses	string[]	Statuser i bruk
+Relevante endepunkter
+Agent-API (X-API-Key, åpent)
+GET  /agent/contacts?search={navn|epost|selskap}&limit=50
+GET  /agent/contacts/{id}
+GET  /agent/contacts/{id}/notes
+GET  /agent/contacts/{id}/tasks
+POST /agent/contacts/{id}/notes
+POST /agent/contacts/{id}/tasks
+
+Selskapsoppslag (krever Stack Auth – kun intern bruk)
+GET /company/company/{company_name}/info    → aggregert selskapsdata
+GET /company/company/{company_name}/notes   → selskapsnotater
+
+Kontakter på samme selskap (krever Stack Auth)
+GET /contacts/contacts/by-company/{company_name}  → alle kontakter i selskapet
+
+Domenebasert logooppslag (åpent)
+GET /contacts/logo/{company_domain}   → ex: /contacts/logo/braveleadership.no
+
+Foreslå selskap fra e-post (krever Stack Auth)
+GET /contacts/suggest-company-by-email?email={epost}
+
+Begrensninger å kjenne til
+Spørsmål	Svar
+Selskaps-ID?	Finnes ikke – bruk company-navn som nøkkel
+Oppslag på org.nr.?	Ikke støttet nativt – kan ligge i custom_properties
+Oppslag på domene?	Ja, via suggest-company-by-email eller logo-endepunktet
+Åpne muligheter / pipeline?	Ingen egen Opportunity-modell – bruk lifecycle_stage = "Opportunity"
+Aktivitetslogg?	Via /agent/contacts/{id}/notes og /agent/contacts/{id}/tasks
+Eier?	owner-feltet på kontakten
+Fullstendig OpenAPI-dokumentasjon: https://crm.weme.eco/api/docs
