@@ -29,6 +29,8 @@ function rowValue(row: Record<string, string>, aliases: string[]) {
   return normalized?.[1]?.trim() || undefined;
 }
 
+const companyHeaderAliases = ["company", "companyname", "account", "selskap", "selskapsnavn", "firmanavn", "foretaksnavn", "bedriftsnavn", "kundenavn", "navn"];
+
 function parseEmployeeCount(value: string | undefined) {
   if (!value) return undefined;
   const parsed = Number(value.replace(/[^\d-]/g, ""));
@@ -55,7 +57,7 @@ function splitCsvLine(line: string, separator: string) {
   return result;
 }
 
-function parseCandidateRows(rows: Array<Record<string, unknown>>) {
+function parseCandidateRows(rows: Array<Record<string, unknown>>, firstDataRow = 2) {
   if (!rows.length) throw new Error("Filen må ha en overskriftsrad og minst én data-rad.");
   return rows.map((row, index) => {
     const fields = Object.fromEntries(
@@ -64,8 +66,8 @@ function parseCandidateRows(rows: Array<Record<string, unknown>>) {
         value instanceof Date ? value.toISOString().slice(0, 10) : String(value ?? "").trim(),
       ]),
     );
-    const companyName = rowValue(fields, ["company", "companyname", "account", "selskap", "selskapsnavn", "firmanavn", "foretaksnavn"]);
-    if (!companyName) throw new Error(`Rad ${index + 2} mangler selskapsnavn.`);
+    const companyName = rowValue(fields, companyHeaderAliases);
+    if (!companyName) throw new Error(`Rad ${firstDataRow + index} mangler selskapsnavn.`);
     return {
       sourceRowId: String(index + 2),
       companyName,
@@ -99,7 +101,14 @@ function parseCandidateWorkbook(fileContents: ArrayBuffer) {
   const firstSheetName = workbook.SheetNames[0];
   if (!firstSheetName) throw new Error("Excel-filen har ingen ark å importere.");
   const worksheet = workbook.Sheets[firstSheetName];
-  return parseCandidateRows(utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: "", raw: false }));
+  const rows = utils.sheet_to_json<unknown[]>(worksheet, { header: 1, defval: "", raw: false });
+  const headerIndex = rows.findIndex((row) => row.some((cell) => companyHeaderAliases.includes(String(cell).toLocaleLowerCase("nb-NO").replace(/[^a-z0-9æøå]/g, ""))));
+  if (headerIndex < 0) throw new Error("Fant ikke en kolonne for selskapsnavn i første Excel-ark.");
+  const headers = rows[headerIndex].map((header) => String(header ?? "").trim());
+  const dataRows = rows.slice(headerIndex + 1)
+    .filter((row) => row.some((cell) => String(cell ?? "").trim()))
+    .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])));
+  return parseCandidateRows(dataRows, headerIndex + 2);
 }
 
 async function parseCandidateFile(file: File) {
