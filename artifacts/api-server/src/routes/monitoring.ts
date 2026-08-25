@@ -285,6 +285,30 @@ function htmlAttribute(tag: string, name: string) {
   return tag.match(new RegExp(`\\b${name}=["']([^"']+)["']`, "i"))?.[1] ?? null;
 }
 
+export function findOfficialFeedLink(html: string, pageUrl: string) {
+  let currentPage: URL;
+  try {
+    currentPage = new URL(pageUrl);
+  } catch {
+    return null;
+  }
+  return [...html.matchAll(/<link\b[^>]*>/gi)]
+    .map((match) => match[0])
+    .flatMap((tag) => {
+      const href = htmlAttribute(tag, "href");
+      const type = htmlAttribute(tag, "type")?.toLowerCase();
+      if (!href || !type || !/(application\/rss\+xml|application\/atom\+xml)/.test(type)) return [];
+      try {
+        const url = new URL(href, currentPage);
+        if (url.protocol !== "https:" || url.hostname !== currentPage.hostname) return [];
+        return [{ url: url.toString(), sourceType: type.includes("atom") ? "atom" as const : "rss" as const }];
+      } catch {
+        return [];
+      }
+    })
+    .at(0) ?? null;
+}
+
 async function discoverOfficialFeed(candidate: Candidate): Promise<CandidateSource[]> {
   if (!candidate.domain) return [];
   let homepage: URL;
@@ -296,23 +320,8 @@ async function discoverOfficialFeed(candidate: Candidate): Promise<CandidateSour
 
   try {
     const response = await fetchTextWithTimeout(homepage.toString());
-    const currentPage = new URL(response.url);
     const html = await response.text();
-    const discovered = [...html.matchAll(/<link\b[^>]*>/gi)]
-      .map((match) => match[0])
-      .flatMap((tag) => {
-        const href = htmlAttribute(tag, "href");
-        const type = htmlAttribute(tag, "type")?.toLowerCase();
-        if (!href || !type || !/(application\/rss\+xml|application\/atom\+xml)/.test(type)) return [];
-        try {
-          const url = new URL(href, currentPage);
-          if (url.protocol !== "https:" || url.hostname !== currentPage.hostname) return [];
-          return [{ url: url.toString(), sourceType: type.includes("atom") ? "atom" as const : "rss" as const }];
-        } catch {
-          return [];
-        }
-      })
-      .at(0);
+    const discovered = findOfficialFeedLink(html, response.url);
     if (!discovered) return [];
 
     const [created] = await db.insert(leadCandidateSourcesTable).values({
@@ -337,6 +346,38 @@ type EventMappingResult = {
   sourceErrorCount: number;
   message: string;
 };
+
+export function classifyEventMappingOutcome(input: {
+  verifiedEventCount: number;
+  successfulSourceCount: number;
+  sourceErrorCount: number;
+  signalsCreated: number;
+}): EventMappingResult {
+  if (input.verifiedEventCount > 0) {
+    return {
+      outcome: "event_found",
+      signalsCreated: input.signalsCreated,
+      sourceErrorCount: input.sourceErrorCount,
+      message: input.signalsCreated
+        ? `${input.signalsCreated} ny(e) kildebelagt(e) hendelse(r) ble lagret.`
+        : "Fersk, allerede registrert hendelse ble bekreftet uten å opprette duplikat.",
+    };
+  }
+  if (!input.successfulSourceCount) {
+    return {
+      outcome: "source_error",
+      signalsCreated: 0,
+      sourceErrorCount: input.sourceErrorCount,
+      message: "Ingen kvalifisert kilde kunne hentes eller kontrolleres.",
+    };
+  }
+  return {
+    outcome: "no_event",
+    signalsCreated: 0,
+    sourceErrorCount: input.sourceErrorCount,
+    message: "Kvalifisert offentlig kilde ble kontrollert, men ga ingen ferske hendelser som traff endringskriteriene.",
+  };
+}
 
 async function collectEventMappingSignals(candidate: Candidate, runId: number): Promise<EventMappingResult> {
   let sources = await db.select().from(leadCandidateSourcesTable).where(and(
@@ -430,30 +471,12 @@ async function collectEventMappingSignals(candidate: Candidate, runId: number): 
     }
   }
 
-  if (verifiedEventCount > 0) {
-    return {
-      outcome: "event_found",
-      signalsCreated,
-      sourceErrorCount,
-      message: signalsCreated
-        ? `${signalsCreated} ny(e) kildebelagt(e) hendelse(r) ble lagret.`
-        : "Fersk, allerede registrert hendelse ble bekreftet uten å opprette duplikat.",
-    };
-  }
-  if (!successfulSourceCount) {
-    return {
-      outcome: "source_error",
-      signalsCreated: 0,
-      sourceErrorCount,
-      message: "Ingen kvalifisert kilde kunne hentes eller kontrolleres.",
-    };
-  }
-  return {
-    outcome: "no_event",
-    signalsCreated: 0,
+  return classifyEventMappingOutcome({
+    verifiedEventCount,
+    successfulSourceCount,
     sourceErrorCount,
-    message: "Kvalifisert offentlig kilde ble kontrollert, men ga ingen ferske hendelser som traff endringskriteriene.",
-  };
+    signalsCreated,
+  });
 }
 
 async function expireStaleRunLocks() {
