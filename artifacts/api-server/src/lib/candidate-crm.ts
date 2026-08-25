@@ -26,6 +26,9 @@ type CrmCompanyPayload = {
 
 type CrmContactPayload = {
   id?: unknown;
+  company?: unknown;
+  company_name?: unknown;
+  website?: unknown;
   first_name?: unknown;
   last_name?: unknown;
   name?: unknown;
@@ -42,6 +45,7 @@ type CrmContactPayload = {
   contactRole?: unknown;
   updated_at?: unknown;
   updatedAt?: unknown;
+  custom_properties?: unknown;
 };
 
 type CrmInfoPayload = CrmCompanyPayload & {
@@ -100,6 +104,39 @@ function companyList(payload: unknown): CrmCompanyPayload[] {
     if (Array.isArray(item)) return item.map(toCompany).filter((entry): entry is CrmCompanyPayload => Boolean(entry));
   }
   return [];
+}
+
+function companyContacts(payload: CrmContactPayload[], company: CrmCompanyPayload) {
+  const companyNameValue = companyName(company);
+  if (!companyNameValue) return [];
+  const normalized = normalizeCandidateName(companyNameValue);
+  return payload.filter((contact) => {
+    const contactCompany = stringValue(contact.company) ?? stringValue(contact.company_name);
+    return contactCompany ? normalizeCandidateName(contactCompany) === normalized : false;
+  });
+}
+
+function companiesFromContacts(contacts: CrmContactPayload[]): CrmCompanyPayload[] {
+  const companies = new Map<string, CrmCompanyPayload>();
+  for (const contact of contacts) {
+    const name = stringValue(contact.company) ?? stringValue(contact.company_name);
+    if (!name) continue;
+    const website = stringValue(contact.website);
+    const organizationNumber = contact.custom_properties && typeof contact.custom_properties === "object"
+      ? contact.custom_properties
+      : undefined;
+    const company = {
+      company_name: name,
+      website,
+      custom_properties: organizationNumber,
+    } satisfies CrmCompanyPayload;
+    const key = [normalizeCandidateName(name), companyDomain(company) ?? ""].join("|");
+    const existing = companies.get(key);
+    if (!existing || (!companyOrganizationNumber(existing) && companyOrganizationNumber(company))) {
+      companies.set(key, company);
+    }
+  }
+  return [...companies.values()];
 }
 
 function contactList(payload: unknown): CrmContactPayload[] {
@@ -240,16 +277,18 @@ export async function enrichCandidateFromCrm(
   if (!config.apiKey) {
     return unavailableEnrichment(evaluatedAt, "CRM-tilkoblingen er ikke konfigurert.");
   }
-  const baseUrl = (config.baseUrl ?? "https://crm.weme.eco/api/agent").replace(/\/$/, "");
+  const baseUrl = (config.baseUrl ?? "https://crm.weme.eco/api").replace(/\/$/, "").replace(/\/agent$/, "");
   try {
-    const searchUrl = new URL(`${baseUrl}/companies/search`);
-    searchUrl.searchParams.set("q", candidate.companyName);
-    const companies = companyList(await crmGet<unknown>({
+    const searchUrl = new URL(`${baseUrl}/agent/contacts`);
+    searchUrl.searchParams.set("search", candidate.companyName);
+    searchUrl.searchParams.set("limit", "50");
+    const searchedContacts = contactList(await crmGet<unknown>({
       baseUrl,
       apiKey: config.apiKey,
       path: `${searchUrl.pathname}${searchUrl.search}`,
       fetchImpl: config.fetchImpl,
     }));
+    const companies = companiesFromContacts(searchedContacts);
     const match = findSafeCrmCompanyMatch(candidate, companies);
     if (!match.company || !match.matchMethod) {
       return {
@@ -273,21 +312,31 @@ export async function enrichCandidateFromCrm(
     }
     const matchedName = companyName(match.company);
     if (!matchedName) return unavailableEnrichment(evaluatedAt, "CRM returnerte et treff uten verifiserbart selskapsnavn.");
-    const encodedName = encodeURIComponent(matchedName);
-    const [infoPayload, contactsPayload, notesPayload] = await Promise.all([
-      crmGet<unknown>({ baseUrl, apiKey: config.apiKey, path: `/companies/${encodedName}/info`, fetchImpl: config.fetchImpl }),
-      crmGet<unknown>({ baseUrl, apiKey: config.apiKey, path: `/companies/${encodedName}/contacts`, fetchImpl: config.fetchImpl }),
-      crmGet<unknown>({ baseUrl, apiKey: config.apiKey, path: `/companies/${encodedName}/notes`, fetchImpl: config.fetchImpl }),
-    ]);
-    const info = (toCompany(infoPayload) ?? match.company) as CrmInfoPayload;
-    const contacts = contactList(contactsPayload).map(toContact).filter((contact): contact is CandidateCrmContact => Boolean(contact));
-    const notes = noteList(notesPayload);
+    const companySearchUrl = new URL(`${baseUrl}/agent/contacts`);
+    companySearchUrl.searchParams.set("search", matchedName);
+    companySearchUrl.searchParams.set("limit", "50");
+    const companySearchContacts = contactList(await crmGet<unknown>({
+      baseUrl,
+      apiKey: config.apiKey,
+      path: `${companySearchUrl.pathname}${companySearchUrl.search}`,
+      fetchImpl: config.fetchImpl,
+    }));
+    const matchedContactPayloads = companyContacts(companySearchContacts, match.company);
+    const contacts = matchedContactPayloads.map(toContact).filter((contact): contact is CandidateCrmContact => Boolean(contact));
+    const notes = (await Promise.all(
+      contacts.slice(0, 10).map((contact) =>
+        crmGet<unknown>({
+          baseUrl,
+          apiKey: config.apiKey,
+          path: `/agent/contacts/${contact.id}/notes`,
+          fetchImpl: config.fetchImpl,
+        }).then(noteList),
+      ),
+    )).flat();
     const lifecycleStages = [...new Set([
-      ...stringList(info.lifecycle_stages ?? info.lifecycleStages),
       ...contacts.map((contact) => contact.lifecycleStage).filter((value): value is string => Boolean(value)),
     ])];
     const leadStatuses = [...new Set([
-      ...stringList(info.lead_statuses ?? info.leadStatuses),
       ...contacts.map((contact) => contact.leadStatus).filter((value): value is string => Boolean(value)),
     ])];
     const owners = [...new Set(contacts.map((contact) => contact.owner).filter((value): value is string => Boolean(value)))];
@@ -301,10 +350,10 @@ export async function enrichCandidateFromCrm(
     return {
       status: "matched",
       matchMethod: match.matchMethod,
-      matchedCompanyName: companyName(info) ?? matchedName,
-      matchedDomain: companyDomain(info) ?? companyDomain(match.company),
-      industry: stringValue(info.industry),
-      contactCount: numberValue(info.total_contacts ?? info.totalContacts) ?? contacts.length,
+      matchedCompanyName: matchedName,
+      matchedDomain: companyDomain(match.company),
+      industry: null,
+      contactCount: contacts.length,
       lifecycleStages,
       leadStatuses,
       owners,
