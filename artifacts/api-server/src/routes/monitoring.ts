@@ -85,7 +85,7 @@ function parseFeed(xml: string): FeedEntry[] {
   });
 }
 
-async function fetchTextWithTimeout(url: string, method: "GET" | "HEAD" = "GET") {
+async function fetchTextWithTimeout(url: string, method: "GET" | "HEAD" = "GET", allowMethodNotAllowed = false) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -95,7 +95,7 @@ async function fetchTextWithTimeout(url: string, method: "GET" | "HEAD" = "GET")
       headers: method === "GET" ? { Accept: "application/atom+xml, application/rss+xml, application/xml, text/xml, text/html" } : undefined,
       signal: controller.signal,
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok && !(allowMethodNotAllowed && response.status === 405)) throw new Error(`HTTP ${response.status}`);
     return response;
   } catch (error) {
     if (controller.signal.aborted) throw new Error("Kilden svarte ikke innen seks sekunder.");
@@ -106,7 +106,7 @@ async function fetchTextWithTimeout(url: string, method: "GET" | "HEAD" = "GET")
 }
 
 async function verifyPublicUrl(url: string) {
-  let response = await fetchTextWithTimeout(url, "HEAD");
+  let response = await fetchTextWithTimeout(url, "HEAD", true);
   if (response.status === 405) response = await fetchTextWithTimeout(url, "GET");
   return response.ok;
 }

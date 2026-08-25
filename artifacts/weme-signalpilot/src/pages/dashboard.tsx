@@ -90,6 +90,9 @@ export default function DashboardPage() {
                   Kjøringen kunne ikke startes. {runMutation.error instanceof Error ? runMutation.error.message : "Prøv igjen senere."}
                 </p>
               )}
+              {latestRun ? <p className={`rounded-md px-3 py-2 text-sm ${latestRun.status === "completed_with_errors" || latestRun.status === "failed" ? "border border-destructive/30 bg-destructive/10 text-destructive" : "bg-secondary/60 text-muted-foreground"}`}>
+                Siste kjøring: {latestRun.status === "running" ? "pågår" : latestRun.status === "completed" ? "fullført" : latestRun.status === "completed_with_errors" ? "fullført med avvik" : "feilet"} · {latestRun.processedCount}/{latestRun.requestedCount} kandidater · {latestRun.signalsCreated} nye signaler · {latestRun.sourceErrorCount} kildeavvik{latestRun.errorSummary ? ` · ${latestRun.errorSummary}` : ""}
+              </p> : <p className="text-sm text-muted-foreground">Ingen kjøring er registrert ennå. Kjør overvåkning når du har lagt inn offisielle feeds på kandidatene.</p>}
             </CardHeader>
             <CardContent className="grid gap-4 text-sm md:grid-cols-3">
               <div className="space-y-1">
