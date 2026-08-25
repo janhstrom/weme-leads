@@ -248,20 +248,46 @@ export default function CandidatesPage() {
   });
   const crmEnrichmentMutation = useEnrichCandidateCrm({
     mutation: {
-      onSuccess: (result) => {
+      onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListCandidatesQueryKey() });
-        toast({
-          title: "CRM-grunnlag oppdatert",
-          description: `${result.enrichedCount} sikre treff, ${result.noMatchCount} uten treff, ${result.ambiguousCount} uavklarte og ${result.unavailableCount} midlertidig utilgjengelige.`,
-        });
       },
-      onError: () => toast({
-        title: "CRM-grunnlaget kunne ikke oppdateres",
-        description: "Ingen manuelle relevansvalg eller kildehistorikk er endret.",
-        variant: "destructive",
-      }),
     },
   });
+
+  const handleCrmEnrichment = async () => {
+    if (!visibleCandidates.length || crmEnrichmentMutation.isPending) return;
+    const batchSize = 100;
+    const totals = {
+      requestedCount: 0,
+      enrichedCount: 0,
+      noMatchCount: 0,
+      ambiguousCount: 0,
+      unavailableCount: 0,
+    };
+
+    try {
+      for (let index = 0; index < visibleCandidates.length; index += batchSize) {
+        const result = await crmEnrichmentMutation.mutateAsync({
+          data: { candidateIds: visibleCandidates.slice(index, index + batchSize).map((candidate) => candidate.id) },
+        });
+        totals.requestedCount += result.requestedCount;
+        totals.enrichedCount += result.enrichedCount;
+        totals.noMatchCount += result.noMatchCount;
+        totals.ambiguousCount += result.ambiguousCount;
+        totals.unavailableCount += result.unavailableCount;
+      }
+      toast({
+        title: "CRM-grunnlag oppdatert",
+        description: `${totals.requestedCount} behandlet: ${totals.enrichedCount} sikre treff, ${totals.noMatchCount} uten treff, ${totals.ambiguousCount} uavklarte og ${totals.unavailableCount} midlertidig utilgjengelige.`,
+      });
+    } catch {
+      toast({
+        title: "CRM-oppdateringen stoppet",
+        description: `Noen puljer kan være oppdatert. ${totals.requestedCount} av ${visibleCandidates.length} kandidater er behandlet så langt.`,
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleFile = async (file: File | undefined) => {
     if (!file || isImporting) return;
@@ -294,7 +320,6 @@ export default function CandidatesPage() {
   const monitoredCount = candidates?.filter((candidate) => candidate.monitoringStatus === "monitoring").length ?? 0;
   const reviewCount = candidates?.filter((candidate) => candidate.relevanceStatus === "needs_review" || candidate.matchStatus === "needs_review").length ?? 0;
   const selectedCandidates = visibleCandidates.filter((candidate) => selectedCandidateIds.includes(candidate.id));
-  const crmBatchCandidates = visibleCandidates.slice(0, 100);
   const toggleCandidateSelection = (candidateId: number) => {
     setSelectedCandidateIds((current) => current.includes(candidateId) ? current.filter((id) => id !== candidateId) : [...current, candidateId]);
   };
@@ -369,10 +394,10 @@ export default function CandidatesPage() {
                 <option value="monitoring">Overvåkningslisten</option><option value="relevant">Alle relevante</option><option value="universe">Hele hovedlisten</option>
               </select>
                <Button variant="outline" onClick={() => batchMutation.mutate({ data: { scope: workScope } })} disabled={batchMutation.isPending}><ListChecks className="mr-2 h-4 w-4" /> {batchMutation.isPending ? "Oppretter…" : "Opprett gjennomgangsliste"}</Button>
-               <Button variant="outline" onClick={() => crmEnrichmentMutation.mutate({ data: { candidateIds: crmBatchCandidates.map((candidate) => candidate.id) } })} disabled={!crmBatchCandidates.length || crmEnrichmentMutation.isPending}><DatabaseZap className="mr-2 h-4 w-4" /> {crmEnrichmentMutation.isPending ? "Oppdaterer CRM…" : `Oppdater CRM (${crmBatchCandidates.length})`}</Button>
+                <Button variant="outline" onClick={handleCrmEnrichment} disabled={!visibleCandidates.length || crmEnrichmentMutation.isPending}><DatabaseZap className="mr-2 h-4 w-4" /> {crmEnrichmentMutation.isPending ? `Oppdaterer CRM (${visibleCandidates.length})…` : `Oppdater CRM (${visibleCandidates.length})`}</Button>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">CRM-oppdateringen behandler inntil 100 selskaper fra gjeldende utvalg og skriver aldri tilbake til CRM. CRM brukes aldri til å fjerne selskaper fra hovedlisten.</p>
+           <p className="text-xs text-muted-foreground">CRM-oppdateringen behandler alle selskaper i gjeldende utvalg i puljer på 100 og skriver aldri tilbake til CRM. CRM brukes aldri til å fjerne selskaper fra hovedlisten.</p>
 
           {view === "review" ? <Card className="border-accent/40 bg-accent/10">
             <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><CheckCheck className="h-4 w-4 text-accent-foreground" /> Samlet vurdering</CardTitle><CardDescription>Bruk dette for en gruppe du vil behandle likt. Sterke systemtreff blir allerede merket relevante; velg «Mulig relevant» når informasjonen er for tynn til en endelig beslutning.</CardDescription></CardHeader>
