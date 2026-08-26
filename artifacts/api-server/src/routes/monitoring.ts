@@ -341,6 +341,15 @@ export function findOfficialFeedLink(html: string, pageUrl: string) {
     .at(0) ?? null;
 }
 
+function isSameCandidateHostname(leftUrl: string, rightUrl: string) {
+  try {
+    const normalize = (hostname: string) => hostname.toLowerCase().replace(/^www\./, "");
+    return normalize(new URL(leftUrl).hostname) === normalize(new URL(rightUrl).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function getOfficialPageLinks(html: string, pageUrl: string): MappingSource[] {
   return [...html.matchAll(/<a\b[^>]*href=["'][^"']+["'][^>]*>[\s\S]*?<\/a>/gi)]
     .map((match) => match[0])
@@ -424,7 +433,7 @@ function collectJsonLdArticles(value: unknown, pageUrl: string, events: PublicEv
     const publishedAt = feedDate(jsonLdStrings(record.datePublished)[0] ?? jsonLdStrings(record.dateModified)[0] ?? "");
     const excerpt = plainText(jsonLdStrings(record.description)[0] ?? title ?? "");
     const signalType = classifyPublicEvent(`${title ?? ""} ${excerpt}`);
-    if (title && url && publishedAt && signalType && isSameHostname(url, pageUrl)) {
+    if (title && url && publishedAt && signalType && isSameCandidateHostname(url, pageUrl)) {
       events.push({ title: plainText(title), url, publishedAt, excerpt: excerpt || plainText(title), signalType });
     }
   }
@@ -450,7 +459,7 @@ export function parseOfficialHtmlEvents(html: string, pageUrl: string): PublicEv
     if (!title || !href || !publishedAt || !signalType) continue;
     try {
       const url = new URL(href, pageUrl).toString();
-      if (isSameHostname(url, pageUrl)) events.push({ title, url, publishedAt, excerpt, signalType });
+      if (isSameCandidateHostname(url, pageUrl)) events.push({ title, url, publishedAt, excerpt, signalType });
     } catch {
       // Relative or malformed URLs that cannot be resolved are not evidence.
     }
@@ -477,6 +486,7 @@ async function discoverMappingSources(candidate: Candidate, registeredSources: C
     const response = await fetchTextWithTimeout(homepageUrl.toString());
     const html = await response.text();
     const pageUrl = response.url;
+    if (!isSameCandidateHostname(pageUrl, homepageUrl.toString())) return sources;
     const linkedFeed = findOfficialFeedLink(html, pageUrl);
     if (linkedFeed) sources.push({ ...linkedFeed, label: "Offisiell feed oppdaget på hjemmesiden", family: "standard_feed", kind: "feed" });
     for (const path of STANDARD_FEED_PATHS) {
@@ -597,10 +607,14 @@ async function collectEventMappingSignals(candidate: Candidate, runId: number): 
   const processSource = async (source: MappingSource) => {
     try {
       const response = await fetchTextWithTimeout(source.url);
+      if (source.family !== "brreg" && !isSameCandidateHostname(response.url, source.url)) {
+        throw new Error("Kilden omdirigerte utenfor kandidatens domene.");
+      }
       const body = await response.text();
       const isFeedDocument = /<(?:rss|feed)\b/i.test(body);
       const events = source.kind === "feed"
         ? parseFeed(body).flatMap((entry) => {
+          if (!isSameCandidateHostname(entry.url, response.url)) return [];
           const signalType = classifyPublicEvent(`${entry.title} ${entry.excerpt}`);
           return signalType ? [{ ...entry, signalType }] : [];
         })

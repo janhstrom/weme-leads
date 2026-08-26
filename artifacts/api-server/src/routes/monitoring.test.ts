@@ -17,6 +17,24 @@ test("finner bare en HTTPS RSS- eller Atom-feed fra kandidatens eget domene", ()
   );
 });
 
+test("godtar kandidatens www-alias, men avviser andre publiseringsdomener", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const ownDomainHtml = `<script type="application/ld+json">${JSON.stringify({
+    "@type": "NewsArticle",
+    headline: "Selskapet lanserer ny digital plattform",
+    url: "https://www.example.no/nyheter/plattform",
+    datePublished: today,
+  })}</script>`;
+  const externalDomainHtml = `<script type="application/ld+json">${JSON.stringify({
+    "@type": "NewsArticle",
+    headline: "Selskapet lanserer ny digital plattform",
+    url: "https://publisher.example/nyheter/plattform",
+    datePublished: today,
+  })}</script>`;
+  assert.equal(parseOfficialHtmlEvents(ownDomainHtml, "https://example.no/nyheter").length, 1);
+  assert.equal(parseOfficialHtmlEvents(externalDomainHtml, "https://example.no/nyheter").length, 0);
+});
+
 test("skiller hendelse, manglende kilde og kildefeil i kartleggingen", () => {
   assert.equal(classifyEventMappingOutcome({
     verifiedEventCount: 1,
