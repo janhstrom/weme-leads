@@ -17,11 +17,11 @@ import { AlertTriangle, CheckCircle2, CircleDashed, FileSearch, Link2Off, PlayCi
 
 type OutcomeFilter = "all" | EventMappingItem["outcome"];
 
-const outcomeMeta: Record<EventMappingItem["outcome"], { label: string; icon: typeof CheckCircle2; className: string }> = {
-  event_found: { label: "Hendelse funnet", icon: CheckCircle2, className: "bg-primary text-primary-foreground" },
-  no_event: { label: "Ingen fersk hendelse", icon: CircleDashed, className: "bg-secondary text-secondary-foreground" },
-  no_source: { label: "Mangler kilde", icon: Link2Off, className: "bg-accent text-accent-foreground" },
-  source_error: { label: "Kildefeil", icon: AlertTriangle, className: "bg-destructive text-destructive-foreground" },
+const outcomeMeta: Record<EventMappingItem["outcome"], { label: string; icon: typeof CheckCircle2; className: string; iconClassName: string }> = {
+  event_found: { label: "Hendelse funnet", icon: CheckCircle2, className: "border-primary/50 bg-primary/15 text-foreground", iconClassName: "text-primary" },
+  no_event: { label: "Ingen fersk hendelse", icon: CircleDashed, className: "border-border bg-muted/40 text-muted-foreground", iconClassName: "text-muted-foreground" },
+  no_source: { label: "Mangler kilde", icon: Link2Off, className: "border-accent/60 bg-accent/20 text-foreground", iconClassName: "text-accent-foreground" },
+  source_error: { label: "Kildefeil", icon: AlertTriangle, className: "border-destructive/50 bg-destructive/10 text-destructive", iconClassName: "text-destructive" },
 };
 
 export default function EventMappingPage() {
@@ -88,7 +88,7 @@ export default function EventMappingPage() {
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               {start.isError ? <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive">Kartleggingen kunne ikke startes. {start.error instanceof Error ? start.error.message : "Prøv igjen senere."}</p> : null}
-              {run ? <div className={`rounded-md p-3 ${run.status === "failed" || run.status === "completed_with_errors" ? "border border-destructive/30 bg-destructive/10 text-destructive" : "bg-secondary/60 text-muted-foreground"}`}>
+              {run ? <div className={`rounded-md p-3 ${run.status === "failed" || run.status === "completed_with_errors" ? "border border-destructive/30 bg-destructive/10 text-destructive" : "border border-border bg-muted/40 text-foreground"}`}>
                 {run.status === "running" ? "Kartlegging pågår" : run.status === "completed" ? "Siste kartlegging er fullført" : run.status === "completed_with_errors" ? "Siste kartlegging er fullført med avvik" : "Siste kartlegging feilet"} · {run.processedCount}/{run.requestedCount} kandidater · {run.signalsCreated} nye hendelser · {counts.no_source} mangler kilde · {run.sourceErrorCount} kildeavvik{run.errorSummary ? ` · ${run.errorSummary}` : ""}
               </div> : <p className="text-muted-foreground">Ingen kartlegging er kjørt ennå.</p>}
               <div className="grid gap-3 text-muted-foreground sm:grid-cols-3">
@@ -104,7 +104,7 @@ export default function EventMappingPage() {
               const meta = outcomeMeta[outcome];
               const Icon = meta.icon;
               return <button key={outcome} type="button" onClick={() => setFilter(filter === outcome ? "all" : outcome)} className={`rounded-xl border p-4 text-left transition-colors ${filter === outcome ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-card hover:border-primary/50"}`}>
-                <div className="flex items-center justify-between"><span className="text-sm font-medium text-muted-foreground">{meta.label}</span><Icon className="h-4 w-4 text-primary" /></div>
+                <div className="flex items-center justify-between"><span className="text-sm font-medium text-muted-foreground">{meta.label}</span><Icon className={`h-4 w-4 ${meta.iconClassName}`} /></div>
                 <p className="mt-2 text-2xl font-bold">{counts[outcome]}</p>
               </button>;
             })}
@@ -128,10 +128,10 @@ export default function EventMappingPage() {
 function MappingRow({ item }: { item: EventMappingItem }) {
   const meta = outcomeMeta[item.outcome];
   const Icon = meta.icon;
-  return <Link href={`/candidates/${item.candidateId}`} className="flex items-start gap-3 p-4 transition-colors hover:bg-secondary/30 sm:px-6">
-    <div className="mt-0.5 rounded-full bg-secondary p-2 text-primary"><Icon className="h-4 w-4" /></div>
+  return <Link href={`/candidates/${item.candidateId}`} className="flex items-start gap-3 p-4 transition-colors hover:bg-muted/30 sm:px-6">
+    <div className={`mt-0.5 rounded-full border p-2 ${meta.className}`}><Icon className={`h-4 w-4 ${meta.iconClassName}`} /></div>
     <div className="min-w-0 flex-1">
-      <div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{item.candidateName}</p><Badge className={meta.className}>{meta.label}</Badge>{item.signalsCreated > 0 ? <Badge variant="outline">{item.signalsCreated} ny(e) funn</Badge> : null}</div>
+      <div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{item.candidateName}</p><Badge variant="outline" className={meta.className}>{meta.label}</Badge>{item.signalsCreated > 0 ? <Badge variant="outline">{item.signalsCreated} ny(e) funn</Badge> : null}</div>
       <p className="mt-1 text-sm text-muted-foreground">{item.message ?? "Ingen ytterligere forklaring er registrert."}</p>
       {item.checkedSources.length ? <div className="mt-3 flex flex-wrap gap-2">{item.checkedSources.map((source) => <a key={`${source.family}-${source.url}`} href={source.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className={`inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-secondary ${source.status === "error" ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground"}`} title={source.detail ?? source.url}><span className="font-medium text-foreground">{sourceFamilyLabel(source.family)}</span><span className="max-w-48 truncate">{source.label}</span></a>)}</div> : null}
     </div>

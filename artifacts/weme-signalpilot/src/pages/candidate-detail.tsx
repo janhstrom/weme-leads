@@ -26,7 +26,7 @@ import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skele
 import { Textarea } from "@workspace/weme-earth-tones-system/components/ui/textarea";
 import { useToast } from "@workspace/weme-earth-tones-system/hooks/use-toast";
 import { AlertCircle, ArrowLeft, Building2, DatabaseZap, Eye, ExternalLink, FileSearch, Link2, Radio, Search, UserRound, X } from "lucide-react";
-import { MonitoringBadge, PriorityBadge, RelevanceBadge, relevanceLabel } from "@/components/status-badges";
+import { MonitoringBadge, PriorityBadge, RelevanceBadge } from "@/components/status-badges";
 
 type ManualRelevanceStatus = Exclude<Candidate["relevanceStatus"], "insufficient_data">;
 
@@ -148,7 +148,7 @@ export default function CandidateDetailPage() {
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-4 w-4 text-primary" /> Hvorfor denne kandidaten</CardTitle><CardDescription>Prioriteringen er regelbasert. CRM er ikke brukt til å velge kandidaten.</CardDescription></CardHeader>
               <CardContent className="space-y-3">
-                {candidate.priorityReasons.map((reason) => <div key={reason} className="rounded-md bg-secondary/60 p-3 text-sm">{reason}</div>)}
+                 {candidate.priorityReasons.map((reason) => <div key={reason} className="rounded-md border border-border bg-muted/40 p-3 text-sm">{reason}</div>)}
                 <div className="grid gap-2 pt-2 text-sm sm:grid-cols-3">
                   <Meta label="Domene" value={candidate.domain ?? "Ikke oppgitt"} />
                   <Meta label="Bransje" value={candidate.industry ?? "Ikke oppgitt"} />
@@ -162,7 +162,7 @@ export default function CandidateDetailPage() {
               <CardContent className="space-y-3">
                  <div className="flex flex-wrap items-center gap-2"><RelevanceBadge status={candidate.relevanceStatus} /><Badge variant="outline">{confidenceLabel(candidate.relevanceConfidence)} sikkerhet</Badge>{candidate.lastAnalyzedAt ? <span className="text-xs text-muted-foreground">Sist beregnet {format(new Date(candidate.lastAnalyzedAt), "d. MMM yyyy HH:mm", { locale: nb })}</span> : null}</div>
                 <p className="text-sm">{candidate.relevanceReason ?? "Ingen automatisk begrunnelse er lagret ennå."}</p>
-                <div className="grid gap-2 sm:grid-cols-2">{candidate.priorityReasons.slice(0, 4).map((reason) => <div key={reason} className="rounded-md bg-secondary/60 p-3 text-sm">{reason}</div>)}</div>
+                 <div className="grid gap-2 sm:grid-cols-2">{candidate.priorityReasons.slice(0, 4).map((reason) => <div key={reason} className="rounded-md border border-border bg-muted/40 p-3 text-sm">{reason}</div>)}</div>
               </CardContent>
             </Card>
 
@@ -181,7 +181,7 @@ export default function CandidateDetailPage() {
                   <Button onClick={() => relevanceMutation.mutate({ id: candidate.id, data: { relevanceStatus: relevanceChoice ?? (candidate.relevanceStatus === "insufficient_data" ? "possible" : candidate.relevanceStatus), reason: decisionReason || null } })} disabled={relevanceMutation.isPending}>Lagre relevans</Button>
                 </div>
                 <Textarea placeholder="Valgfri begrunnelse for ditt valg" value={decisionReason} onChange={(event) => setDecisionReason(event.target.value)} />
-                <div className="flex flex-col gap-2 rounded-md bg-secondary/60 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/40 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                   <div><p className="font-medium">{candidate.monitoringStatus === "monitoring" ? "Dette selskapet overvåkes" : "Dette selskapet overvåkes ikke"}</p><p className="text-muted-foreground">{candidate.monitoringReason ?? "Du kan endre dette uten å slette historikk eller relevansvurdering."}</p></div>
                   <Button variant={candidate.monitoringStatus === "monitoring" ? "outline" : "default"} onClick={() => monitoringMutation.mutate({ id: candidate.id, data: { monitoringStatus: candidate.monitoringStatus === "monitoring" ? "not_monitoring" : "monitoring", reason: decisionReason || null } })} disabled={monitoringMutation.isPending}><Radio className="mr-2 h-4 w-4" />{candidate.monitoringStatus === "monitoring" ? "Trekk fra overvåkning" : "Legg til i overvåkning"}</Button>
                 </div>
@@ -276,11 +276,11 @@ function crmEnrichmentMessage(status: NonNullable<Candidate["crmEnrichment"]>["s
 
 function CrmEnrichmentSummary({ enrichment }: { enrichment: NonNullable<Candidate["crmEnrichment"]> }) {
   if (enrichment.status !== "matched") {
-    return <div className="rounded-md bg-secondary/60 p-3 text-sm"><p className="font-medium">{crmEnrichmentMessage(enrichment.status)}</p>{enrichment.availabilityMessage ? <p className="mt-1 text-muted-foreground">{enrichment.availabilityMessage}</p> : null}<p className="mt-2 text-xs text-muted-foreground">Kontrollert {format(new Date(enrichment.evaluatedAt), "d. MMM yyyy HH:mm", { locale: nb })}</p></div>;
+    return <div className="rounded-md border border-border bg-muted/40 p-3 text-sm"><p className="font-medium">{crmEnrichmentMessage(enrichment.status)}</p>{enrichment.availabilityMessage ? <p className="mt-1 text-muted-foreground">{enrichment.availabilityMessage}</p> : null}<p className="mt-2 text-xs text-muted-foreground">Kontrollert {format(new Date(enrichment.evaluatedAt), "d. MMM yyyy HH:mm", { locale: nb })}</p></div>;
   }
   const method = { organization_number: "organisasjonsnummer", domain: "domene", name: "eksakt selskapsnavn" }[enrichment.matchMethod ?? "name"];
   return <div className="space-y-3 text-sm">
-    <div className="rounded-md bg-secondary/60 p-3"><p className="font-medium">{enrichment.matchedCompanyName ?? "Sikkert CRM-treff"}</p><p className="mt-1 text-muted-foreground">Matchet via {method} · {enrichment.contactCount} kontakter</p>{enrichment.lastActivityAt ? <p className="mt-1 text-xs text-muted-foreground">Siste aktivitet {format(new Date(enrichment.lastActivityAt), "d. MMM yyyy", { locale: nb })}</p> : null}</div>
+    <div className="rounded-md border border-border bg-muted/40 p-3"><p className="font-medium">{enrichment.matchedCompanyName ?? "Sikkert CRM-treff"}</p><p className="mt-1 text-muted-foreground">Matchet via {method} · {enrichment.contactCount} kontakter</p>{enrichment.lastActivityAt ? <p className="mt-1 text-xs text-muted-foreground">Siste aktivitet {format(new Date(enrichment.lastActivityAt), "d. MMM yyyy", { locale: nb })}</p> : null}</div>
     {enrichment.relevantContacts.length ? <div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Relevante roller</p><div className="mt-2 space-y-2">{enrichment.relevantContacts.map((contact) => <div key={contact.id} className="rounded-md border p-2"><p className="font-medium">{contact.name}</p><p className="text-muted-foreground">{contact.title ?? contact.contactRole ?? "Rolle ikke oppgitt"}</p></div>)}</div></div> : null}
     <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span>{enrichment.lifecycleStages.length ? enrichment.lifecycleStages.join(", ") : "Ingen salgsfase"}</span><span>{enrichment.noteCount} CRM-notater</span></div>
   </div>;

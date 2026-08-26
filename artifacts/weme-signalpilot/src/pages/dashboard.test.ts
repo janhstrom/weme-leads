@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-test("refresh errors keep the existing dashboard summary visible", async () => {
+test("monitoring start errors keep the existing dashboard queue visible", async () => {
   const dashboardSource = await readFile(
     fileURLToPath(new URL("./dashboard.tsx", import.meta.url)),
     "utf8",
@@ -11,14 +11,14 @@ test("refresh errors keep the existing dashboard summary visible", async () => {
 
   assert.match(
     dashboardSource,
-    /Oppfriskningen mislyktes\. Forrige kjente resultat vises fortsatt\./,
+    /Kjøringen kunne ikke startes\./,
   );
   assert.match(
     dashboardSource,
-    /const \{ data: summary, isLoading: isLoadingSummary \} = useGetDashboardSummary\(\);/,
+    /const \{ data: latestRun, isLoading: isLoadingRun \} = useGetLatestMonitoringRun\(\);/,
   );
-  assert.doesNotMatch(
+  assert.match(
     dashboardSource,
-    /onError:[\s\S]*setSummary|setSummary[\s\S]*onError/,
+    /runMutation\.isError/,
   );
 });

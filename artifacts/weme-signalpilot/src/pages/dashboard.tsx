@@ -90,7 +90,7 @@ export default function DashboardPage() {
                   Kjøringen kunne ikke startes. {runMutation.error instanceof Error ? runMutation.error.message : "Prøv igjen senere."}
                 </p>
               )}
-              {latestRun ? <p className={`rounded-md px-3 py-2 text-sm ${latestRun.status === "completed_with_errors" || latestRun.status === "failed" ? "border border-destructive/30 bg-destructive/10 text-destructive" : "bg-secondary/60 text-muted-foreground"}`}>
+              {latestRun ? <p className={`rounded-md px-3 py-2 text-sm ${latestRun.status === "completed_with_errors" || latestRun.status === "failed" ? "border border-destructive/30 bg-destructive/10 text-destructive" : "border border-border bg-muted/40 text-foreground"}`}>
                 Siste kjøring: {latestRun.status === "running" ? "pågår" : latestRun.status === "completed" ? "fullført" : latestRun.status === "completed_with_errors" ? "fullført med avvik" : "feilet"} · {latestRun.processedCount}/{latestRun.requestedCount} kandidater · {latestRun.signalsCreated} nye signaler · {latestRun.sourceErrorCount} kildeavvik{latestRun.errorSummary ? ` · ${latestRun.errorSummary}` : ""}
               </p> : <p className="text-sm text-muted-foreground">Ingen kjøring er registrert ennå. Kjør overvåkning når du har lagt inn offisielle feeds på kandidatene.</p>}
             </CardHeader>
@@ -171,7 +171,7 @@ function SummaryCard({ title, value, loading, icon, onClick, active }: { title: 
 
 export function SignalRow({ signal }: { signal: Signal }) {
   return (
-    <Link href={`/signals/${signal.id}`} className="block p-4 sm:px-6 hover:bg-secondary/30 transition-colors group">
+    <Link href={`/signals/${signal.id}`} className="block p-4 sm:px-6 hover:bg-muted/30 transition-colors group">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -200,7 +200,7 @@ export function SignalRow({ signal }: { signal: Signal }) {
           </div>
         </div>
         <div className="shrink-0 flex items-center justify-center pt-2">
-          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+          <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
             <ArrowRight className="w-4 h-4" />
           </div>
         </div>
