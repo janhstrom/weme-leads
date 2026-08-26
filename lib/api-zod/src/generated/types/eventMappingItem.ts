@@ -5,6 +5,7 @@
  * WeMe Signalpilot API
  * OpenAPI spec version: 0.1.0
  */
+import type { EventMappingItemCheckedSourcesItem } from './eventMappingItemCheckedSourcesItem';
 import type { EventMappingItemOutcome } from './eventMappingItemOutcome';
 
 export interface EventMappingItem {
@@ -13,6 +14,7 @@ export interface EventMappingItem {
   outcome: EventMappingItemOutcome;
   signalsCreated: number;
   sourceErrorCount: number;
+  checkedSources: EventMappingItemCheckedSourcesItem[];
   /** @nullable */
   message: string | null;
 }

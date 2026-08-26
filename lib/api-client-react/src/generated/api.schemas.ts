@@ -722,12 +722,40 @@ export const EventMappingItemOutcome = {
   source_error: 'source_error',
 } as const;
 
+export type EventMappingItemCheckedSourcesItemFamily = typeof EventMappingItemCheckedSourcesItemFamily[keyof typeof EventMappingItemCheckedSourcesItemFamily];
+
+
+export const EventMappingItemCheckedSourcesItemFamily = {
+  registered_feed: 'registered_feed',
+  standard_feed: 'standard_feed',
+  newsroom: 'newsroom',
+  careers: 'careers',
+  brreg: 'brreg',
+} as const;
+
+export type EventMappingItemCheckedSourcesItemStatus = typeof EventMappingItemCheckedSourcesItemStatus[keyof typeof EventMappingItemCheckedSourcesItemStatus];
+
+
+export const EventMappingItemCheckedSourcesItemStatus = {
+  checked: 'checked',
+  error: 'error',
+} as const;
+
+export type EventMappingItemCheckedSourcesItem = {
+  url: string;
+  label: string;
+  family: EventMappingItemCheckedSourcesItemFamily;
+  status: EventMappingItemCheckedSourcesItemStatus;
+  detail?: string;
+};
+
 export interface EventMappingItem {
   candidateId: number;
   candidateName: string;
   outcome: EventMappingItemOutcome;
   signalsCreated: number;
   sourceErrorCount: number;
+  checkedSources: EventMappingItemCheckedSourcesItem[];
   /** @nullable */
   message: string | null;
 }

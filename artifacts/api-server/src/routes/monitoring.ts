@@ -9,6 +9,7 @@ import {
   leadMonitoringRunItemsTable,
   leadMonitoringRunsTable,
   signalpilotSignalsTable,
+  type CheckedPublicSource,
   type CandidateCrmEnrichment,
   type SignalContact,
 } from "@workspace/db";
@@ -41,6 +42,15 @@ type Candidate = typeof leadCandidatesTable.$inferSelect;
 type CandidateSource = typeof leadCandidateSourcesTable.$inferSelect;
 type MonitoringRun = typeof leadMonitoringRunsTable.$inferSelect;
 type FeedEntry = { title: string; url: string; publishedAt: string; excerpt: string };
+type PublicSourceFamily = CheckedPublicSource["family"];
+type MappingSource = {
+  url: string;
+  label: string;
+  family: PublicSourceFamily;
+  kind: "feed" | "page" | "brreg";
+  registeredSourceId?: number;
+};
+type PublicEvent = FeedEntry & { signalType: string };
 
 function plainText(value: string | undefined) {
   return (value ?? "")
@@ -281,8 +291,30 @@ async function collectSignals(candidate: Candidate, crm: CandidateCrmEnrichment,
   return { created, sourceErrors };
 }
 
+const SIGNAL_MATRIX: Array<{ signalType: string; pattern: RegExp }> = [
+  { signalType: "Lederskifte eller ny nøkkelrolle", pattern: /\b(ny|ansetter|utnevnt|tiltrer|appointed|joins?|new)\b.{0,70}\b(leder|direktør|ceo|cto|cfo|hr|people|chief|head of|vp|vice president)\b|\b(leder|direktør|ceo|cto|cfo|hr|people|chief|head of|vp|vice president)\b.{0,70}\b(ny|ansetter|utnevnt|tiltrer|appointed|joins?|new)\b/i },
+  { signalType: "Ansettelser eller kapasitetsvekst", pattern: /\b(vi søker|ledig stilling|stillinger|rekrutterer|rekruttering|karriere|careers?|jobs?|hiring|we are hiring|growing team|vekst)\b/i },
+  { signalType: "Oppkjøp, fusjon eller organisasjonsendring", pattern: /\b(oppkjøp|fusjon|sammenslå|overtar|acquisition|acquire[ds]?|merger|restructur|nedbemanning|omstilling|omorganiser|organisasjonsendring)\b/i },
+  { signalType: "Lansering eller strategisk digitalisering", pattern: /\b(lanser|strategi|strategisk|digitali[sz]|teknologi|automatis|kunst(ig)? intelligens|ai\b|plattform|transformation|automation|digital transformation)\b/i },
+  { signalType: "Kompetanse- eller lederutvikling", pattern: /\b(kompetanse|opplæring|lederutvikling|lederskap|workforce|learning|skills?|leadership)\b/i },
+];
+const STANDARD_FEED_PATHS = ["/feed", "/feed/", "/rss", "/rss.xml", "/feed.xml", "/atom.xml", "/news/rss.xml", "/nyheter/rss.xml"];
+const OFFICIAL_PAGE_PATH = /\b(news|nyheter|press|presse|media|karriere|career|careers|jobber|jobs)\b/i;
+
 function htmlAttribute(tag: string, name: string) {
   return tag.match(new RegExp(`\\b${name}=["']([^"']+)["']`, "i"))?.[1] ?? null;
+}
+
+function isSameHostname(url: string, pageUrl: string) {
+  try {
+    return new URL(url).hostname === new URL(pageUrl).hostname;
+  } catch {
+    return false;
+  }
+}
+
+function classifyPublicEvent(text: string) {
+  return SIGNAL_MATRIX.find((rule) => rule.pattern.test(text))?.signalType ?? null;
 }
 
 export function findOfficialFeedLink(html: string, pageUrl: string) {
@@ -309,41 +341,29 @@ export function findOfficialFeedLink(html: string, pageUrl: string) {
     .at(0) ?? null;
 }
 
-async function discoverOfficialFeed(candidate: Candidate): Promise<CandidateSource[]> {
-  if (!candidate.domain) return [];
-  let homepage: URL;
-  try {
-    homepage = new URL(`https://${candidate.domain}`);
-  } catch {
-    return [];
-  }
-
-  try {
-    const response = await fetchTextWithTimeout(homepage.toString());
-    const html = await response.text();
-    const discovered = findOfficialFeedLink(html, response.url);
-    if (!discovered) return [];
-
-    const [created] = await db.insert(leadCandidateSourcesTable).values({
-      candidateId: candidate.id,
-      sourceType: discovered.sourceType,
-      url: discovered.url,
-      label: "Automatisk oppdaget offisiell feed",
-    }).onConflictDoNothing().returning();
-    if (created) return [created];
-    return db.select().from(leadCandidateSourcesTable).where(and(
-      eq(leadCandidateSourcesTable.candidateId, candidate.id),
-      eq(leadCandidateSourcesTable.url, discovered.url),
-    ));
-  } catch {
-    return [];
-  }
+export function getOfficialPageLinks(html: string, pageUrl: string): MappingSource[] {
+  return [...html.matchAll(/<a\b[^>]*href=["'][^"']+["'][^>]*>[\s\S]*?<\/a>/gi)]
+    .map((match) => match[0])
+    .flatMap((anchor) => {
+      const href = htmlAttribute(anchor, "href");
+      const text = plainText(anchor);
+      if (!href || !OFFICIAL_PAGE_PATH.test(`${href} ${text}`)) return [];
+      try {
+        const url = new URL(href, pageUrl);
+        if (url.protocol !== "https:" || !isSameHostname(url.toString(), pageUrl)) return [];
+        const family: PublicSourceFamily = /\b(karriere|career|jobber|jobs)\b/i.test(`${url.pathname} ${text}`) ? "careers" : "newsroom";
+        return [{ url: url.toString(), label: family === "careers" ? "Offisiell karriereside" : "Offisielt presserom eller nyhetsside", family, kind: "page" as const }];
+      } catch {
+        return [];
+      }
+    });
 }
 
 type EventMappingResult = {
   outcome: "event_found" | "no_event" | "no_source" | "source_error";
   signalsCreated: number;
   sourceErrorCount: number;
+  checkedSources: CheckedPublicSource[];
   message: string;
 };
 
@@ -358,6 +378,7 @@ export function classifyEventMappingOutcome(input: {
       outcome: "event_found",
       signalsCreated: input.signalsCreated,
       sourceErrorCount: input.sourceErrorCount,
+      checkedSources: [],
       message: input.signalsCreated
         ? `${input.signalsCreated} ny(e) kildebelagt(e) hendelse(r) ble lagret.`
         : "Fersk, allerede registrert hendelse ble bekreftet uten å opprette duplikat.",
@@ -368,6 +389,7 @@ export function classifyEventMappingOutcome(input: {
       outcome: "source_error",
       signalsCreated: 0,
       sourceErrorCount: input.sourceErrorCount,
+      checkedSources: [],
       message: "Ingen kvalifisert kilde kunne hentes eller kontrolleres.",
     };
   }
@@ -375,22 +397,194 @@ export function classifyEventMappingOutcome(input: {
     outcome: "no_event",
     signalsCreated: 0,
     sourceErrorCount: input.sourceErrorCount,
+    checkedSources: [],
     message: "Kvalifisert offentlig kilde ble kontrollert, men ga ingen ferske hendelser som traff endringskriteriene.",
   };
 }
 
+function jsonLdStrings(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(jsonLdStrings);
+  if (value && typeof value === "object" && "url" in value && typeof value.url === "string") return [value.url];
+  return [];
+}
+
+function collectJsonLdArticles(value: unknown, pageUrl: string, events: PublicEvent[]) {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectJsonLdArticles(item, pageUrl, events));
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  const record = value as Record<string, unknown>;
+  const types = jsonLdStrings(record["@type"]).map((type) => type.toLowerCase());
+  const articleLike = types.some((type) => ["article", "newsarticle", "blogposting", "jobposting"].includes(type));
+  if (articleLike) {
+    const title = jsonLdStrings(record.headline)[0] ?? jsonLdStrings(record.name)[0];
+    const url = jsonLdStrings(record.url)[0] ?? jsonLdStrings(record.mainEntityOfPage)[0];
+    const publishedAt = feedDate(jsonLdStrings(record.datePublished)[0] ?? jsonLdStrings(record.dateModified)[0] ?? "");
+    const excerpt = plainText(jsonLdStrings(record.description)[0] ?? title ?? "");
+    const signalType = classifyPublicEvent(`${title ?? ""} ${excerpt}`);
+    if (title && url && publishedAt && signalType && isSameHostname(url, pageUrl)) {
+      events.push({ title: plainText(title), url, publishedAt, excerpt: excerpt || plainText(title), signalType });
+    }
+  }
+  Object.values(record).forEach((child) => collectJsonLdArticles(child, pageUrl, events));
+}
+
+export function parseOfficialHtmlEvents(html: string, pageUrl: string): PublicEvent[] {
+  const events: PublicEvent[] = [];
+  for (const script of html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      collectJsonLdArticles(JSON.parse(script[1] ?? ""), pageUrl, events);
+    } catch {
+      // A malformed schema block is not usable evidence.
+    }
+  }
+  for (const blockMatch of html.matchAll(/<article\b[^>]*>([\s\S]*?)<\/article>/gi)) {
+    const block = blockMatch[1] ?? "";
+    const title = plainText(block.match(/<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/i)?.[1]);
+    const href = block.match(/<a\b[^>]*href=["']([^"']+)["'][^>]*>/i)?.[1];
+    const publishedAt = feedDate(block.match(/<time\b[^>]*datetime=["']([^"']+)["']/i)?.[1] ?? "");
+    const excerpt = plainText(block).slice(0, 900);
+    const signalType = classifyPublicEvent(`${title} ${excerpt}`);
+    if (!title || !href || !publishedAt || !signalType) continue;
+    try {
+      const url = new URL(href, pageUrl).toString();
+      if (isSameHostname(url, pageUrl)) events.push({ title, url, publishedAt, excerpt, signalType });
+    } catch {
+      // Relative or malformed URLs that cannot be resolved are not evidence.
+    }
+  }
+  return [...new Map(events.map((event) => [event.url, event])).values()];
+}
+
+async function discoverMappingSources(candidate: Candidate, registeredSources: CandidateSource[]) {
+  const sources: MappingSource[] = registeredSources.map((source) => ({
+    url: source.url,
+    label: source.label,
+    family: "registered_feed",
+    kind: "feed",
+    registeredSourceId: source.id,
+  }));
+  if (!candidate.domain) return sources;
+  let homepageUrl: URL;
+  try {
+    homepageUrl = new URL(`https://${candidate.domain}`);
+  } catch {
+    return sources;
+  }
+  try {
+    const response = await fetchTextWithTimeout(homepageUrl.toString());
+    const html = await response.text();
+    const pageUrl = response.url;
+    const linkedFeed = findOfficialFeedLink(html, pageUrl);
+    if (linkedFeed) sources.push({ ...linkedFeed, label: "Offisiell feed oppdaget på hjemmesiden", family: "standard_feed", kind: "feed" });
+    for (const path of STANDARD_FEED_PATHS) {
+      sources.push({ url: new URL(path, pageUrl).toString(), label: "Standard RSS-/Atom-adresse", family: "standard_feed", kind: "feed" });
+    }
+    sources.push(...getOfficialPageLinks(html, pageUrl).slice(0, 4));
+  } catch {
+    // A missing or unavailable homepage is reported only when no other source succeeds.
+  }
+  if (candidate.organizationNumber?.replace(/\D/g, "").length === 9) {
+    sources.push({
+      url: `https://data.brreg.no/enhetsregisteret/api/enheter/${candidate.organizationNumber.replace(/\D/g, "")}`,
+      label: "Brønnøysundregistrene",
+      family: "brreg",
+      kind: "brreg",
+    });
+  }
+  return [...new Map(sources.map((source) => [source.url, source])).values()];
+}
+
+function isMissingStandardFeed(error: unknown, source: MappingSource) {
+  return source.family === "standard_feed" && error instanceof Error && error.message === "HTTP 404";
+}
+
+function brregRecentEvent(payload: unknown, sourceUrl: string): PublicEvent | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+  const dateValue = ["endringsdato", "datoSistEndret", "sistEndret"]
+    .flatMap((key) => jsonLdStrings(record[key]))
+    .find(Boolean);
+  const publishedAt = feedDate(dateValue ?? "");
+  if (!publishedAt) return null;
+  const name = jsonLdStrings(record.navn)[0] ?? "Virksomheten";
+  return {
+    title: `${name}: offentlig registrert selskapsendring`,
+    url: sourceUrl,
+    publishedAt,
+    excerpt: `Brønnøysundregistrene oppgir en offentlig endringsdato ${publishedAt}. Endringens art må vurderes før oppfølging.`,
+    signalType: "Offentlig registrert selskapsendring",
+  };
+}
+
+async function saveMappedPublicEvent(candidate: Candidate, runId: number, event: PublicEvent, source: MappingSource) {
+  await verifyPublicUrl(event.url);
+  const signalKey = createHash("sha256").update(`${candidate.id}|${event.url}`).digest("hex");
+  const excerpt = plainText(event.excerpt).slice(0, 900);
+  const [inserted] = await db.insert(signalpilotSignalsTable).values({
+    companyName: candidate.companyName,
+    employees: candidate.employees ?? 0,
+    industry: candidate.industry ?? "Ikke oppgitt",
+    domain: candidate.domain ?? "",
+    signalType: event.signalType,
+    strength: "C",
+    status: "til_vurdering",
+    summary: excerpt,
+    rationale: "Engangskartleggingen fant en fersk offentlig hendelse. Kandidaten er ikke lagt til i løpende overvåkning.",
+    publishedAt: event.publishedAt,
+    evidence: [{
+      title: event.title,
+      url: event.url,
+      sourceType: `${source.family}: ${source.label}`,
+      publishedAt: event.publishedAt,
+      excerpt,
+      verificationStatus: "url_verified",
+      verifiedAt: new Date().toISOString(),
+    }],
+    contacts: [{
+      id: -1,
+      name: "CRM ikke hentet",
+      title: "Kartlegging uten CRM-oppslag",
+      confidence: "ikke_verifisert",
+      rationale: "Engangskartleggingen leser ikke CRM.",
+    }],
+    crm: { status: "Ikke hentet i engangskartlegging", matchCount: 0 },
+    suggestedOpening: "En fersk, offentlig hendelse er registrert. Vurder relevans og riktig kontaktrolle før eventuell oppfølging.",
+    dialogueDraft: "Ingen melding er foreslått. Kartleggingen er kun et kildegrunnlag.",
+    candidateId: candidate.id,
+    monitoringRunId: runId,
+    signalKey,
+    actionPriority: candidate.priorityScore,
+    isActionable: false,
+  }).onConflictDoNothing({ target: signalpilotSignalsTable.signalKey }).returning({ id: signalpilotSignalsTable.id });
+  if (!inserted) return false;
+  await db.insert(leadCandidateEvidenceTable).values({
+    candidateId: candidate.id,
+    title: event.title,
+    url: event.url,
+    sourceType: `${source.family}: ${source.label}`,
+    publishedAt: event.publishedAt,
+    excerpt,
+    verificationStatus: "url_verified",
+  }).onConflictDoNothing();
+  return true;
+}
+
 async function collectEventMappingSignals(candidate: Candidate, runId: number): Promise<EventMappingResult> {
-  let sources = await db.select().from(leadCandidateSourcesTable).where(and(
+  const registeredSources = await db.select().from(leadCandidateSourcesTable).where(and(
     eq(leadCandidateSourcesTable.candidateId, candidate.id),
     eq(leadCandidateSourcesTable.isActive, "true"),
   ));
-  if (!sources.length) sources = await discoverOfficialFeed(candidate);
+  const sources = await discoverMappingSources(candidate, registeredSources);
   if (!sources.length) {
     return {
       outcome: "no_source",
       signalsCreated: 0,
       sourceErrorCount: 0,
-      message: "Ingen registrert eller maskinlesbar RSS-/Atom-kilde ble funnet på kandidatens eget domene.",
+      checkedSources: [],
+      message: "Ingen kvalifisert offentlig kilde kunne avledes fra kandidatens domene eller organisasjonsnummer.",
     };
   }
 
@@ -398,85 +592,74 @@ async function collectEventMappingSignals(candidate: Candidate, runId: number): 
   let sourceErrorCount = 0;
   let verifiedEventCount = 0;
   let successfulSourceCount = 0;
+  const checkedSources: CheckedPublicSource[] = [];
 
-  for (const source of sources) {
+  const processSource = async (source: MappingSource) => {
     try {
-      const xml = await (await fetchTextWithTimeout(source.url)).text();
-      const entries = parseFeed(xml).filter((entry) => CHANGE_KEYWORDS.test(`${entry.title} ${entry.excerpt}`));
-      for (const entry of entries) {
-        await verifyPublicUrl(entry.url);
-        verifiedEventCount += 1;
-        const signalKey = createHash("sha256").update(`${candidate.id}|${entry.url}`).digest("hex");
-        const excerpt = plainText(entry.excerpt).slice(0, 900);
-        const [inserted] = await db.insert(signalpilotSignalsTable).values({
-          companyName: candidate.companyName,
-          employees: candidate.employees ?? 0,
-          industry: candidate.industry ?? "Ikke oppgitt",
-          domain: candidate.domain ?? "",
-          signalType: "Kartlagt offentlig hendelse",
-          strength: "C",
-          status: "til_vurdering",
-          summary: excerpt,
-          rationale: "Engangskartleggingen fant en fersk offentlig hendelse. Kandidaten er ikke lagt til i løpende overvåkning.",
-          publishedAt: entry.publishedAt,
-          evidence: [{
-            title: entry.title,
-            url: entry.url,
-            sourceType: source.label,
-            publishedAt: entry.publishedAt,
-            excerpt,
-            verificationStatus: "url_verified",
-            verifiedAt: new Date().toISOString(),
-          }],
-          contacts: [{
-            id: -1,
-            name: "CRM ikke hentet",
-            title: "Kartlegging uten CRM-oppslag",
-            confidence: "ikke_verifisert",
-            rationale: "Engangskartleggingen leser ikke CRM.",
-          }],
-          crm: {
-            status: "Ikke hentet i engangskartlegging",
-            matchCount: 0,
-          },
-          suggestedOpening: "En fersk, offentlig hendelse er registrert. Vurder relevans og riktig kontaktrolle før eventuell oppfølging.",
-          dialogueDraft: "Ingen melding er foreslått. Kartleggingen er kun et kildegrunnlag.",
-          candidateId: candidate.id,
-          monitoringRunId: runId,
-          signalKey,
-          actionPriority: candidate.priorityScore,
-          isActionable: false,
-        }).onConflictDoNothing({ target: signalpilotSignalsTable.signalKey }).returning({ id: signalpilotSignalsTable.id });
-        if (inserted) {
-          signalsCreated += 1;
-          await db.insert(leadCandidateEvidenceTable).values({
-            candidateId: candidate.id,
-            title: entry.title,
-            url: entry.url,
-            sourceType: source.label,
-            publishedAt: entry.publishedAt,
-            excerpt,
-            verificationStatus: "url_verified",
-          }).onConflictDoNothing();
-        }
+      const response = await fetchTextWithTimeout(source.url);
+      const body = await response.text();
+      const isFeedDocument = /<(?:rss|feed)\b/i.test(body);
+      const events = source.kind === "feed"
+        ? parseFeed(body).flatMap((entry) => {
+          const signalType = classifyPublicEvent(`${entry.title} ${entry.excerpt}`);
+          return signalType ? [{ ...entry, signalType }] : [];
+        })
+        : source.kind === "page"
+          ? parseOfficialHtmlEvents(body, response.url)
+          : [brregRecentEvent(JSON.parse(body), source.url)].filter((event): event is PublicEvent => Boolean(event));
+      if (source.kind === "feed" && !isFeedDocument) {
+        if (source.family === "standard_feed") return;
       }
       successfulSourceCount += 1;
-      await db.update(leadCandidateSourcesTable).set({ lastCheckedAt: new Date(), lastError: null }).where(eq(leadCandidateSourcesTable.id, source.id));
+      checkedSources.push({ url: source.url, label: source.label, family: source.family, status: "checked", detail: events.length ? `${events.length} ferske signalmulighet(er)` : "Kontrollert uten fersk signalmulighet" });
+      for (const event of events) {
+        try {
+          if (await saveMappedPublicEvent(candidate, runId, event, source)) signalsCreated += 1;
+          verifiedEventCount += 1;
+        } catch {
+          sourceErrorCount += 1;
+        }
+      }
+      if (source.registeredSourceId) await db.update(leadCandidateSourcesTable).set({ lastCheckedAt: new Date(), lastError: null }).where(eq(leadCandidateSourcesTable.id, source.registeredSourceId));
     } catch (error) {
+      if (isMissingStandardFeed(error, source)) return;
       sourceErrorCount += 1;
-      await db.update(leadCandidateSourcesTable).set({
+      checkedSources.push({ url: source.url, label: source.label, family: source.family, status: "error", detail: error instanceof Error ? error.message.slice(0, 180) : "Ukjent kildefeil" });
+      if (source.registeredSourceId) await db.update(leadCandidateSourcesTable).set({
         lastCheckedAt: new Date(),
         lastError: error instanceof Error ? error.message.slice(0, 500) : "Ukjent kildefeil",
-      }).where(eq(leadCandidateSourcesTable.id, source.id));
+      }).where(eq(leadCandidateSourcesTable.id, source.registeredSourceId));
     }
-  }
+  };
+  let nextSourceIndex = 0;
+  await Promise.all(Array.from({ length: Math.min(4, sources.length) }, async () => {
+    while (nextSourceIndex < sources.length) {
+      const source = sources[nextSourceIndex];
+      nextSourceIndex += 1;
+      await processSource(source);
+    }
+  }));
 
-  return classifyEventMappingOutcome({
+  if (!successfulSourceCount && !sourceErrorCount) {
+    return {
+      outcome: "no_source",
+      signalsCreated: 0,
+      sourceErrorCount: 0,
+      checkedSources,
+      message: "Ingen RSS-/Atom-feed, presserom, nyhetsside, karriereside eller registerkilde kunne dokumenteres.",
+    };
+  }
+  const result = classifyEventMappingOutcome({
     verifiedEventCount,
     successfulSourceCount,
     sourceErrorCount,
     signalsCreated,
   });
+  return {
+    ...result,
+    checkedSources,
+    message: result.message,
+  };
 }
 
 async function expireStaleRunLocks() {
@@ -603,6 +786,7 @@ export async function runEventMappingScan() {
         signalsCreated: result.signalsCreated,
         sourceErrorCount: result.sourceErrorCount,
         outcome: result.outcome,
+        checkedSources: result.checkedSources,
         message: result.message,
       });
     } catch (error) {
@@ -617,6 +801,7 @@ export async function runEventMappingScan() {
         signalsCreated: 0,
         sourceErrorCount: 0,
         outcome: "source_error",
+        checkedSources: [],
         message: message.slice(0, 1_000),
       });
     }
@@ -765,6 +950,7 @@ router.get("/event-mapping/runs/:id/items", async (req, res): Promise<void> => {
     outcome: item.outcome ?? "source_error",
     signalsCreated: item.signalsCreated,
     sourceErrorCount: item.sourceErrorCount,
+    checkedSources: item.checkedSources,
     message: item.message,
   }))));
 });

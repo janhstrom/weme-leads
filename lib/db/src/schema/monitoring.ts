@@ -16,6 +16,13 @@ export type MonitoringItemStatus = "processed" | "skipped" | "failed";
 export type MonitoringRunKind = "monitoring" | "event_mapping";
 export type MonitoringItemOutcome = "event_found" | "no_event" | "no_source" | "source_error";
 export type CandidateSourceType = "rss" | "atom";
+export type CheckedPublicSource = {
+  url: string;
+  label: string;
+  family: "registered_feed" | "standard_feed" | "newsroom" | "careers" | "brreg";
+  status: "checked" | "error";
+  detail?: string;
+};
 
 export const leadCandidateSourcesTable = pgTable(
   "lead_candidate_sources",
@@ -80,6 +87,7 @@ export const leadMonitoringRunItemsTable = pgTable(
     signalsCreated: integer("signals_created").notNull().default(0),
     sourceErrorCount: integer("source_error_count").notNull().default(0),
     outcome: text("outcome").$type<MonitoringItemOutcome>(),
+    checkedSources: jsonb("checked_sources").$type<CheckedPublicSource[]>().notNull().default([]),
     message: text("message"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

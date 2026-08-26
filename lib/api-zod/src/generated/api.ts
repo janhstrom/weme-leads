@@ -201,6 +201,13 @@ export const ListEventMappingItemsResponseItem = zod.object({
   "outcome": zod.enum(['event_found', 'no_event', 'no_source', 'source_error']),
   "signalsCreated": zod.number(),
   "sourceErrorCount": zod.number(),
+  "checkedSources": zod.array(zod.object({
+  "url": zod.string(),
+  "label": zod.string(),
+  "family": zod.enum(['registered_feed', 'standard_feed', 'newsroom', 'careers', 'brreg']),
+  "status": zod.enum(['checked', 'error']),
+  "detail": zod.string().optional()
+})),
   "message": zod.string().nullable()
 })
 export const ListEventMappingItemsResponse = zod.array(ListEventMappingItemsResponseItem)

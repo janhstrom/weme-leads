@@ -78,7 +78,7 @@ export default function EventMappingPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2 text-base"><FileSearch className="h-4 w-4 text-primary" /> Offentlig hendelseskartlegging</CardTitle>
-                  <CardDescription className="mt-2 max-w-3xl">Vi ser etter ferske, URL-verifiserte hendelser i registrerte eller maskinlesbare RSS-/Atom-feeder fra kandidatens eget domene. Dette starter ikke løpende overvåkning og bruker ikke CRM.</CardDescription>
+                  <CardDescription className="mt-2 max-w-3xl">Vi ser etter ferske, URL-verifiserte signaler i registrerte feeder, standardiserte feed-adresser, offisielle presserom-, nyhets- og karrieresider på kandidatens eget domene, samt relevante registerobservasjoner. Dette starter ikke løpende overvåkning og bruker ikke CRM.</CardDescription>
                 </div>
                 <Button onClick={() => start.mutate()} disabled={start.isPending || run?.status === "running"}>
                   <PlayCircle className={`mr-2 h-4 w-4 ${start.isPending || run?.status === "running" ? "animate-pulse" : ""}`} />
@@ -92,7 +92,7 @@ export default function EventMappingPage() {
                 {run.status === "running" ? "Kartlegging pågår" : run.status === "completed" ? "Siste kartlegging er fullført" : run.status === "completed_with_errors" ? "Siste kartlegging er fullført med avvik" : "Siste kartlegging feilet"} · {run.processedCount}/{run.requestedCount} kandidater · {run.signalsCreated} nye hendelser · {run.sourceErrorCount} kildeavvik{run.errorSummary ? ` · ${run.errorSummary}` : ""}
               </div> : <p className="text-muted-foreground">Ingen kartlegging er kjørt ennå.</p>}
               <div className="grid gap-3 text-muted-foreground sm:grid-cols-3">
-                <p><strong className="text-foreground">Avgrenset kildebruk.</strong> Ingen bred web-crawling, betalingsmurer eller LinkedIn-scraping.</p>
+                <p><strong className="text-foreground">Avgrenset kildebruk.</strong> Kun kandidatens eget domene, registrerte feeds og Brønnøysundregistrene. Ingen bred web-crawling, betalingsmurer eller LinkedIn-scraping.</p>
                 <p><strong className="text-foreground">Ingen automatisk vurdering.</strong> En hendelse er kildegrunnlag, ikke en automatisk oppgradering til Relevant.</p>
                 <p><strong className="text-foreground">Ingen overvåkning.</strong> Kandidater må velges eksplisitt dersom de senere skal følges løpende.</p>
               </div>
@@ -133,8 +133,19 @@ function MappingRow({ item }: { item: EventMappingItem }) {
     <div className="min-w-0 flex-1">
       <div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{item.candidateName}</p><Badge className={meta.className}>{meta.label}</Badge>{item.signalsCreated > 0 ? <Badge variant="outline">{item.signalsCreated} ny(e) funn</Badge> : null}</div>
       <p className="mt-1 text-sm text-muted-foreground">{item.message ?? "Ingen ytterligere forklaring er registrert."}</p>
+      {item.checkedSources.length ? <div className="mt-3 flex flex-wrap gap-2">{item.checkedSources.map((source) => <a key={`${source.family}-${source.url}`} href={source.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className={`inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-secondary ${source.status === "error" ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground"}`} title={source.detail ?? source.url}><span className="font-medium text-foreground">{sourceFamilyLabel(source.family)}</span><span className="max-w-48 truncate">{source.label}</span></a>)}</div> : null}
     </div>
   </Link>;
+}
+
+function sourceFamilyLabel(family: EventMappingItem["checkedSources"][number]["family"]) {
+  return {
+    registered_feed: "Registrert feed",
+    standard_feed: "RSS/Atom",
+    newsroom: "Nyheter",
+    careers: "Karriere",
+    brreg: "Brønnøysund",
+  }[family];
 }
 
 function EmptyState({ title, description }: { title: string; description: string }) {

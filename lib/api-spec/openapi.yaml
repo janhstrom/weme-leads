@@ -1060,11 +1060,22 @@ components:
         completedAt: { type: ["string", "null"], format: date-time }
     EventMappingItem:
       type: object
-      required: [candidateId, candidateName, outcome, signalsCreated, sourceErrorCount, message]
+      required: [candidateId, candidateName, outcome, signalsCreated, sourceErrorCount, checkedSources, message]
       properties:
         candidateId: { type: number }
         candidateName: { type: string }
         outcome: { type: string, enum: [event_found, no_event, no_source, source_error] }
         signalsCreated: { type: number }
         sourceErrorCount: { type: number }
+        checkedSources:
+          type: array
+          items:
+            type: object
+            required: [url, label, family, status]
+            properties:
+              url: { type: string }
+              label: { type: string }
+              family: { type: string, enum: [registered_feed, standard_feed, newsroom, careers, brreg] }
+              status: { type: string, enum: [checked, error] }
+              detail: { type: string }
         message: { type: ["string", "null"] }

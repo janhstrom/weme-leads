@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyEventMappingOutcome, findOfficialFeedLink } from "./monitoring";
+import { classifyEventMappingOutcome, findOfficialFeedLink, getOfficialPageLinks, parseOfficialHtmlEvents } from "./monitoring";
 
 test("finner bare en HTTPS RSS- eller Atom-feed fra kandidatens eget domene", () => {
   assert.deepEqual(
@@ -36,4 +36,41 @@ test("skiller hendelse, manglende kilde og kildefeil i kartleggingen", () => {
     sourceErrorCount: 1,
     signalsCreated: 0,
   }).outcome, "source_error");
+});
+
+test("oppdager bare offisielle presserom- og karrieresider på kandidatens eget domene", () => {
+  const links = getOfficialPageLinks(`
+    <a href="/nyheter">Nyheter</a>
+    <a href="https://example.no/karriere">Karriere</a>
+    <a href="https://other.example/news">Ekstern nyhet</a>
+  `, "https://example.no/");
+  assert.deepEqual(links.map((link) => ({ url: link.url, family: link.family })), [
+    { url: "https://example.no/nyheter", family: "newsroom" },
+    { url: "https://example.no/karriere", family: "careers" },
+  ]);
+});
+
+test("henter bare daterte, relevante JSON-LD-artikler fra samme domene", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const html = `<script type="application/ld+json">${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline: "Selskapet lanserer ny digital plattform",
+    url: "https://example.no/nyheter/plattform",
+    datePublished: today,
+    description: "En strategisk digitalisering av tjenestene.",
+  })}</script>
+  <script type="application/ld+json">${JSON.stringify({
+    "@type": "NewsArticle",
+    headline: "Ekstern oppkjøpsnyhet",
+    url: "https://other.example/news",
+    datePublished: today,
+  })}</script>`;
+  assert.deepEqual(parseOfficialHtmlEvents(html, "https://example.no/nyheter"), [{
+    title: "Selskapet lanserer ny digital plattform",
+    url: "https://example.no/nyheter/plattform",
+    publishedAt: today,
+    excerpt: "En strategisk digitalisering av tjenestene.",
+    signalType: "Lansering eller strategisk digitalisering",
+  }]);
 });
