@@ -103,14 +103,14 @@ function parseFeed(xml: string): FeedEntry[] {
   });
 }
 
-async function fetchTextWithTimeout(url: string, method: "GET" | "HEAD" = "GET", allowMethodNotAllowed = false) {
+async function fetchTextWithTimeout(url: string, method: "GET" | "HEAD" = "GET", allowMethodNotAllowed = false, accept = "application/atom+xml, application/rss+xml, application/xml, text/xml, text/html") {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch(url, {
       method,
       redirect: "follow",
-      headers: method === "GET" ? { Accept: "application/atom+xml, application/rss+xml, application/xml, text/xml, text/html" } : undefined,
+      headers: method === "GET" ? { Accept: accept } : undefined,
       signal: controller.signal,
     });
     if (!response.ok && !(allowMethodNotAllowed && response.status === 405)) throw new Error(`HTTP ${response.status}`);
@@ -133,7 +133,7 @@ async function brregStatus(organizationNumber: string | null) {
   const normalized = organizationNumber?.replace(/\D/g, "") ?? "";
   if (normalized.length !== 9) return "not_available";
   try {
-    await fetchTextWithTimeout(`https://data.brreg.no/enhetsregisteret/api/enheter/${normalized}`);
+    await fetchTextWithTimeout(`https://data.brreg.no/enhetsregisteret/api/enheter/${normalized}`, "GET", false, "application/json");
     return "verified";
   } catch (error) {
     return error instanceof Error && error.message === "HTTP 404" ? "not_found" : "unavailable";
@@ -538,8 +538,8 @@ export async function discoverMappingSources(candidate: Candidate, registeredSou
   return [...new Map(sources.map((source) => [source.url, source])).values()];
 }
 
-function isMissingStandardFeed(error: unknown, source: MappingSource) {
-  return source.family === "standard_feed" && error instanceof Error && error.message === "HTTP 404";
+export function isMissingStandardFeed(error: unknown, source: Pick<MappingSource, "family">) {
+  return source.family === "standard_feed" && error instanceof Error && /HTTP (?:404|410)$/.test(error.message);
 }
 
 function brregRecentEvent(payload: unknown, sourceUrl: string): PublicEvent | null {
@@ -638,7 +638,7 @@ async function collectEventMappingSignals(candidate: Candidate, runId: number): 
 
   const processSource = async (source: MappingSource) => {
     try {
-      const response = await fetchTextWithTimeout(source.url);
+      const response = await fetchTextWithTimeout(source.url, "GET", false, source.kind === "brreg" ? "application/json" : undefined);
       if (source.family !== "brreg" && !isSameCandidateHostname(response.url, source.url)) {
         throw new Error("Kilden omdirigerte utenfor kandidatens domene.");
       }

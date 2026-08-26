@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyEventMappingOutcome, discoverMappingSources, findOfficialFeedLink, getOfficialPageLinks, historicalSnapshotDomain, parseOfficialHtmlEvents } from "./monitoring";
+import { classifyEventMappingOutcome, discoverMappingSources, findOfficialFeedLink, getOfficialPageLinks, historicalSnapshotDomain, isMissingStandardFeed, parseOfficialHtmlEvents } from "./monitoring";
 
 test("finner bare en HTTPS RSS- eller Atom-feed fra kandidatens eget domene", () => {
   assert.deepEqual(
@@ -52,6 +52,13 @@ test("henter kandidatens domene fra godkjente felter i historiske snapshots", ()
   assert.equal(historicalSnapshotDomain({ "Company Domain Name": "https://www.Akerbp.com/no/" }), "akerbp.com");
   assert.equal(historicalSnapshotDomain({ "Company Website": "www.example.no" }), "example.no");
   assert.equal(historicalSnapshotDomain({ "Company Linkedin ID URL": "https://linkedin.example/company" }), null);
+});
+
+test("behandler permanent manglende standardfeed som manglende kilde, ikke kildefeil", () => {
+  assert.equal(isMissingStandardFeed(new Error("HTTP 404"), { family: "standard_feed" }), true);
+  assert.equal(isMissingStandardFeed(new Error("HTTP 410"), { family: "standard_feed" }), true);
+  assert.equal(isMissingStandardFeed(new Error("HTTP 500"), { family: "standard_feed" }), false);
+  assert.equal(isMissingStandardFeed(new Error("HTTP 410"), { family: "newsroom" }), false);
 });
 
 test("skiller hendelse, manglende kilde og kildefeil i kartleggingen", () => {
