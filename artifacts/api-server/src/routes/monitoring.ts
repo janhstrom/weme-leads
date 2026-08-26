@@ -467,7 +467,7 @@ export function parseOfficialHtmlEvents(html: string, pageUrl: string): PublicEv
   return [...new Map(events.map((event) => [event.url, event])).values()];
 }
 
-async function discoverMappingSources(candidate: Candidate, registeredSources: CandidateSource[]) {
+export async function discoverMappingSources(candidate: Candidate, registeredSources: CandidateSource[]) {
   const sources: MappingSource[] = registeredSources.map((source) => ({
     url: source.url,
     label: source.label,
@@ -475,26 +475,27 @@ async function discoverMappingSources(candidate: Candidate, registeredSources: C
     kind: "feed",
     registeredSourceId: source.id,
   }));
-  if (!candidate.domain) return sources;
-  let homepageUrl: URL;
-  try {
-    homepageUrl = new URL(`https://${candidate.domain}`);
-  } catch {
-    return sources;
-  }
-  try {
-    const response = await fetchTextWithTimeout(homepageUrl.toString());
-    const html = await response.text();
-    const pageUrl = response.url;
-    if (!isSameCandidateHostname(pageUrl, homepageUrl.toString())) return sources;
-    const linkedFeed = findOfficialFeedLink(html, pageUrl);
-    if (linkedFeed) sources.push({ ...linkedFeed, label: "Offisiell feed oppdaget på hjemmesiden", family: "standard_feed", kind: "feed" });
-    for (const path of STANDARD_FEED_PATHS) {
-      sources.push({ url: new URL(path, pageUrl).toString(), label: "Standard RSS-/Atom-adresse", family: "standard_feed", kind: "feed" });
+  if (candidate.domain) {
+    try {
+      const homepageUrl = new URL(`https://${candidate.domain}`);
+      try {
+        const response = await fetchTextWithTimeout(homepageUrl.toString());
+        const html = await response.text();
+        const pageUrl = response.url;
+        if (isSameCandidateHostname(pageUrl, homepageUrl.toString())) {
+          const linkedFeed = findOfficialFeedLink(html, pageUrl);
+          if (linkedFeed) sources.push({ ...linkedFeed, label: "Offisiell feed oppdaget på hjemmesiden", family: "standard_feed", kind: "feed" });
+          for (const path of STANDARD_FEED_PATHS) {
+            sources.push({ url: new URL(path, pageUrl).toString(), label: "Standard RSS-/Atom-adresse", family: "standard_feed", kind: "feed" });
+          }
+          sources.push(...getOfficialPageLinks(html, pageUrl).slice(0, 4));
+        }
+      } catch {
+        // A missing or unavailable homepage is reported only when no other source succeeds.
+      }
+    } catch {
+      // An invalid imported domain does not prevent an organization-number lookup.
     }
-    sources.push(...getOfficialPageLinks(html, pageUrl).slice(0, 4));
-  } catch {
-    // A missing or unavailable homepage is reported only when no other source succeeds.
   }
   if (candidate.organizationNumber?.replace(/\D/g, "").length === 9) {
     sources.push({

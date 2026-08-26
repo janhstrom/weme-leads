@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyEventMappingOutcome, findOfficialFeedLink, getOfficialPageLinks, parseOfficialHtmlEvents } from "./monitoring";
+import { classifyEventMappingOutcome, discoverMappingSources, findOfficialFeedLink, getOfficialPageLinks, parseOfficialHtmlEvents } from "./monitoring";
 
 test("finner bare en HTTPS RSS- eller Atom-feed fra kandidatens eget domene", () => {
   assert.deepEqual(
@@ -33,6 +33,19 @@ test("godtar kandidatens www-alias, men avviser andre publiseringsdomener", () =
   })}</script>`;
   assert.equal(parseOfficialHtmlEvents(ownDomainHtml, "https://example.no/nyheter").length, 1);
   assert.equal(parseOfficialHtmlEvents(externalDomainHtml, "https://example.no/nyheter").length, 0);
+});
+
+test("beholder Brønnøysund som kilde når kandidaten mangler domene", async () => {
+  const sources = await discoverMappingSources({
+    organizationNumber: "912 345 678",
+    domain: null,
+  } as never, []);
+  assert.deepEqual(sources, [{
+    url: "https://data.brreg.no/enhetsregisteret/api/enheter/912345678",
+    label: "Brønnøysundregistrene",
+    family: "brreg",
+    kind: "brreg",
+  }]);
 });
 
 test("skiller hendelse, manglende kilde og kildefeil i kartleggingen", () => {
