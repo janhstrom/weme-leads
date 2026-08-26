@@ -22,7 +22,7 @@ export default function AllSignalsPage() {
     <div className="flex-1 overflow-auto p-6 bg-background">
       <div className="max-w-6xl mx-auto space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-2">{(["all", "til_vurdering", "godkjent", "avvist", "følg_videre"] as const).map((option) => <button key={option} type="button" onClick={() => setStatus(option)} className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${status === option ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}>{option === "all" ? "Alle" : option.replace("_", " ")}</button>)}</div>
+          <div className="flex flex-wrap gap-2">{(["all", "til_vurdering", "godkjent", "avvist", "følg_videre"] as const).map((option) => <button key={option} type="button" onClick={() => setStatus(option)} className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${status === option ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-primary/5"}`}>{option === "all" ? "Alle" : option.replace("_", " ")}</button>)}</div>
           <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Søk i signaler…" className="pl-9" /></div>
         </div>
         <Card className="overflow-hidden">

@@ -211,13 +211,13 @@ export function SignalRow({ signal }: { signal: Signal }) {
 
 export function StrengthBadge({ strength }: { strength: string }) {
   const colors = {
-    A: "bg-destructive text-destructive-foreground",
-    B: "bg-accent text-accent-foreground",
-    C: "bg-primary text-primary-foreground",
+    A: "border-destructive/50 bg-destructive/10 text-destructive",
+    B: "border-accent/60 bg-accent/20 text-foreground",
+    C: "border-primary/50 bg-primary/15 text-foreground",
   } as Record<string, string>;
   
   return (
-    <Badge variant="outline" className={`${colors[strength] || 'bg-secondary text-secondary-foreground'} border-transparent px-1.5 py-0 text-[10px] font-bold`}>
+    <Badge variant="outline" className={`${colors[strength] || 'border-border bg-muted/40 text-muted-foreground'} px-1.5 py-0 text-[10px] font-bold`}>
       {strength}
     </Badge>
   );
@@ -225,15 +225,15 @@ export function StrengthBadge({ strength }: { strength: string }) {
 
 export function StatusBadge({ status }: { status: string }) {
   const styles = {
-    til_vurdering: "bg-secondary text-secondary-foreground border-transparent",
-    godkjent: "bg-primary text-primary-foreground border-primary",
-    avvist: "bg-destructive text-destructive-foreground border-destructive",
-    allerede_kjent: "bg-muted text-muted-foreground border-muted",
-    følg_videre: "bg-accent text-accent-foreground border-accent",
+    til_vurdering: "border-accent/60 bg-accent/20 text-foreground",
+    godkjent: "border-primary/50 bg-primary/15 text-foreground",
+    avvist: "border-destructive/50 bg-destructive/10 text-destructive",
+    allerede_kjent: "border-border bg-muted/40 text-muted-foreground",
+    følg_videre: "border-primary/50 bg-primary/15 text-foreground",
   } as Record<string, string>;
 
   return (
-    <Badge variant="outline" className={`${styles[status] || ''} text-[10px] font-semibold uppercase tracking-wider`}>
+    <Badge variant="outline" className={`${styles[status] || 'border-border bg-muted/40 text-muted-foreground'} text-[10px] font-semibold`}>
       {status.replace('_', ' ')}
     </Badge>
   );

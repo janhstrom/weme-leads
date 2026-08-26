@@ -26,6 +26,7 @@ import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skele
 import { Textarea } from "@workspace/weme-earth-tones-system/components/ui/textarea";
 import { useToast } from "@workspace/weme-earth-tones-system/hooks/use-toast";
 import { AlertCircle, ArrowLeft, Building2, DatabaseZap, Eye, ExternalLink, FileSearch, Link2, Radio, Search, UserRound, X } from "lucide-react";
+import { MonitoringBadge, PriorityBadge, RelevanceBadge, relevanceLabel } from "@/components/status-badges";
 
 type ManualRelevanceStatus = Exclude<Candidate["relevanceStatus"], "insufficient_data">;
 
@@ -135,10 +136,10 @@ export default function CandidateDetailPage() {
         <Link href="/candidates" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Tilbake til kandidater</Link>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-semibold">{candidate.companyName}</h1>
-          <Badge variant="outline">{candidate.priorityScore} prioritetspoeng</Badge>
-          <Badge variant="secondary">{candidate.relevanceStatus.replace("_", " ")}</Badge>
+           <PriorityBadge score={candidate.priorityScore} />
+           <RelevanceBadge status={candidate.relevanceStatus} />
            <Badge variant="outline">{candidate.relevanceSource === "manual" ? "Manuell overstyring" : `System · ${confidenceLabel(candidate.relevanceConfidence)}`}</Badge>
-          <Badge variant={candidate.monitoringStatus === "monitoring" ? "default" : "outline"}>{candidate.monitoringStatus === "monitoring" ? "Overvåkes" : "Ikke overvåket"}</Badge>
+           <MonitoringBadge status={candidate.monitoringStatus} />
         </div>
       </header>
       <div className="flex-1 overflow-auto bg-background p-6">
@@ -159,7 +160,7 @@ export default function CandidateDetailPage() {
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Eye className="h-4 w-4 text-primary" /> Automatisk relevans</CardTitle><CardDescription>{candidate.relevanceSource === "manual" ? "Systemets kildegrunnlag er bevart, men statusen under er manuelt overstyrt." : "Systemforslaget kombinerer snapshots, sikre CRM-treff og dokumenterte endringer."}</CardDescription></CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2"><Badge variant="secondary">{candidate.relevanceStatus.replace("_", " ")}</Badge><Badge variant="outline">{confidenceLabel(candidate.relevanceConfidence)} sikkerhet</Badge>{candidate.lastAnalyzedAt ? <span className="text-xs text-muted-foreground">Sist beregnet {format(new Date(candidate.lastAnalyzedAt), "d. MMM yyyy HH:mm", { locale: nb })}</span> : null}</div>
+                 <div className="flex flex-wrap items-center gap-2"><RelevanceBadge status={candidate.relevanceStatus} /><Badge variant="outline">{confidenceLabel(candidate.relevanceConfidence)} sikkerhet</Badge>{candidate.lastAnalyzedAt ? <span className="text-xs text-muted-foreground">Sist beregnet {format(new Date(candidate.lastAnalyzedAt), "d. MMM yyyy HH:mm", { locale: nb })}</span> : null}</div>
                 <p className="text-sm">{candidate.relevanceReason ?? "Ingen automatisk begrunnelse er lagret ennå."}</p>
                 <div className="grid gap-2 sm:grid-cols-2">{candidate.priorityReasons.slice(0, 4).map((reason) => <div key={reason} className="rounded-md bg-secondary/60 p-3 text-sm">{reason}</div>)}</div>
               </CardContent>

@@ -32,10 +32,11 @@ import { Checkbox } from "@workspace/weme-earth-tones-system/components/ui/check
 import { Input } from "@workspace/weme-earth-tones-system/components/ui/input";
 import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
 import { useToast } from "@workspace/weme-earth-tones-system/hooks/use-toast";
-import { Building2, CheckCheck, ChevronRight, DatabaseZap, Eye, FileUp, ListChecks, Radio, Search, Sparkles, UsersRound } from "lucide-react";
+import { Building2, CheckCheck, ChevronRight, CircleAlert, CircleCheck, DatabaseZap, Eye, FileUp, ListChecks, Radio, Search, Sparkles, UsersRound } from "lucide-react";
+import { MonitoringBadge, PriorityBadge, RelevanceBadge, relevanceLabel } from "@/components/status-badges";
 
 type SourceType = CandidateSnapshotSourceType;
-type ListView = "universe" | "monitoring" | "review" | "crm_review";
+type ListView = "universe" | "follow_up" | "monitoring" | "review" | "crm_review";
 type WorkScope = "universe" | "relevant" | "monitoring";
 type ManualRelevanceStatus = Exclude<Candidate["relevanceStatus"], "insufficient_data">;
 
@@ -192,8 +193,9 @@ export default function CandidatesPage() {
     return (candidates ?? []).filter((candidate) => {
       const inView =
         view === "universe" ||
+        (view === "follow_up" && candidate.relevanceStatus === "relevant" && candidate.monitoringStatus !== "monitoring") ||
         (view === "monitoring" && candidate.monitoringStatus === "monitoring") ||
-         (view === "review" && (candidate.relevanceStatus === "needs_review" || candidate.matchStatus === "needs_review")) ||
+         (view === "review" && isInvestigationCandidate(candidate)) ||
          (view === "crm_review" && ["not_found", "ambiguous", "unavailable"].includes(candidate.crmEnrichment?.status ?? ""));
       return inView && (!needle || [candidate.companyName, candidate.domain, candidate.industry].filter(Boolean).join(" ").toLocaleLowerCase("nb-NO").includes(needle));
     });
@@ -319,7 +321,8 @@ export default function CandidatesPage() {
   };
 
   const monitoredCount = candidates?.filter((candidate) => candidate.monitoringStatus === "monitoring").length ?? 0;
-  const reviewCount = candidates?.filter((candidate) => candidate.relevanceStatus === "needs_review" || candidate.matchStatus === "needs_review").length ?? 0;
+  const followUpCount = candidates?.filter((candidate) => candidate.relevanceStatus === "relevant" && candidate.monitoringStatus !== "monitoring").length ?? 0;
+  const reviewCount = candidates?.filter(isInvestigationCandidate).length ?? 0;
   const crmReviewCount = candidates?.filter((candidate) => ["not_found", "ambiguous", "unavailable"].includes(candidate.crmEnrichment?.status ?? "")).length ?? 0;
   const selectedCandidates = visibleCandidates.filter((candidate) => selectedCandidateIds.includes(candidate.id));
   const toggleCandidateSelection = (candidateId: number) => {
@@ -339,20 +342,38 @@ export default function CandidatesPage() {
         <div className="max-w-6xl mx-auto space-y-6">
           <div className="grid gap-4 md:grid-cols-4">
             <Stat label="I hovedlisten" value={candidates?.length ?? 0} icon={<Building2 className="h-4 w-4 text-primary" />} />
-            <Stat label="Overvåkes" value={monitoredCount} icon={<Radio className="h-4 w-4 text-accent" />} />
-            <Stat label="Må vurderes" value={reviewCount} icon={<Eye className="h-4 w-4 text-destructive" />} />
+            <Stat label="Følg med på" value={followUpCount} icon={<CircleCheck className="h-4 w-4 text-primary" />} />
+            <Stat label="Undersøk nærmere" value={reviewCount} icon={<CircleAlert className="h-4 w-4 text-destructive" />} />
             <Stat label="CRM-avklaring" value={crmReviewCount} icon={<DatabaseZap className="h-4 w-4 text-accent" />} />
           </div>
 
-            <Card className="border-primary/20 bg-primary/5">
+            <Card className="border-primary/30 bg-primary/5">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4 w-4 text-primary" /> Slik brukes selskapene</CardTitle>
-              <CardDescription>Importerte selskaper vurderes fra snapshots, sikre CRM-treff og dokumenterte endringer. Du bestemmer deretter hvilke relevante selskaper som skal overvåkes.</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4 w-4 text-primary" /> Hva bør du gjøre nå?</CardTitle>
+              <CardDescription>Bruk prioritetspoengene som arbeidsrekkefølge. Start med selskaper som er relevante, men ikke overvåkes, og undersøk deretter selskaper med usikkert eller tynt grunnlag.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm md:grid-cols-3">
-              <SourceRole title="1. Hovedliste" description="Alle importerte selskaper beholdes og får en relevansvurdering." />
-              <SourceRole title="2. Relevans" description="Systemet foreslår status med kildegrunnlag. Manuelle valg på selskapsdetaljen overstyrer forslaget." />
-              <SourceRole title="3. Overvåkning" description="Bare selskaper du velger å overvåke skal følges for nye signaler." />
+              <FocusAction
+                icon={<CircleCheck className="h-4 w-4 text-primary" />}
+                title="Følg med på"
+                count={followUpCount}
+                description="Relevante selskaper som ikke er lagt i overvåkning."
+                action={() => { setView("follow_up"); setSelectedCandidateIds([]); }}
+              />
+              <FocusAction
+                icon={<CircleAlert className="h-4 w-4 text-destructive" />}
+                title="Undersøk nærmere"
+                count={reviewCount}
+                description="Mulig relevante, uavklarte eller med for lite datagrunnlag."
+                action={() => { setView("review"); setSelectedCandidateIds([]); }}
+              />
+              <FocusAction
+                icon={<Radio className="h-4 w-4 text-primary" />}
+                title="Følger allerede"
+                count={monitoredCount}
+                description="Selskaper med aktiv overvåkning og nye offentlige signaler."
+                action={() => { setView("monitoring"); setSelectedCandidateIds([]); }}
+              />
             </CardContent>
           </Card>
 
@@ -385,8 +406,9 @@ export default function CandidatesPage() {
             <div className="flex flex-wrap gap-2">
               {([
                 ["universe", "Hovedliste", candidates?.length ?? 0],
+                ["follow_up", "Følg med på", followUpCount],
                 ["monitoring", "Overvåkes", monitoredCount],
-                ["review", "Til vurdering", reviewCount],
+                ["review", "Undersøk nærmere", reviewCount],
                  ["crm_review", "CRM-avklaring", crmReviewCount],
               ] as const).map(([nextView, label, count]) => (
                 <Button key={nextView} size="sm" variant={view === nextView ? "default" : "outline"} onClick={() => { setView(nextView); setSelectedCandidateIds([]); }}>{label} ({count})</Button>
@@ -454,8 +476,17 @@ function scopeLabel(scope: WorkScope) {
   return { universe: "hele hovedlisten", relevant: "alle relevante selskaper", monitoring: "overvåkningslisten" }[scope];
 }
 
-function SourceRole({ title, description }: { title: string; description: string }) {
-  return <div className="rounded-md border border-primary/15 bg-card/70 p-3"><p className="font-semibold">{title}</p><p className="mt-1 text-muted-foreground">{description}</p></div>;
+function FocusAction({ icon, title, count, description, action }: { icon: React.ReactNode; title: string; count: number; description: string; action: () => void }) {
+  return (
+    <button type="button" onClick={action} className="rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-primary/5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="flex items-center gap-2 font-semibold">{icon}{title}</p>
+        <span className="text-xl font-bold">{count}</span>
+      </div>
+      <p className="mt-1 text-muted-foreground">{description}</p>
+      <p className="mt-2 text-xs font-semibold text-primary">Åpne arbeidsutvalg →</p>
+    </button>
+  );
 }
 
 function Stat({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
@@ -466,7 +497,7 @@ function CandidateRow({ candidate, pending, selectable, selected, onToggleSelect
   return <div className="flex items-center gap-4 p-4 sm:px-6">
     {selectable ? <Checkbox checked={selected} onCheckedChange={onToggleSelection} aria-label={`Velg ${candidate.companyName}`} /> : null}
     <Link href={`/candidates/${candidate.id}`} className="group min-w-0 flex-1">
-      <div className="flex flex-wrap items-center gap-2"><span className="text-lg font-semibold group-hover:text-primary">{candidate.companyName}</span><RelevanceBadge status={candidate.relevanceStatus} /><MonitoringBadge status={candidate.monitoringStatus} /></div>
+      <div className="flex flex-wrap items-center gap-2"><span className="text-lg font-semibold group-hover:text-primary">{candidate.companyName}</span><PriorityBadge score={candidate.priorityScore} /><RelevanceBadge status={candidate.relevanceStatus} /><MonitoringBadge status={candidate.monitoringStatus} /></div>
       <p className="mt-1 text-sm text-muted-foreground">{candidate.relevanceReason ?? candidate.priorityReasons[0]}</p>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"><span>{candidate.snapshots.length} snapshots</span>{candidate.employees ? <span>{candidate.employees.toLocaleString("nb-NO")} ansatte</span> : null}<span>{candidate.evidence.length} offentlige kilder</span>{candidate.crmEnrichment ? <span>{crmStatusLabel(candidate.crmEnrichment.status)}</span> : <span>CRM ikke oppdatert</span>}</div>
     </Link>
@@ -475,19 +506,13 @@ function CandidateRow({ candidate, pending, selectable, selected, onToggleSelect
   </div>;
 }
 
-export function RelevanceBadge({ status }: { status: Candidate["relevanceStatus"] }) {
-  const styles = { relevant: "bg-primary text-primary-foreground", possible: "bg-accent text-accent-foreground", not_relevant: "bg-muted text-muted-foreground", needs_review: "bg-destructive text-destructive-foreground", insufficient_data: "bg-secondary text-secondary-foreground" };
-  return <Badge variant="outline" className={`${styles[status]} border-transparent text-[10px] uppercase`}>{relevanceLabel(status)}</Badge>;
-}
-
-function relevanceLabel(status: Candidate["relevanceStatus"]) {
-  return { relevant: "Relevant", possible: "Mulig relevant", not_relevant: "Ikke relevant", needs_review: "Må vurderes", insufficient_data: "Utilstrekkelig data" }[status];
-}
-
 function crmStatusLabel(status: NonNullable<Candidate["crmEnrichment"]>["status"]) {
   return { matched: "CRM sikkert treff", not_found: "CRM uten treff", ambiguous: "CRM uavklart", unavailable: "CRM utilgjengelig" }[status];
 }
 
-export function MonitoringBadge({ status }: { status: Candidate["monitoringStatus"] }) {
-  return <Badge variant="outline" className={`${status === "monitoring" ? "border-primary/30 text-primary" : "border-muted text-muted-foreground"} text-[10px] uppercase`}>{status === "monitoring" ? "Overvåkes" : "Ikke overvåket"}</Badge>;
+function isInvestigationCandidate(candidate: Candidate) {
+  return candidate.relevanceStatus === "possible"
+    || candidate.relevanceStatus === "needs_review"
+    || candidate.relevanceStatus === "insufficient_data"
+    || candidate.matchStatus === "needs_review";
 }
