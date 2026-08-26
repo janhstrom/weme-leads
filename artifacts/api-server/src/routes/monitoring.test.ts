@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyEventMappingOutcome, discoverMappingSources, findOfficialFeedLink, getOfficialPageLinks, parseOfficialHtmlEvents } from "./monitoring";
+import { classifyEventMappingOutcome, discoverMappingSources, findOfficialFeedLink, getOfficialPageLinks, historicalSnapshotDomain, parseOfficialHtmlEvents } from "./monitoring";
 
 test("finner bare en HTTPS RSS- eller Atom-feed fra kandidatens eget domene", () => {
   assert.deepEqual(
@@ -46,6 +46,12 @@ test("beholder Brønnøysund som kilde når kandidaten mangler domene", async ()
     family: "brreg",
     kind: "brreg",
   }]);
+});
+
+test("henter kandidatens domene fra godkjente felter i historiske snapshots", () => {
+  assert.equal(historicalSnapshotDomain({ "Company Domain Name": "https://www.Akerbp.com/no/" }), "akerbp.com");
+  assert.equal(historicalSnapshotDomain({ "Company Website": "www.example.no" }), "example.no");
+  assert.equal(historicalSnapshotDomain({ "Company Linkedin ID URL": "https://linkedin.example/company" }), null);
 });
 
 test("skiller hendelse, manglende kilde og kildefeil i kartleggingen", () => {

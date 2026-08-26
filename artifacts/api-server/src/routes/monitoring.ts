@@ -4,6 +4,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   db,
   leadCandidateEvidenceTable,
+  leadCandidateSnapshotsTable,
   leadCandidateSourcesTable,
   leadCandidatesTable,
   leadMonitoringRunItemsTable,
@@ -28,6 +29,7 @@ import {
   StartMonitoringRunResponse,
 } from "@workspace/api-zod";
 import { enrichCandidateFromCrm } from "../lib/candidate-crm";
+import { normalizeCandidateDomain } from "../lib/candidate-matching";
 import { toSignalResponse } from "./signalpilot";
 
 const router: IRouter = Router();
@@ -35,6 +37,7 @@ const REQUEST_TIMEOUT_MS = 6_000;
 const RUN_LOCK_MAX_AGE_MS = 60 * 60 * 1_000;
 const MAX_SOURCE_ENTRY_AGE_DAYS = 180;
 const CHANGE_KEYWORDS = /\b(nedbemanning|omstilling|omorganiser|organisasjonsendring|strategi|strategisk|oppkjøp|fusjon|sammenslå|lanser|digital|teknologi|automatis|kunst(ig)? intelligens|ai\b|kompetanse|opplæring|lederskap|workforce|restructur|transformation|acquisition|merger|launch|digitali[sz]|automation|workforce adjustment)\b/i;
+const HISTORICAL_DOMAIN_FIELDS = new Set(["companydomainname", "companydomain", "companywebsite", "domain", "website", "web", "nettside"]);
 let activeMonitoringJob: Promise<MonitoringRun> | null = null;
 let activeEventMappingJob: Promise<MonitoringRun> | null = null;
 
@@ -350,6 +353,32 @@ function isSameCandidateHostname(leftUrl: string, rightUrl: string) {
   }
 }
 
+export function historicalSnapshotDomain(fields: Record<string, string> | null | undefined) {
+  if (!fields) return null;
+  for (const [key, value] of Object.entries(fields)) {
+    const normalizedKey = key.toLocaleLowerCase("nb-NO").replace(/[^a-z0-9æøå]/g, "");
+    if (HISTORICAL_DOMAIN_FIELDS.has(normalizedKey)) {
+      const domain = normalizeCandidateDomain(value);
+      if (domain) return domain;
+    }
+  }
+  return null;
+}
+
+async function latestHistoricalDomain(candidateId: number) {
+  try {
+    const snapshots = await db
+      .select({ data: leadCandidateSnapshotsTable.data })
+      .from(leadCandidateSnapshotsTable)
+      .where(eq(leadCandidateSnapshotsTable.candidateId, candidateId))
+      .orderBy(desc(leadCandidateSnapshotsTable.snapshotDate), desc(leadCandidateSnapshotsTable.importedAt))
+      .limit(12);
+    return snapshots.map((snapshot) => historicalSnapshotDomain(snapshot.data.fields)).find((domain): domain is string => Boolean(domain)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function getOfficialPageLinks(html: string, pageUrl: string): MappingSource[] {
   return [...html.matchAll(/<a\b[^>]*href=["'][^"']+["'][^>]*>[\s\S]*?<\/a>/gi)]
     .map((match) => match[0])
@@ -467,7 +496,7 @@ export function parseOfficialHtmlEvents(html: string, pageUrl: string): PublicEv
   return [...new Map(events.map((event) => [event.url, event])).values()];
 }
 
-export async function discoverMappingSources(candidate: Candidate, registeredSources: CandidateSource[]) {
+export async function discoverMappingSources(candidate: Candidate, registeredSources: CandidateSource[], historicalDomain?: string | null) {
   const sources: MappingSource[] = registeredSources.map((source) => ({
     url: source.url,
     label: source.label,
@@ -475,9 +504,10 @@ export async function discoverMappingSources(candidate: Candidate, registeredSou
     kind: "feed",
     registeredSourceId: source.id,
   }));
-  if (candidate.domain) {
+  const domain = normalizeCandidateDomain(candidate.domain) ?? normalizeCandidateDomain(historicalDomain);
+  if (domain) {
     try {
-      const homepageUrl = new URL(`https://${candidate.domain}`);
+      const homepageUrl = new URL(`https://${domain}`);
       try {
         const response = await fetchTextWithTimeout(homepageUrl.toString());
         const html = await response.text();
@@ -588,7 +618,8 @@ async function collectEventMappingSignals(candidate: Candidate, runId: number): 
     eq(leadCandidateSourcesTable.candidateId, candidate.id),
     eq(leadCandidateSourcesTable.isActive, "true"),
   ));
-  const sources = await discoverMappingSources(candidate, registeredSources);
+  const historicalDomain = candidate.domain ? null : await latestHistoricalDomain(candidate.id);
+  const sources = await discoverMappingSources(candidate, registeredSources, historicalDomain);
   if (!sources.length) {
     return {
       outcome: "no_source",

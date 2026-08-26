@@ -87,7 +87,7 @@ function parseCandidateRows(rows: Array<Record<string, unknown>>, firstDataRow =
       sourceRowId: String(index + 2),
       companyName,
       organizationNumber: rowValue(fields, ["orgnr", "organisasjonsnummer", "organizationnumber", "companyid"]),
-      domain: rowValue(fields, ["domain", "website", "web", "nettside"]),
+      domain: rowValue(fields, ["domain", "website", "web", "nettside", "companydomainname", "companydomain", "companywebsite"]),
       industry: rowValue(fields, ["industry", "bransje"]),
       employees: parseEmployeeCount(rowValue(fields, ["employees", "employee", "ansatte", "antallansatte", "headcount"])),
       revenue: rowValue(fields, ["revenue", "omsetning", "turnover"]),
