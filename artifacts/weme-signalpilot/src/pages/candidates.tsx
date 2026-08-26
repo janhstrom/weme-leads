@@ -32,13 +32,15 @@ import { Checkbox } from "@workspace/weme-earth-tones-system/components/ui/check
 import { Input } from "@workspace/weme-earth-tones-system/components/ui/input";
 import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
 import { useToast } from "@workspace/weme-earth-tones-system/hooks/use-toast";
-import { Building2, CheckCheck, ChevronRight, CircleAlert, CircleCheck, DatabaseZap, Eye, FileUp, ListChecks, Radio, Search, Sparkles, UsersRound } from "lucide-react";
+import { ArrowDownAZ, ArrowUpDown, Building2, CheckCheck, ChevronRight, CircleAlert, CircleCheck, DatabaseZap, Eye, FileUp, ListChecks, ListFilter, Radio, Search, Sparkles, UsersRound } from "lucide-react";
 import { MonitoringBadge, PriorityBadge, RelevanceBadge, relevanceLabel } from "@/components/status-badges";
 
 type SourceType = CandidateSnapshotSourceType;
 type ListView = "universe" | "follow_up" | "monitoring" | "review" | "crm_review";
 type WorkScope = "universe" | "relevant" | "monitoring";
 type ManualRelevanceStatus = Exclude<Candidate["relevanceStatus"], "insufficient_data">;
+type PriorityFilter = "all" | "high" | "some" | "none";
+type CandidateSort = "priority_desc" | "priority_asc" | "company_asc";
 
 function rowValue(row: Record<string, string>, aliases: string[]) {
   const normalized = Object.entries(row).find(([key]) => aliases.includes(key.toLocaleLowerCase("nb-NO").replace(/[^a-z0-9æøå]/g, "")));
@@ -183,6 +185,8 @@ export default function CandidatesPage() {
   const [bulkReason, setBulkReason] = useState("");
   const [confirmBulkDecision, setConfirmBulkDecision] = useState(false);
   const [confirmDateCorrection, setConfirmDateCorrection] = useState(false);
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
+  const [candidateSort, setCandidateSort] = useState<CandidateSort>("priority_desc");
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -190,16 +194,31 @@ export default function CandidatesPage() {
 
   const visibleCandidates = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("nb-NO");
-    return (candidates ?? []).filter((candidate) => {
+    const filteredCandidates = (candidates ?? []).filter((candidate) => {
       const inView =
         view === "universe" ||
         (view === "follow_up" && candidate.relevanceStatus === "relevant" && candidate.monitoringStatus !== "monitoring") ||
         (view === "monitoring" && candidate.monitoringStatus === "monitoring") ||
          (view === "review" && isInvestigationCandidate(candidate)) ||
          (view === "crm_review" && ["not_found", "ambiguous", "unavailable"].includes(candidate.crmEnrichment?.status ?? ""));
-      return inView && (!needle || [candidate.companyName, candidate.domain, candidate.industry].filter(Boolean).join(" ").toLocaleLowerCase("nb-NO").includes(needle));
+      const inPriorityFilter =
+        priorityFilter === "all" ||
+        (priorityFilter === "high" && candidate.priorityScore >= 25) ||
+        (priorityFilter === "some" && candidate.priorityScore > 0 && candidate.priorityScore < 25) ||
+        (priorityFilter === "none" && candidate.priorityScore <= 0);
+      return inView && inPriorityFilter && (!needle || [candidate.companyName, candidate.domain, candidate.industry].filter(Boolean).join(" ").toLocaleLowerCase("nb-NO").includes(needle));
     });
-  }, [candidates, search, view]);
+
+    return [...filteredCandidates].sort((a, b) => {
+      if (candidateSort === "company_asc") {
+        return a.companyName.localeCompare(b.companyName, "nb-NO");
+      }
+      const scoreDifference = candidateSort === "priority_asc"
+        ? a.priorityScore - b.priorityScore
+        : b.priorityScore - a.priorityScore;
+      return scoreDifference || a.companyName.localeCompare(b.companyName, "nb-NO");
+    });
+  }, [candidates, candidateSort, priorityFilter, search, view]);
 
   const importMutation = useImportCandidateSnapshots({
     mutation: {
@@ -416,6 +435,25 @@ export default function CandidatesPage() {
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Søk i hovedlisten…" /></div>
+                <label className="flex h-10 items-center gap-2 rounded-md border border-input bg-card px-3 text-sm">
+                  <ListFilter className="h-4 w-4 text-muted-foreground" />
+                  <span className="sr-only">Filtrer på prioritet</span>
+                  <select aria-label="Filtrer på prioritet" value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value as PriorityFilter)} className="bg-transparent outline-none">
+                    <option value="all">Alle prioriteter</option>
+                    <option value="high">Høy prioritet (25+)</option>
+                    <option value="some">Noe prioritet (1–24)</option>
+                    <option value="none">Ingen prioritet (0 eller lavere)</option>
+                  </select>
+                </label>
+                <label className="flex h-10 items-center gap-2 rounded-md border border-input bg-card px-3 text-sm">
+                  {candidateSort === "company_asc" ? <ArrowDownAZ className="h-4 w-4 text-muted-foreground" /> : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                  <span className="sr-only">Sorter kandidater</span>
+                  <select aria-label="Sorter kandidater" value={candidateSort} onChange={(event) => setCandidateSort(event.target.value as CandidateSort)} className="bg-transparent outline-none">
+                    <option value="priority_desc">Høyest prioritet først</option>
+                    <option value="priority_asc">Lavest prioritet først</option>
+                    <option value="company_asc">Selskapsnavn A–Å</option>
+                  </select>
+                </label>
               <select value={workScope} onChange={(event) => setWorkScope(event.target.value as WorkScope)} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
                 <option value="monitoring">Overvåkningslisten</option><option value="relevant">Alle relevante</option><option value="universe">Hele hovedlisten</option>
               </select>
@@ -423,7 +461,7 @@ export default function CandidatesPage() {
                 <Button variant="outline" onClick={handleCrmEnrichment} disabled={!visibleCandidates.length || crmEnrichmentMutation.isPending}><DatabaseZap className="mr-2 h-4 w-4" /> {crmEnrichmentMutation.isPending ? `Oppdaterer CRM (${visibleCandidates.length})…` : `Oppdater CRM (${visibleCandidates.length})`}</Button>
             </div>
           </div>
-           <p className="text-xs text-muted-foreground">CRM-oppdateringen behandler alle selskaper i gjeldende utvalg i puljer på 100 og skriver aldri tilbake til CRM. CRM brukes aldri til å fjerne selskaper fra hovedlisten.</p>
+            <p className="text-xs text-muted-foreground">Viser {visibleCandidates.length} selskaper etter søk, arbeidsutvalg og prioriteringsfilter. CRM-oppdateringen behandler dette synlige utvalget i puljer på 100 og skriver aldri tilbake til CRM.</p>
 
            {view === "crm_review" ? <Card className="border-accent/40 bg-accent/10"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><DatabaseZap className="h-4 w-4 text-accent-foreground" /> CRM-avklaringskø</CardTitle><CardDescription>Viser kandidater med manglende, tvetydig eller midlertidig utilgjengelig CRM-match. Ingen treff slås sammen automatisk; åpne kandidaten for å se identifikatorer, historikk og kontaktgrunnlag.</CardDescription></CardHeader></Card> : null}
 
