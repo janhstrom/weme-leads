@@ -3,3 +3,4 @@
 - [Legacy pilot cleanup](legacy-pilot-cleanup.md) — Retire known pilot rows by source and company so unrelated imports remain intact.
 - [Candidate evidence uniqueness](candidate-evidence-uniqueness.md) — Run the read-only duplicate report and archive cleanup before enforcing candidate/URL uniqueness in each database environment.
 - [Vite build environment](vite-build-environment.md) — Manual production builds require explicit artifact PORT and BASE_PATH variables.
+- [CRM company discovery](crm-company-discovery.md) — CRM company fields can contain domains; discover broadly, then require an exact safe match.
