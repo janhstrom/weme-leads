@@ -40,6 +40,31 @@ test("matcher CRM-poster som lagrer selskapsdomenet i company-feltet", () => {
   assert.equal(match.company?.company_name, "vippsmobilepay.com");
 });
 
+test("matcher unik domenestamme mot juridisk selskapsnavn når kandidatdomene mangler", () => {
+  const match = findSafeCrmCompanyMatch(
+    { companyName: "VIPPS MOBILEPAY AS", organizationNumber: "918713867", domain: null },
+    [{ company_name: "vippsmobilepay.com" }],
+  );
+
+  assert.equal(match.status, "matched");
+  assert.equal(match.matchMethod, "name");
+  assert.equal(match.company?.company_name, "vippsmobilepay.com");
+});
+
+test("bruker ikke kort eller tvetydig domenestamme som sikkert navnetreff", () => {
+  const shortMatch = findSafeCrmCompanyMatch(
+    { companyName: "Nord AS", organizationNumber: null, domain: null },
+    [{ company_name: "nord.no" }],
+  );
+  const ambiguousMatch = findSafeCrmCompanyMatch(
+    { companyName: "Vipps MobilePay AS", organizationNumber: null, domain: null },
+    [{ company_name: "vippsmobilepay.com" }, { company_name: "vippsmobilepay.no" }],
+  );
+
+  assert.equal(shortMatch.status, "not_found");
+  assert.equal(ambiguousMatch.status, "ambiguous");
+});
+
 test("bruker domene eller kort selskapsord når CRM ikke finner fullt juridisk navn", async () => {
   const searches: string[] = [];
   const fetchImpl = async (input: Parameters<typeof fetch>[0]) => {
@@ -61,6 +86,29 @@ test("bruker domene eller kort selskapsord når CRM ikke finner fullt juridisk n
   assert.equal(result.matchMethod, "domain");
   assert.equal(result.matchedDomain, "vippsmobilepay.com");
   assert.deepEqual(searches.slice(0, 2), ["Vipps MobilePay AS", "vippsmobilepay.com"]);
+});
+
+test("finner Vipps MobilePay via sikkert navneavledet domene når kandidatdomene mangler", async () => {
+  const searches: string[] = [];
+  const fetchImpl = async (input: Parameters<typeof fetch>[0]) => {
+    const url = new URL(String(input));
+    const search = url.searchParams.get("search") ?? "";
+    searches.push(search);
+    const body = search === "vipps" || search === "vippsmobilepay.com"
+      ? { contacts: [{ id: 77, company: "vippsmobilepay.com", website: null }] }
+      : { contacts: [] };
+    return new Response(JSON.stringify(body), { status: 200 });
+  };
+
+  const result = await enrichCandidateFromCrm(
+    { companyName: "VIPPS MOBILEPAY AS", organizationNumber: "918713867", domain: null },
+    { apiKey: "test-key", baseUrl: "https://crm.example/agent", fetchImpl: fetchImpl as typeof fetch },
+  );
+
+  assert.equal(result.status, "matched");
+  assert.equal(result.matchMethod, "name");
+  assert.equal(result.matchedDomain, "vippsmobilepay.com");
+  assert.deepEqual(searches.slice(0, 2), ["VIPPS MOBILEPAY AS", "vipps"]);
 });
 
 test("samler et sikkert CRM-treff uten å skrive tilbake til CRM", async () => {

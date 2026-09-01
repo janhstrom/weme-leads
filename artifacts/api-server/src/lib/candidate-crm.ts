@@ -65,6 +65,7 @@ class CrmRequestError extends Error {
 
 const CRM_TIMEOUT_MS = 6_000;
 const relevantRolePattern = /\b(hr|human resources|people|transform|endring|change|digital|ai|strategi|strategy|program|learning|kompetanse|leder|leadership)\b/i;
+const legalCompanySuffixes = new Set(["as", "asa", "ab", "oy", "ltd", "limited", "inc", "llc"]);
 
 function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -163,6 +164,17 @@ function companyOrganizationNumber(company: CrmCompanyPayload) {
   return null;
 }
 
+function normalizedCompanyDomainStem(companyNameValue: string) {
+  const tokens = normalizeCandidateName(companyNameValue).split(" ").filter(Boolean);
+  while (tokens.length > 1 && legalCompanySuffixes.has(tokens.at(-1)!)) tokens.pop();
+  return tokens.join("");
+}
+
+function normalizedDomainStem(domain: string | null) {
+  const firstLabel = domain?.split(".")[0] ?? "";
+  return firstLabel.replace(/[^a-z0-9]/g, "");
+}
+
 function crmSearchTerms(candidate: CrmCandidateInput) {
   const normalizedNameToken = normalizeCandidateName(candidate.companyName)
     .split(" ")
@@ -188,11 +200,17 @@ export function findSafeCrmCompanyMatch(input: CrmCandidateInput, companies: Crm
     const value = companyName(company);
     return value ? normalizeCandidateName(value) === normalizedName : false;
   });
+  const inferredNameDomainStem = normalizedDomain ? "" : normalizedCompanyDomainStem(input.companyName);
+  const matchingNameDomains = inferredNameDomainStem.length >= 6
+    ? companies.filter((company) => normalizedDomainStem(companyDomain(company)) === inferredNameDomainStem)
+    : [];
   const matches = matchingOrganizationNumbers.length
     ? matchingOrganizationNumbers
     : matchingDomains.length
       ? matchingDomains
-      : matchingNames;
+      : matchingNames.length
+        ? matchingNames
+        : matchingNameDomains;
   if (matches.length !== 1) {
     return {
       company: null,

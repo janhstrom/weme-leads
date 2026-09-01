@@ -706,7 +706,16 @@ router.post("/candidates/import", async (req, res): Promise<void> => {
 router.post("/candidates/:id/evidence", async (req, res): Promise<void> => {
   const params = AddCandidateEvidenceParams.safeParse(req.params);
   const body = AddCandidateEvidenceBody.safeParse(req.body);
-  if (!params.success || !body.success) {
+  if (!params.success) {
+    res.status(400).json({ error: "Ugyldig kandidat-ID." });
+    return;
+  }
+  if (!body.success) {
+    const invalidPublishedAt = body.error.issues.some((issue) => issue.path[0] === "publishedAt");
+    if (invalidPublishedAt) {
+      res.status(400).json({ error: "Publiseringsdato må fylles ut med en gyldig dato." });
+      return;
+    }
     res.status(400).json({ error: "Tittel, HTTPS-URL, publiseringsdato, kildetype og sitat er påkrevd." });
     return;
   }

@@ -47,7 +47,22 @@ export default function CandidateDetailPage() {
     if (!candidate) return;
     setDuplicateEvidenceUrl(null);
     setEvidenceError(null);
-    evidenceMutation.mutate({ id: candidate.id, data: form });
+    const validationError = validateEvidenceForm(form);
+    if (validationError) {
+      setEvidenceError(validationError);
+      toast({ title: "Kilden mangler opplysninger", description: validationError, variant: "destructive" });
+      return;
+    }
+    evidenceMutation.mutate({
+      id: candidate.id,
+      data: {
+        title: form.title.trim(),
+        url: form.url.trim(),
+        sourceType: form.sourceType.trim(),
+        publishedAt: form.publishedAt,
+        excerpt: form.excerpt.trim(),
+      },
+    });
   };
   const crmSearchParams = { query: crmQuery, companyDomain: candidate?.domain ?? "" };
   const sources = useListCandidateSources(id, { query: { enabled: Number.isFinite(id) && id > 0, queryKey: getListCandidateSourcesQueryKey(id) } });
@@ -85,7 +100,7 @@ export default function CandidateDetailPage() {
         setSourceForm({ sourceType: "rss", label: "", url: "" });
         toast({ title: "Offisiell kilde lagt til", description: "Kilden blir kontrollert i neste overvåkningskjøring." });
       },
-      onError: () => toast({ title: "Kilden kunne ikke lagres", description: "Bruk en konkret HTTPS-URL til et offisielt RSS- eller Atom-feed.", variant: "destructive" }),
+      onError: (error) => toast({ title: "Kilden kunne ikke lagres", description: getApiErrorMessage(error), variant: "destructive" }),
     },
   });
   const updateCandidateInCache = (updated: Candidate) => {
@@ -275,6 +290,23 @@ function getApiErrorMessage(error: unknown) {
     if (typeof apiError.message === "string" && apiError.message.trim()) return apiError.message;
   }
   return "Kilden kunne ikke kontrolleres. Prøv igjen.";
+}
+
+function validateEvidenceForm(form: { title: string; url: string; sourceType: string; publishedAt: string; excerpt: string }) {
+  if (form.title.trim().length < 5) return "Kildetittel må være minst 5 tegn.";
+  let url: URL;
+  try {
+    url = new URL(form.url.trim());
+  } catch {
+    return "Kilden må være en gyldig URL.";
+  }
+  if (url.protocol !== "https:") return "Kilden må bruke HTTPS.";
+  if (!form.sourceType.trim()) return "Kildetype må fylles ut.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(form.publishedAt) || Number.isNaN(Date.parse(`${form.publishedAt}T00:00:00Z`))) {
+    return "Publiseringsdato må fylles ut med en gyldig dato.";
+  }
+  if (form.excerpt.trim().length < 20) return "Sitatet må være minst 20 tegn.";
+  return null;
 }
 
 function Meta({ label, value }: { label: string; value: string }) {
