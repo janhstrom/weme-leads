@@ -127,7 +127,10 @@ before(async () => {
 });
 
 after(async () => {
-  if (server) await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  if (server) {
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  }
   const candidates = await db
     .select({ id: leadCandidatesTable.id })
     .from(leadCandidatesTable)
@@ -139,6 +142,25 @@ after(async () => {
     await db.delete(leadCandidatesTable).where(inArray(leadCandidatesTable.id, ids));
   }
 });
+
+async function withEvidenceFetch<T>(
+  sourceUrl: string,
+  handler: (method: string, signal?: AbortSignal) => Response | Promise<Response>,
+  action: () => Promise<T>,
+) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
+    if (String(input) === sourceUrl) {
+      return Promise.resolve(handler(init?.method ?? "GET", init?.signal ?? undefined));
+    }
+    return originalFetch(input, init);
+  }) as typeof fetch;
+  try {
+    return await action();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
 
 test("bevarer kandidatens kildehistorikk når overvåkning legges til og fjernes", async () => {
   const add = await request(`/candidates/${monitoredCandidateId}/monitoring`, {
@@ -213,4 +235,119 @@ test("avviser identisk evidens-URL og beholder eksisterende evidens", async () =
   assert.equal(candidate.body.evidence.length, 1);
   assert.equal(candidate.body.evidence[0].url, evidenceUrl);
   assert.equal(candidate.body.evidence[0].title, "Offentlig dokumentasjon for historikktest");
+});
+
+test("lagrer gyldig offentlig kandidatkilde med 201", async () => {
+  const evidenceUrl = "https://vippsmobilepay.test/vipps-mobilepay";
+  const result = await withEvidenceFetch(
+    evidenceUrl,
+    () => new Response("<html>Vipps MobilePay</html>", { status: 200 }),
+    () => request(`/candidates/${mainListCandidateId}/evidence`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Vipps MobilePay lanserer ny løsning",
+        url: `  ${evidenceUrl}  `,
+        sourceType: "Selskapsnyhet",
+        publishedAt: "2026-08-20",
+        excerpt: "Vipps MobilePay beskriver en ny offentlig løsning for kundene sine.",
+      }),
+    }),
+  );
+
+  assert.equal(result.response.status, 201);
+  assert.equal(result.body.evidence.length, 1);
+  assert.equal(result.body.evidence[0].url, evidenceUrl);
+  assert.equal(result.body.evidence[0].title, "Vipps MobilePay lanserer ny løsning");
+});
+
+test("bruker GET når kildeserveren avviser HEAD", async () => {
+  const methods: string[] = [];
+  const evidenceUrl = "https://vippsmobilepay.test/head-fallback";
+  const result = await withEvidenceFetch(
+    evidenceUrl,
+    (method) => {
+      methods.push(method);
+      return new Response(method === "HEAD" ? null : "<html>GET-fallback</html>", { status: method === "HEAD" ? 405 : 200 });
+    },
+    () => request(`/candidates/${reviewCandidateId}/evidence`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Kilde som bare støtter GET",
+        url: evidenceUrl,
+        sourceType: "Selskapsnyhet",
+        publishedAt: "2026-08-21",
+        excerpt: "Denne offentlige kilden svarer på GET når HEAD ikke er støttet.",
+      }),
+    }),
+  );
+
+  assert.equal(result.response.status, 201);
+  assert.deepEqual(methods, ["HEAD", "GET"]);
+  assert.equal(result.body.evidence[0].url, evidenceUrl);
+});
+
+test("viser konkret valideringsfeil og lagrer ikke ugyldig evidens", async () => {
+  const result = await request(`/candidates/${reviewCandidateId}/evidence`, {
+    method: "POST",
+    body: JSON.stringify({
+      title: "Kort",
+      url: "https://example.com/validation",
+      sourceType: "Selskapsnyhet",
+      publishedAt: "2026-08-22",
+      excerpt: "For kort",
+    }),
+  });
+
+  assert.equal(result.response.status, 400);
+  assert.equal(result.body.error, "Kildetittel må være minst 5 tegn.");
+  const candidate = await request(`/candidates/${reviewCandidateId}`);
+  assert.equal(candidate.body.evidence.length, 1);
+});
+
+test("viser HTTP-feil fra kilden uten å lagre evidens", async () => {
+  const evidenceUrl = "https://vippsmobilepay.test/unavailable";
+  const result = await withEvidenceFetch(
+    evidenceUrl,
+    () => new Response(null, { status: 503 }),
+    () => request(`/candidates/${reviewCandidateId}/evidence`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Utilgjengelig offentlig kilde",
+        url: evidenceUrl,
+        sourceType: "Selskapsnyhet",
+        publishedAt: "2026-08-23",
+        excerpt: "Kilden svarer med en kontrollert HTTP-feil og skal ikke lagres.",
+      }),
+    }),
+  );
+
+  assert.equal(result.response.status, 400);
+  assert.equal(result.body.error, "Kilden kunne ikke kontrolleres (HTTP 503).");
+  const candidate = await request(`/candidates/${reviewCandidateId}`);
+  assert.equal(candidate.body.evidence.length, 1);
+});
+
+test("avbryter kontrollert ved timeout uten å lagre evidens", async () => {
+  const evidenceUrl = "https://vippsmobilepay.test/timeout";
+  const result = await withEvidenceFetch(
+    evidenceUrl,
+    (_method, signal) => new Promise<Response>((_resolve, reject) => {
+      signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    }),
+    () => request(`/candidates/${reviewCandidateId}/evidence`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Kilde som aldri svarer",
+        url: evidenceUrl,
+        sourceType: "Selskapsnyhet",
+        publishedAt: "2026-08-24",
+        excerpt: "Denne testen holder forbindelsen åpen for å utløse tidsgrensen.",
+      }),
+    }),
+  );
+
+  assert.equal(result.response.status, 400);
+  assert.equal(result.body.error, "Kildekontrollen tok mer enn seks sekunder.");
+  const candidate = await request(`/candidates/${reviewCandidateId}`);
+  assert.equal(candidate.body.evidence.length, 1);
 });

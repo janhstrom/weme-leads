@@ -54,6 +54,10 @@ type CandidateRecord = typeof leadCandidatesTable.$inferSelect;
 type CandidateSnapshotRecord = typeof leadCandidateSnapshotsTable.$inferSelect;
 type CandidateEvidenceRecord = typeof leadCandidateEvidenceTable.$inferSelect;
 
+class EvidenceVerificationError extends Error {
+  readonly name = "EvidenceVerificationError";
+}
+
 function nullable(value: string | null | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -362,21 +366,44 @@ async function verifyPublicEvidence(input: { title: string; url: string; sourceT
   try {
     parsed = new URL(input.url);
   } catch {
-    throw new Error("Kilden må være en gyldig URL.");
+    throw new EvidenceVerificationError("Kilden må være en gyldig URL.");
   }
-  if (parsed.protocol !== "https:") throw new Error("Kilden må bruke HTTPS.");
-  if (input.title.trim().length < 5 || input.excerpt.trim().length < 20) {
-    throw new Error("Kilden må ha en kvalitetssikret tittel og et sitat på minst 20 tegn.");
+  if (parsed.protocol !== "https:") throw new EvidenceVerificationError("Kilden må bruke HTTPS.");
+  if (input.title.length < 5) throw new EvidenceVerificationError("Kildetittel må være minst 5 tegn.");
+  if (input.sourceType.length === 0) throw new EvidenceVerificationError("Kildetype må fylles ut.");
+  if (input.excerpt.length < 20) throw new EvidenceVerificationError("Sitatet må være minst 20 tegn.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.publishedAt)) {
+    throw new EvidenceVerificationError("Publiseringsdato må være på formatet YYYY-MM-DD.");
   }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), EVIDENCE_CHECK_TIMEOUT_MS);
   try {
-    let response = await fetch(parsed, { method: "HEAD", redirect: "follow", signal: controller.signal });
-    if (response.status === 405) response = await fetch(parsed, { method: "GET", redirect: "follow", signal: controller.signal });
-    if (!response.ok) throw new Error(`Kilden kunne ikke kontrolleres (HTTP ${response.status}).`);
+    const requestHeaders = {
+      Accept: "text/html, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8",
+      "User-Agent": "WeMe-Signalpilot/1.0",
+    };
+    let response = await fetch(parsed, {
+      method: "HEAD",
+      headers: requestHeaders,
+      redirect: "follow",
+      signal: controller.signal,
+    });
+    if (response.status === 403 || response.status === 405 || response.status === 501) {
+      response = await fetch(parsed, {
+        method: "GET",
+        headers: requestHeaders,
+        redirect: "follow",
+        signal: controller.signal,
+      });
+    }
+    if (!response.ok) {
+      throw new EvidenceVerificationError(`Kilden kunne ikke kontrolleres (HTTP ${response.status}).`);
+    }
   } catch (error) {
-    if (controller.signal.aborted) throw new Error("Kildekontrollen tok mer enn seks sekunder.");
-    throw error;
+    if (error instanceof EvidenceVerificationError) throw error;
+    if (controller.signal.aborted) throw new EvidenceVerificationError("Kildekontrollen tok mer enn seks sekunder.");
+    throw new EvidenceVerificationError("Kilden kunne ikke kontrolleres. Kontroller at URL-en er offentlig tilgjengelig.");
   } finally {
     clearTimeout(timeout);
   }
@@ -688,34 +715,46 @@ router.post("/candidates/:id/evidence", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Kandidaten finnes ikke." });
     return;
   }
+  const evidenceInput = {
+    title: body.data.title.trim(),
+    url: body.data.url.trim(),
+    sourceType: body.data.sourceType.trim(),
+    publishedAt: dateOnly(body.data.publishedAt),
+    excerpt: body.data.excerpt.trim(),
+  };
   const [existingEvidence] = await db
     .select({ id: leadCandidateEvidenceTable.id })
     .from(leadCandidateEvidenceTable)
-    .where(and(eq(leadCandidateEvidenceTable.candidateId, candidate.id), eq(leadCandidateEvidenceTable.url, body.data.url)));
+    .where(and(eq(leadCandidateEvidenceTable.candidateId, candidate.id), eq(leadCandidateEvidenceTable.url, evidenceInput.url)));
   if (existingEvidence) {
     res.status(409).json({ error: "Denne evidens-URL-en finnes allerede for kandidaten." });
     return;
   }
+  let normalizedEvidence;
   try {
-    const evidence = await verifyPublicEvidence({ ...body.data, publishedAt: dateOnly(body.data.publishedAt) });
-    try {
-      await db.insert(leadCandidateEvidenceTable).values({
-        candidateId: candidate.id,
-        ...evidence,
-        verificationStatus: "url_verified",
-      });
-    } catch (error) {
-      if ((error as { code?: string }).code === "23505") {
-        res.status(409).json({ error: "Denne evidens-URL-en finnes allerede for kandidaten." });
-        return;
-      }
-      throw error;
-    }
-    const [updated] = await db.select().from(leadCandidatesTable).where(eq(leadCandidatesTable.id, candidate.id));
-    res.status(201).json(AddCandidateEvidenceResponse.parse(await toCandidateResponse(updated)));
+    normalizedEvidence = await verifyPublicEvidence(evidenceInput);
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : "Kilden kunne ikke kontrolleres." });
+    if (error instanceof EvidenceVerificationError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    throw error;
   }
+  try {
+    await db.insert(leadCandidateEvidenceTable).values({
+      candidateId: candidate.id,
+      ...normalizedEvidence,
+      verificationStatus: "url_verified",
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === "23505") {
+      res.status(409).json({ error: "Denne evidens-URL-en finnes allerede for kandidaten." });
+      return;
+    }
+    throw error;
+  }
+  const [updated] = await db.select().from(leadCandidatesTable).where(eq(leadCandidatesTable.id, candidate.id));
+  res.status(201).json(AddCandidateEvidenceResponse.parse(await toCandidateResponse(updated)));
 });
 
 router.post("/candidates/analysis-batches", async (req, res): Promise<void> => {
