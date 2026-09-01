@@ -1,4 +1,5 @@
 - [OpenAPI Zod compatibility](openapi-zod-compatibility.md) — Current codegen needs numbers and plain URL strings because generated Zod helpers target a newer Zod API.
+- [Forced composite dependency builds](forced-composite-dependency-builds.md) — Consumer checks must force-build generated composite declarations because tsbuildinfo can outlive missing outputs.
 - [External evidence checks](external-evidence-checks.md) — Public source validation must have a hard timeout so a slow publisher cannot block the signal inbox.
 - [Legacy pilot cleanup](legacy-pilot-cleanup.md) — Retire known pilot rows by source and company so unrelated imports remain intact.
 - [Candidate evidence uniqueness](candidate-evidence-uniqueness.md) — Run the read-only duplicate report and archive cleanup before enforcing candidate/URL uniqueness in each database environment.
