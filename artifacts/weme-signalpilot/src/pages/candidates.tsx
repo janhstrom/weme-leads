@@ -25,14 +25,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@workspace/weme-earth-tones-system/components/ui/alert-dialog";
-import { Badge } from "@workspace/weme-earth-tones-system/components/ui/badge";
 import { Button } from "@workspace/weme-earth-tones-system/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/weme-earth-tones-system/components/ui/card";
 import { Checkbox } from "@workspace/weme-earth-tones-system/components/ui/checkbox";
 import { Input } from "@workspace/weme-earth-tones-system/components/ui/input";
 import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
 import { useToast } from "@workspace/weme-earth-tones-system/hooks/use-toast";
-import { ArrowDownAZ, ArrowUpDown, Building2, CheckCheck, ChevronRight, CircleAlert, CircleCheck, DatabaseZap, Eye, FileUp, ListChecks, ListFilter, Radio, Search, Sparkles, UsersRound } from "lucide-react";
+import { ArrowDownAZ, ArrowUpDown, CheckCheck, ChevronRight, CircleAlert, CircleCheck, DatabaseZap, FileUp, ListChecks, ListFilter, Radio, Search, Sparkles, UsersRound } from "lucide-react";
 import { MonitoringBadge, PriorityBadge, RelevanceBadge, relevanceLabel } from "@/components/status-badges";
 
 type SourceType = CandidateSnapshotSourceType;
@@ -359,82 +358,53 @@ export default function CandidatesPage() {
       </header>
       <div className="flex-1 overflow-auto p-6 bg-background">
         <div className="max-w-6xl mx-auto space-y-6">
-          <div className="grid gap-4 md:grid-cols-4">
-            <Stat label="I hovedlisten" value={candidates?.length ?? 0} icon={<Building2 className="h-4 w-4 text-primary" />} />
-            <Stat label="Følg med på" value={followUpCount} icon={<CircleCheck className="h-4 w-4 text-primary" />} />
-            <Stat label="Undersøk nærmere" value={reviewCount} icon={<CircleAlert className="h-4 w-4 text-destructive" />} />
-            <Stat label="CRM-avklaring" value={crmReviewCount} icon={<DatabaseZap className="h-4 w-4 text-accent" />} />
-          </div>
-
-            <Card className="border-primary/30 bg-primary/5">
+          <Card className="border-primary/30 bg-primary/5">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4 w-4 text-primary" /> Hva bør du gjøre nå?</CardTitle>
-              <CardDescription>Bruk prioritetspoengene som arbeidsrekkefølge. Start med selskaper som er relevante, men ikke overvåkes, og undersøk deretter selskaper med usikkert eller tynt grunnlag.</CardDescription>
+              <CardDescription>Start med høyest prioritet: følg opp relevante selskaper og avklar usikre.</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3 text-sm md:grid-cols-3">
+            <CardContent className="grid gap-1 text-sm divide-y divide-border/70 md:grid-cols-3 md:divide-x md:divide-y-0">
               <FocusAction
                 icon={<CircleCheck className="h-4 w-4 text-primary" />}
                 title="Følg med på"
                 count={followUpCount}
-                description="Relevante selskaper som ikke er lagt i overvåkning."
+                description="Relevant, men ikke overvåket."
                 action={() => { setView("follow_up"); setSelectedCandidateIds([]); }}
               />
               <FocusAction
                 icon={<CircleAlert className="h-4 w-4 text-destructive" />}
                 title="Undersøk nærmere"
                 count={reviewCount}
-                description="Mulig relevante, uavklarte eller med for lite datagrunnlag."
+                description="Mulig eller uavklart."
                 action={() => { setView("review"); setSelectedCandidateIds([]); }}
               />
               <FocusAction
                 icon={<Radio className="h-4 w-4 text-primary" />}
                 title="Følger allerede"
                 count={monitoredCount}
-                description="Selskaper med aktiv overvåkning og nye offentlige signaler."
+                description="Aktiv overvåkning."
                 action={() => { setView("monitoring"); setSelectedCandidateIds([]); }}
               />
             </CardContent>
           </Card>
 
-          <details className="group rounded-xl border border-border bg-card">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
-              <span className="flex items-center gap-2"><FileUp className="h-4 w-4 text-muted-foreground" /> Har du et nytt snapshot? Oppdater hovedlisten ved behov.</span>
-              <span className="text-xs text-muted-foreground group-open:hidden">Valgfritt</span>
-              <span className="hidden text-xs text-muted-foreground group-open:inline">Skjul</span>
-            </summary>
-            <div className="border-t border-border p-4">
-              <p className="mb-3 max-w-3xl text-sm text-muted-foreground">Velg CSV eller Excel (.xlsx). Første ark i en Excel-fil importeres, og nye observasjoner legges oppå eksisterende historikk uten å slette selskaper eller valg i overvåkningslisten.</p>
-              <div className="grid gap-3 md:grid-cols-[1fr_180px_auto] md:items-end">
-                <label className="grid gap-1 text-sm font-medium">Kilde
-                  <select value={sourceType} onChange={(event) => setSourceType(event.target.value as SourceType)} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
-                    <option value="dnb_bisnode">D&B/Bisnode</option><option value="sales_navigator">Sales Navigator</option><option value="manual">Manuelt utdrag</option>
-                  </select>
-                </label>
-                <label className="grid gap-1 text-sm font-medium">Snapshot-dato<Input type="date" value={snapshotDate} onChange={(event) => setSnapshotDate(event.target.value)} /></label>
-                <input ref={fileRef} className="hidden" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={(event) => handleFile(event.target.files?.[0])} />
-                <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={isImporting}><FileUp className="mr-2 h-4 w-4" /> {isImporting ? "Oppdaterer…" : "Velg nytt snapshot"}</Button>
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex flex-wrap gap-2 border-b border-border px-4 py-3">
+                <span className="mr-1 flex items-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Arbeidsutvalg</span>
+                {([
+                  ["universe", "Hovedliste", candidates?.length ?? 0],
+                  ["follow_up", "Følg med på", followUpCount],
+                  ["monitoring", "Overvåkes", monitoredCount],
+                  ["review", "Undersøk nærmere", reviewCount],
+                  ["crm_review", "CRM-avklaring", crmReviewCount],
+                ] as const).map(([nextView, label, count]) => (
+                  <Button key={nextView} size="sm" variant={view === nextView ? "default" : "outline"} onClick={() => { setView(nextView); setSelectedCandidateIds([]); }}>{label} ({count})</Button>
+                ))}
               </div>
-              <div className="mt-4 flex flex-col gap-3 rounded-md border border-accent/30 bg-accent/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                <div><p className="font-medium">Rett dato på første D&amp;B/Bisnode-import</p><p className="text-muted-foreground">Flytter 25.08.2026 til 19.04.2024 uten ny import eller tap av historikk.</p></div>
-                <Button size="sm" variant="outline" onClick={() => setConfirmDateCorrection(true)} disabled={dateCorrectionMutation.isPending}>Rett snapshot-dato</Button>
-              </div>
-            </div>
-          </details>
-
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-2">
-              {([
-                ["universe", "Hovedliste", candidates?.length ?? 0],
-                ["follow_up", "Følg med på", followUpCount],
-                ["monitoring", "Overvåkes", monitoredCount],
-                ["review", "Undersøk nærmere", reviewCount],
-                 ["crm_review", "CRM-avklaring", crmReviewCount],
-              ] as const).map(([nextView, label, count]) => (
-                <Button key={nextView} size="sm" variant={view === nextView ? "default" : "outline"} onClick={() => { setView(nextView); setSelectedCandidateIds([]); }}>{label} ({count})</Button>
-              ))}
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Søk i hovedlisten…" /></div>
+              <div className="flex flex-col gap-3 px-4 py-3">
+                <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
+                  <div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Søk etter selskap, domene eller bransje…" /></div>
                 <label className="flex h-10 items-center gap-2 rounded-md border border-input bg-card px-3 text-sm">
                   <ListFilter className="h-4 w-4 text-muted-foreground" />
                   <span className="sr-only">Filtrer på prioritet</span>
@@ -454,14 +424,25 @@ export default function CandidatesPage() {
                     <option value="company_asc">Selskapsnavn A–Å</option>
                   </select>
                 </label>
-              <select value={workScope} onChange={(event) => setWorkScope(event.target.value as WorkScope)} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
-                <option value="monitoring">Overvåkningslisten</option><option value="relevant">Alle relevante</option><option value="universe">Hele hovedlisten</option>
-              </select>
-               <Button variant="outline" onClick={() => batchMutation.mutate({ data: { scope: workScope } })} disabled={batchMutation.isPending}><ListChecks className="mr-2 h-4 w-4" /> {batchMutation.isPending ? "Oppretter…" : "Opprett gjennomgangsliste"}</Button>
-                <Button variant="outline" onClick={handleCrmEnrichment} disabled={!visibleCandidates.length || crmEnrichmentMutation.isPending}><DatabaseZap className="mr-2 h-4 w-4" /> {crmEnrichmentMutation.isPending ? `Oppdaterer CRM (${visibleCandidates.length})…` : `Oppdater CRM (${visibleCandidates.length})`}</Button>
-            </div>
-          </div>
-            <p className="text-xs text-muted-foreground">Viser {visibleCandidates.length} selskaper etter søk, arbeidsutvalg og prioriteringsfilter. CRM-oppdateringen behandler dette synlige utvalget i puljer på 100 og skriver aldri tilbake til CRM.</p>
+                  <select aria-label="Velg arbeidsomfang for gjennomgangsliste" value={workScope} onChange={(event) => setWorkScope(event.target.value as WorkScope)} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
+                    <option value="monitoring">Overvåkningslisten</option><option value="relevant">Alle relevante</option><option value="universe">Hele hovedlisten</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-muted-foreground">Viser {visibleCandidates.length} selskaper etter søk, utvalg og prioriteringsfilter.</p>
+                  <details className="group relative">
+                    <summary className="flex cursor-pointer list-none items-center justify-center rounded-md border border-input px-3 py-2 text-sm font-medium transition-colors hover:bg-muted [&::-webkit-details-marker]:hidden">
+                      Flere verktøy
+                    </summary>
+                    <div className="mt-2 flex flex-col gap-2 rounded-md border border-border bg-card p-2 shadow-sm sm:absolute sm:right-0 sm:z-10 sm:w-max sm:flex-row">
+                      <Button size="sm" variant="outline" onClick={() => batchMutation.mutate({ data: { scope: workScope } })} disabled={batchMutation.isPending}><ListChecks className="mr-2 h-4 w-4" /> {batchMutation.isPending ? "Oppretter…" : "Opprett gjennomgangsliste"}</Button>
+                      <Button size="sm" variant="outline" onClick={handleCrmEnrichment} disabled={!visibleCandidates.length || crmEnrichmentMutation.isPending}><DatabaseZap className="mr-2 h-4 w-4" /> {crmEnrichmentMutation.isPending ? `Oppdaterer CRM (${visibleCandidates.length})…` : `Oppdater CRM (${visibleCandidates.length})`}</Button>
+                    </div>
+                  </details>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
            {view === "crm_review" ? <Card className="border-accent/40 bg-accent/10"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><DatabaseZap className="h-4 w-4 text-accent-foreground" /> CRM-avklaringskø</CardTitle><CardDescription>Viser kandidater med manglende, tvetydig eller midlertidig utilgjengelig CRM-match. Ingen treff slås sammen automatisk; åpne kandidaten for å se identifikatorer, historikk og kontaktgrunnlag.</CardDescription></CardHeader></Card> : null}
 
@@ -492,6 +473,31 @@ export default function CandidatesPage() {
               </div>
             ) : <div className="p-12 text-center text-muted-foreground"><UsersRound className="mx-auto mb-3 h-10 w-10 text-primary" /><p className="font-medium text-foreground">Ingen selskaper i dette utvalget</p><p className="mt-1 text-sm">Selskaper som tas ut av overvåkning er fortsatt tilgjengelige i hovedlisten.</p></div>}
           </div>
+
+           <details className="group rounded-xl border border-border bg-card">
+             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
+               <span className="flex items-center gap-2"><FileUp className="h-4 w-4 text-muted-foreground" /> Administrer kilde-snapshots</span>
+               <span className="text-xs text-muted-foreground group-open:hidden">Sjelden brukt</span>
+               <span className="hidden text-xs text-muted-foreground group-open:inline">Skjul</span>
+             </summary>
+             <div className="border-t border-border p-4">
+               <p className="mb-3 max-w-3xl text-sm text-muted-foreground">Importer CSV eller Excel (.xlsx) når du har et nytt D&amp;B/Bisnode- eller Sales Navigator-utdrag. Nye observasjoner legges til historikken uten å slette selskaper eller overvåkningsvalg.</p>
+               <div className="grid gap-3 md:grid-cols-[1fr_180px_auto] md:items-end">
+                 <label className="grid gap-1 text-sm font-medium">Kilde
+                   <select value={sourceType} onChange={(event) => setSourceType(event.target.value as SourceType)} className="h-10 rounded-md border border-input bg-card px-3 text-sm">
+                     <option value="dnb_bisnode">D&amp;B/Bisnode</option><option value="sales_navigator">Sales Navigator</option><option value="manual">Manuelt utdrag</option>
+                   </select>
+                 </label>
+                 <label className="grid gap-1 text-sm font-medium">Snapshot-dato<Input type="date" value={snapshotDate} onChange={(event) => setSnapshotDate(event.target.value)} /></label>
+                 <input ref={fileRef} className="hidden" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={(event) => handleFile(event.target.files?.[0])} />
+                 <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={isImporting}><FileUp className="mr-2 h-4 w-4" /> {isImporting ? "Oppdaterer…" : "Velg nytt snapshot"}</Button>
+               </div>
+               <div className="mt-4 flex flex-col gap-3 rounded-md border border-accent/30 bg-accent/10 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                 <div><p className="font-medium">Rett dato på første D&amp;B/Bisnode-import</p><p className="text-muted-foreground">Flytter 25.08.2026 til 19.04.2024 uten ny import eller tap av historikk.</p></div>
+                 <Button size="sm" variant="outline" onClick={() => setConfirmDateCorrection(true)} disabled={dateCorrectionMutation.isPending}>Rett snapshot-dato</Button>
+               </div>
+             </div>
+           </details>
         </div>
       </div>
       <AlertDialog open={confirmDateCorrection} onOpenChange={setConfirmDateCorrection}>
@@ -516,19 +522,17 @@ function scopeLabel(scope: WorkScope) {
 
 function FocusAction({ icon, title, count, description, action }: { icon: React.ReactNode; title: string; count: number; description: string; action: () => void }) {
   return (
-    <button type="button" onClick={action} className="rounded-md border border-border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-primary/5">
-      <div className="flex items-center justify-between gap-2">
+    <button type="button" onClick={action} className="group flex min-w-0 items-start justify-between gap-3 p-3 text-left transition-colors hover:bg-primary/5 md:px-4">
+      <div className="min-w-0">
         <p className="flex items-center gap-2 font-semibold">{icon}{title}</p>
-        <span className="text-xl font-bold">{count}</span>
+        <p className="mt-1 text-muted-foreground">{description}</p>
       </div>
-      <p className="mt-1 text-muted-foreground">{description}</p>
-      <p className="mt-2 text-xs font-semibold text-primary">Åpne arbeidsutvalg →</p>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="text-xl font-bold">{count}</span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+      </div>
     </button>
   );
-}
-
-function Stat({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
-  return <Card><CardContent className="p-4"><div className="flex items-center justify-between text-sm text-muted-foreground"><span>{label}</span>{icon}</div><div className="mt-1 text-2xl font-bold">{value}</div></CardContent></Card>;
 }
 
 function CandidateRow({ candidate, pending, selectable, selected, onToggleSelection, onToggleMonitoring }: { candidate: Candidate; pending: boolean; selectable: boolean; selected: boolean; onToggleSelection: () => void; onToggleMonitoring: () => void }) {
