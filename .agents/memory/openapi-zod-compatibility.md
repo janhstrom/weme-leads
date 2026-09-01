@@ -13,4 +13,4 @@ The generated Zod API currently overlaps with the generated types barrel for inl
 
 **Why:** Re-exporting both generated barrels can produce duplicate export errors even when the generated schemas themselves are valid.
 
-**How to apply:** Do not remove the API-spec codegen post-step that rewrites the generated barrel after Orval runs. Verify `pnpm -w run typecheck:libs` whenever the OpenAPI contract or codegen setup changes.
+**How to apply:** Do not remove the API-spec codegen post-step that rewrites the generated barrel after Orval runs. Verify `pnpm -w run typecheck:libs` whenever the OpenAPI contract or codegen setup changes, before running a consumer package's standalone typecheck because project references resolve the generated declarations in `dist`.
