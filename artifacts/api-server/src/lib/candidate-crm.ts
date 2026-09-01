@@ -139,7 +139,16 @@ function companyName(company: CrmCompanyPayload) {
 }
 
 function companyDomain(company: CrmCompanyPayload) {
-  return normalizeCandidateDomain(stringValue(company.website) ?? stringValue(company.domain));
+  const explicitDomain = stringValue(company.website) ?? stringValue(company.domain);
+  if (explicitDomain) return normalizeCandidateDomain(explicitDomain);
+
+  // The CRM contract models a company as the contact's string `company` field.
+  // Some imported records store the company domain there instead of in
+  // `website`/`domain` (for example, `vippsmobilepay.com`).
+  const value = companyName(company);
+  return value && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(value)
+    ? normalizeCandidateDomain(value)
+    : null;
 }
 
 function companyOrganizationNumber(company: CrmCompanyPayload) {
@@ -152,6 +161,17 @@ function companyOrganizationNumber(company: CrmCompanyPayload) {
     if (candidate) return candidate.replace(/\s/g, "");
   }
   return null;
+}
+
+function crmSearchTerms(candidate: CrmCandidateInput) {
+  const normalizedNameToken = normalizeCandidateName(candidate.companyName)
+    .split(" ")
+    .find((token) => token.length >= 4);
+  return [...new Set([
+    candidate.companyName.trim(),
+    normalizeCandidateDomain(candidate.domain),
+    normalizedNameToken,
+  ].filter((value): value is string => Boolean(value)))];
 }
 
 export function findSafeCrmCompanyMatch(input: CrmCandidateInput, companies: CrmCompanyPayload[]) {
@@ -249,17 +269,24 @@ export async function enrichCandidateFromCrm(
   }
   const baseUrl = (config.baseUrl ?? "https://crm.weme.eco/api").replace(/\/$/, "").replace(/\/agent$/, "");
   try {
-    const searchParams = new URLSearchParams({ search: candidate.companyName });
     const candidateDomain = normalizeCandidateDomain(candidate.domain);
-    if (candidateDomain) searchParams.set("domain", candidateDomain);
-    const searchedContacts = contactList(await crmGet<unknown>({
-      baseUrl,
-      apiKey,
-      path: `/agent/contacts?${searchParams.toString()}`,
-      fetchImpl: config.fetchImpl,
-    }));
-    const companies = companiesFromContacts(searchedContacts);
-    const match = findSafeCrmCompanyMatch(candidate, companies);
+    const searchedContactsById = new Map<string, CrmContactPayload>();
+    let match = findSafeCrmCompanyMatch(candidate, []);
+    for (const search of crmSearchTerms(candidate)) {
+      const searchParams = new URLSearchParams({ search, limit: "50" });
+      const searchedContacts = contactList(await crmGet<unknown>({
+        baseUrl,
+        apiKey,
+        path: `/agent/contacts?${searchParams.toString()}`,
+        fetchImpl: config.fetchImpl,
+      }));
+      for (const contact of searchedContacts) {
+        const key = String(contact.id ?? JSON.stringify(contact));
+        searchedContactsById.set(key, contact);
+      }
+      match = findSafeCrmCompanyMatch(candidate, companiesFromContacts([...searchedContactsById.values()]));
+      if (match.status === "matched") break;
+    }
     if (!match.company || !match.matchMethod) {
       return {
         status: match.status,
@@ -282,7 +309,7 @@ export async function enrichCandidateFromCrm(
     }
     const matchedName = companyName(match.company);
     if (!matchedName) return unavailableEnrichment(evaluatedAt, "CRM returnerte et treff uten verifiserbart selskapsnavn.");
-    const companySearchParams = new URLSearchParams({ search: matchedName });
+    const companySearchParams = new URLSearchParams({ search: matchedName, limit: "50" });
     const matchedDomain = companyDomain(match.company) ?? candidateDomain;
     if (matchedDomain) companySearchParams.set("domain", matchedDomain);
     const companySearchContacts = contactList(await crmGet<unknown>({
