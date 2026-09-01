@@ -1,6 +1,173 @@
 import assert from "node:assert/strict";
+import { createServer, type Server } from "node:http";
+import { after, before } from "node:test";
 import test from "node:test";
+import { db, leadCandidateSourcesTable, leadCandidatesTable, leadMonitoringRunsTable, signalpilotSignalsTable } from "@workspace/db";
+import { eq, inArray } from "drizzle-orm";
+import app from "../app";
 import { classifyEventMappingOutcome, discoverMappingSources, findOfficialFeedLink, getOfficialPageLinks, historicalSnapshotDomain, isMissingStandardFeed, parseOfficialHtmlEvents } from "./monitoring";
+
+const testRun = `monitoring-api-${Date.now()}`;
+const companyName = `Ekte API overvåkning ${testRun}`;
+const feedUrl = `https://monitoring-test.example/${testRun}/feed.xml`;
+const articleUrl = `https://monitoring-test.example/${testRun}/digital-endring`;
+const publishedAt = new Date().toISOString().slice(0, 10);
+
+let server: Server;
+let baseUrl: string;
+let candidateId: number;
+let monitoringRunId: number | null = null;
+let originalFetch: typeof fetch;
+let existingMonitoringCandidateIds: number[] = [];
+
+async function request(path: string, init?: RequestInit): Promise<{ response: Response; body: any }> {
+  const response = await originalFetch(`${baseUrl}${path}`, {
+    ...init,
+    headers: { "content-type": "application/json", ...init?.headers },
+  });
+  return { response, body: await response.json() };
+}
+
+before(async () => {
+  const existingMonitoringCandidates = await db
+    .select({ id: leadCandidatesTable.id })
+    .from(leadCandidatesTable)
+    .where(eq(leadCandidatesTable.monitoringStatus, "monitoring"));
+  existingMonitoringCandidateIds = existingMonitoringCandidates.map((candidate) => candidate.id);
+  if (existingMonitoringCandidateIds.length > 0) {
+    await db.update(leadCandidatesTable)
+      .set({ monitoringStatus: "not_monitoring" })
+      .where(inArray(leadCandidatesTable.id, existingMonitoringCandidateIds));
+  }
+
+  const [candidate] = await db.insert(leadCandidatesTable).values({
+    companyName: companyName,
+    normalizedName: companyName.toLowerCase(),
+    domain: "monitoring-test.example",
+    matchStatus: "exact",
+    relevanceStatus: "relevant",
+    relevanceReason: "Kontrollert kandidat for API-integrasjonstest",
+    relevanceSource: "system",
+    monitoringStatus: "monitoring",
+    priorityScore: 40,
+    priorityReasons: ["API-integrasjonstest"],
+  }).returning({ id: leadCandidatesTable.id });
+  candidateId = candidate!.id;
+
+  await db.insert(leadCandidateSourcesTable).values({
+    candidateId,
+    sourceType: "rss",
+    url: feedUrl,
+    label: "Kontrollert testfeed",
+  });
+
+  originalFetch = globalThis.fetch;
+  server = createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  baseUrl = `http://127.0.0.1:${address.port}/api`;
+});
+
+after(async () => {
+  if (server) {
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  }
+  await db.delete(signalpilotSignalsTable).where(eq(signalpilotSignalsTable.candidateId, candidateId));
+  await db.delete(leadCandidatesTable).where(eq(leadCandidatesTable.id, candidateId));
+  if (monitoringRunId !== null) {
+    await db.delete(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.id, monitoringRunId));
+  }
+  if (existingMonitoringCandidateIds.length > 0) {
+    await db.update(leadCandidatesTable)
+      .set({ monitoringStatus: "monitoring" })
+      .where(inArray(leadCandidatesTable.id, existingMonitoringCandidateIds));
+  }
+});
+
+async function withControlledSources<T>(action: () => Promise<T>) {
+  originalFetch = globalThis.fetch;
+  globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (url === feedUrl) {
+      return Promise.resolve(new Response(`
+        <rss version="2.0">
+          <channel>
+            <item>
+              <title>Ny digital strategi for arbeidshverdagen</title>
+              <link>${articleUrl}</link>
+              <pubDate>${new Date(`${publishedAt}T09:00:00.000Z`).toUTCString()}</pubDate>
+              <description>Selskapet lanserer en ny digital arbeidsplattform.</description>
+            </item>
+          </channel>
+        </rss>
+      `, {
+        status: 200,
+        headers: { "content-type": "application/rss+xml" },
+      }));
+    }
+    if (url === articleUrl) {
+      assert.equal(init?.method, "HEAD");
+      return Promise.resolve(new Response(null, { status: 200 }));
+    }
+    return originalFetch(url, init);
+  }) as typeof fetch;
+  try {
+    return await action();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+async function waitForCompletedMonitoringRun() {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const latest = await request("/monitoring/runs/latest");
+    assert.equal(latest.response.status, 200);
+    if (latest.body.status !== "running") return latest;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.fail("Overvåkningskjøringen ble ikke fullført innen tidsgrensen.");
+}
+
+test("lagrer en ekte API-kjøring og returnerer oppdaterte køtall", async () => {
+  const beforeActions = await request("/monitoring/actions");
+  assert.equal(beforeActions.response.status, 200);
+  assert.equal(
+    beforeActions.body.some((action: { company: { name: string } }) => action.company.name === companyName),
+    false,
+  );
+
+  const result = await withControlledSources(async () => {
+    const started = await request("/monitoring/runs", { method: "POST" });
+    assert.equal(started.response.status, 200);
+    assert.equal(started.body.kind, "monitoring");
+    assert.equal(started.body.trigger, "manual");
+    assert.equal(typeof started.body.id, "number");
+    monitoringRunId = started.body.id;
+
+    const latest = await waitForCompletedMonitoringRun();
+    const actions = await request("/monitoring/actions");
+    return { latest, actions };
+  });
+
+  assert.equal(result.latest.body.id, monitoringRunId);
+  assert.equal(result.latest.body.status, "completed");
+  assert.equal(result.latest.body.requestedCount, 1);
+  assert.equal(result.latest.body.processedCount, 1);
+  assert.equal(result.latest.body.signalsCreated, 1);
+  assert.equal(result.latest.body.crmMatchedCount, 0);
+  assert.equal(result.latest.body.crmUnresolvedCount, 1);
+  assert.equal(result.latest.body.sourceErrorCount, 0);
+  assert.equal(result.actions.response.status, 200);
+
+  const createdAction = result.actions.body.find(
+    (action: { company: { name: string } }) => action.company.name === companyName,
+  );
+  assert.ok(createdAction);
+  assert.equal(createdAction.summary, "Selskapet lanserer en ny digital arbeidsplattform.");
+  assert.equal(createdAction.evidence[0].url, articleUrl);
+});
 
 test("finner bare en HTTPS RSS- eller Atom-feed fra kandidatens eget domene", () => {
   assert.deepEqual(
