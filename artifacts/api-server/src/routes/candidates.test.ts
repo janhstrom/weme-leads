@@ -235,6 +235,8 @@ test("avviser identisk evidens-URL og beholder eksisterende evidens", async () =
   assert.equal(candidate.body.evidence.length, 1);
   assert.equal(candidate.body.evidence[0].url, evidenceUrl);
   assert.equal(candidate.body.evidence[0].title, "Offentlig dokumentasjon for historikktest");
+  assert.equal(candidate.body.lastAnalyzedAt !== null, true);
+  assert.ok(candidate.body.priorityReasons.includes("Offentlig dokumentasjon: 1 verifisert kilde"));
 });
 
 test("lagrer gyldig offentlig kandidatkilde med 201", async () => {

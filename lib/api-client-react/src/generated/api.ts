@@ -621,16 +621,16 @@ export const getStartEventMappingRunUrl = () => {
 }
 
 /**
- * @summary Map recent public events for all possible-relevance candidates without enabling monitoring
+ * @summary Map recent public events for all possible-relevance candidates or selected candidates without enabling monitoring
  */
-export const startEventMappingRun = async ( options?: Parameters<typeof customFetch>[1]): Promise<MonitoringRun> => {
+export const startEventMappingRun = async (monitoringRunInput?: MonitoringRunInput, options?: Parameters<typeof customFetch>[1]): Promise<MonitoringRun> => {
 
   return customFetch<MonitoringRun>(getStartEventMappingRunUrl(),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(monitoringRunInput)
   }
 );}
 
@@ -639,8 +639,8 @@ export const startEventMappingRun = async ( options?: Parameters<typeof customFe
 
 
 export const getStartEventMappingRunMutationOptions = <TError = ErrorType<ErrorResponse | BadRequestResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startEventMappingRun>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof startEventMappingRun>>, TError,void, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startEventMappingRun>>, TError,{data?: BodyType<MonitoringRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startEventMappingRun>>, TError,{data?: BodyType<MonitoringRunInput>}, TContext> => {
 
 const mutationKey = ['startEventMappingRun'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -652,10 +652,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startEventMappingRun>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startEventMappingRun>>, {data?: BodyType<MonitoringRunInput>}> = (props) => {
+          const {data} = props ?? {};
 
-
-          return  startEventMappingRun(requestOptions)
+          return  startEventMappingRun(data,requestOptions)
         }
 
 
@@ -666,18 +666,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type StartEventMappingRunMutationResult = NonNullable<Awaited<ReturnType<typeof startEventMappingRun>>>
-
+    export type StartEventMappingRunMutationBody = BodyType<MonitoringRunInput> | undefined
     export type StartEventMappingRunMutationError = ErrorType<ErrorResponse | BadRequestResponse>
 
     /**
- * @summary Map recent public events for all possible-relevance candidates without enabling monitoring
+ * @summary Map recent public events for all possible-relevance candidates or selected candidates without enabling monitoring
  */
 export const useStartEventMappingRun = <TError = ErrorType<ErrorResponse | BadRequestResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startEventMappingRun>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startEventMappingRun>>, TError,{data?: BodyType<MonitoringRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof startEventMappingRun>>,
         TError,
-        void,
+        {data?: BodyType<MonitoringRunInput>},
         TContext
       > => {
       return useMutation(getStartEventMappingRunMutationOptions(options));

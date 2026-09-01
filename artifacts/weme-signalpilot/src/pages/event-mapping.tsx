@@ -80,7 +80,7 @@ export default function EventMappingPage() {
                   <CardTitle className="flex items-center gap-2 text-base"><FileSearch className="h-4 w-4 text-primary" /> Offentlig hendelseskartlegging</CardTitle>
                   <CardDescription className="mt-2 max-w-3xl">Vi ser etter ferske, URL-verifiserte signaler i registrerte feeder, standardiserte feed-adresser, offisielle presserom-, nyhets- og karrieresider på kandidatens eget domene, samt relevante registerobservasjoner. Dette starter ikke løpende overvåkning og bruker ikke CRM.</CardDescription>
                 </div>
-                <Button onClick={() => start.mutate()} disabled={start.isPending || run?.status === "running"}>
+                <Button onClick={() => start.mutate({})} disabled={start.isPending || run?.status === "running"}>
                   <PlayCircle className={`mr-2 h-4 w-4 ${start.isPending || run?.status === "running" ? "animate-pulse" : ""}`} />
                   {start.isPending || run?.status === "running" ? "Kartlegger…" : "Kartlegg nå"}
                 </Button>

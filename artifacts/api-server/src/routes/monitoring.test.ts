@@ -20,6 +20,7 @@ let candidateId: number;
 let fullRunCandidateId: number;
 let monitoringRunId: number | null = null;
 let fullMonitoringRunId: number | null = null;
+let eventMappingRunId: number | null = null;
 let originalFetch: typeof fetch;
 
 async function request(path: string, init?: RequestInit): Promise<{ response: Response; body: any }> {
@@ -85,6 +86,9 @@ after(async () => {
   if (fullMonitoringRunId !== null) {
     await db.delete(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.id, fullMonitoringRunId));
   }
+  if (eventMappingRunId !== null) {
+    await db.delete(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.id, eventMappingRunId));
+  }
   await db.delete(signalpilotSignalsTable).where(eq(signalpilotSignalsTable.candidateId, candidateId));
   await db.delete(signalpilotSignalsTable).where(eq(signalpilotSignalsTable.candidateId, fullRunCandidateId));
   await db.delete(leadCandidatesTable).where(eq(leadCandidatesTable.id, candidateId));
@@ -139,6 +143,16 @@ async function waitForCompletedMonitoringRun() {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   assert.fail("Overvåkningskjøringen ble ikke fullført innen tidsgrensen.");
+}
+
+async function waitForCompletedEventMappingRun() {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const latest = await request("/event-mapping/runs/latest");
+    assert.equal(latest.response.status, 200);
+    if (latest.body.status !== "running") return latest;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.fail("Kartleggingen ble ikke fullført innen tidsgrensen.");
 }
 
 test("lagrer en ekte API-kjøring og returnerer oppdaterte køtall", async () => {
@@ -231,6 +245,26 @@ test("omfatter alle overvåkede kandidater når fullkjøringen ikke avgrenses", 
     candidateStatusesAfter.sort((left, right) => left.id - right.id),
     candidateStatusesBefore.sort((left, right) => left.id - right.id),
   );
+});
+
+test("kan avgrense engangskartlegging til valgt selskap", async () => {
+  const started = await request("/event-mapping/runs", {
+    method: "POST",
+    body: JSON.stringify({ candidateIds: [fullRunCandidateId] }),
+  });
+  assert.equal(started.response.status, 200);
+  assert.equal(started.body.kind, "event_mapping");
+  assert.equal(started.body.requestedCount, 1);
+  eventMappingRunId = started.body.id;
+
+  const completed = await waitForCompletedEventMappingRun();
+  assert.equal(completed.body.id, eventMappingRunId);
+  assert.equal(completed.body.processedCount, 1);
+
+  const items = await request(`/event-mapping/runs/${eventMappingRunId}/items`);
+  assert.equal(items.response.status, 200);
+  assert.deepEqual(items.body.map((item: { candidateId: number }) => item.candidateId), [fullRunCandidateId]);
+  assert.equal(items.body[0].outcome, "no_source");
 });
 
 test("finner bare en HTTPS RSS- eller Atom-feed fra kandidatens eget domene", () => {

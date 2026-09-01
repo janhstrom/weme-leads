@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useRoute } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -15,6 +15,7 @@ import {
   useGetCandidate,
   useListCandidateSources,
   useSearchCrmContacts,
+  useStartEventMappingRun,
   useUpdateCandidateMonitoring,
   useUpdateCandidateRelevance,
 } from "@workspace/api-client-react";
@@ -35,7 +36,10 @@ export default function CandidateDetailPage() {
   const id = Number(params?.id);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: candidate, isLoading, isError } = useGetCandidate(id);
+  const [mappingRunning, setMappingRunning] = useState(false);
+  const { data: candidate, isLoading, isError } = useGetCandidate(id, {
+    query: { queryKey: getGetCandidateQueryKey(id), refetchInterval: mappingRunning ? 1_500 : false },
+  });
   const [crmQuery, setCrmQuery] = useState("");
   const [form, setForm] = useState({ title: "", url: "", sourceType: "Selskapsnyhet", publishedAt: "", excerpt: "" });
   const [sourceForm, setSourceForm] = useState<{ sourceType: "rss" | "atom"; label: string; url: string }>({ sourceType: "rss", label: "", url: "" });
@@ -147,6 +151,24 @@ export default function CandidateDetailPage() {
       }),
     },
   });
+  const eventMappingMutation = useStartEventMappingRun({
+    mutation: {
+      onSuccess: () => {
+        setMappingRunning(true);
+        toast({ title: "Kartlegging startet", description: "Systemet sjekker tilgjengelig offentlig informasjon for dette selskapet. Resultatet oppdateres automatisk her." });
+      },
+      onError: (error) => toast({
+        title: "Kartleggingen kunne ikke startes",
+        description: error instanceof Error ? error.message : "Prøv igjen senere.",
+        variant: "destructive",
+      }),
+    },
+  });
+  useEffect(() => {
+    if (!mappingRunning) return;
+    const timeout = window.setTimeout(() => setMappingRunning(false), 20_000);
+    return () => window.clearTimeout(timeout);
+  }, [mappingRunning]);
 
   if (isLoading) return <div className="p-6 space-y-4"><Skeleton className="h-8 w-56" /><Skeleton className="h-64 w-full" /></div>;
   if (isError || !candidate) return <div className="p-6 text-destructive">Kandidaten kunne ikke lastes.</div>;
@@ -184,6 +206,10 @@ export default function CandidateDetailPage() {
                  <div className="flex flex-wrap items-center gap-2"><RelevanceBadge status={candidate.relevanceStatus} /><Badge variant="outline">{confidenceLabel(candidate.relevanceConfidence)} sikkerhet</Badge>{candidate.lastAnalyzedAt ? <span className="text-xs text-muted-foreground">Sist beregnet {format(new Date(candidate.lastAnalyzedAt), "d. MMM yyyy HH:mm", { locale: nb })}</span> : null}</div>
                 <p className="text-sm">{candidate.relevanceReason ?? "Ingen automatisk begrunnelse er lagret ennå."}</p>
                  <div className="grid gap-2 sm:grid-cols-2">{candidate.priorityReasons.slice(0, 4).map((reason) => <div key={reason} className="rounded-md border border-border bg-muted/40 p-3 text-sm">{reason}</div>)}</div>
+                <Button variant="outline" onClick={() => eventMappingMutation.mutate({ data: { candidateIds: [candidate.id] } })} disabled={eventMappingMutation.isPending || mappingRunning}>
+                  <FileSearch className={`mr-2 h-4 w-4 ${eventMappingMutation.isPending || mappingRunning ? "animate-pulse" : ""}`} />
+                  {eventMappingMutation.isPending || mappingRunning ? "Kartlegger selskapet…" : "Kjør kartlegging for dette selskapet"}
+                </Button>
               </CardContent>
             </Card>
 

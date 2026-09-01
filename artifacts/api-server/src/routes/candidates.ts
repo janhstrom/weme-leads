@@ -264,7 +264,7 @@ async function toCandidateResponse(candidate: CandidateRecord) {
   };
 }
 
-async function refreshCandidatePriority(candidateId: number) {
+export async function refreshCandidatePriority(candidateId: number) {
   const [candidate] = await db.select().from(leadCandidatesTable).where(eq(leadCandidatesTable.id, candidateId));
   if (!candidate) return;
   const [snapshots, evidence] = await Promise.all([
@@ -753,6 +753,7 @@ router.post("/candidates/:id/evidence", async (req, res): Promise<void> => {
     .from(leadCandidateEvidenceTable)
     .where(and(eq(leadCandidateEvidenceTable.candidateId, candidate.id), eq(leadCandidateEvidenceTable.url, evidenceInput.url)));
   if (existingEvidence) {
+    await refreshCandidatePriority(candidate.id);
     res.status(409).json({ error: "Denne evidens-URL-en finnes allerede for kandidaten." });
     return;
   }
@@ -774,6 +775,7 @@ router.post("/candidates/:id/evidence", async (req, res): Promise<void> => {
     });
   } catch (error) {
     if ((error as { code?: string }).code === "23505") {
+      await refreshCandidatePriority(candidate.id);
       res.status(409).json({ error: "Denne evidens-URL-en finnes allerede for kandidaten." });
       return;
     }

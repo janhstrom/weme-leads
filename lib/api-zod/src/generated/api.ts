@@ -177,8 +177,16 @@ export const GetLatestEventMappingRunResponse = zod.object({
 
 
 /**
- * @summary Map recent public events for all possible-relevance candidates without enabling monitoring
+ * @summary Map recent public events for all possible-relevance candidates or selected candidates without enabling monitoring
  */
+
+
+
+
+export const StartEventMappingRunBody = zod.object({
+  "candidateIds": zod.array(zod.number().min(1)).min(1).optional()
+})
+
 export const StartEventMappingRunResponse = zod.object({
   "id": zod.number(),
   "status": zod.enum(['running', 'completed', 'completed_with_errors', 'failed']),

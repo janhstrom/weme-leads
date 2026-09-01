@@ -121,7 +121,12 @@ paths:
     post:
       operationId: startEventMappingRun
       tags: [monitoring]
-      summary: Map recent public events for all possible-relevance candidates without enabling monitoring
+      summary: Map recent public events for all possible-relevance candidates or selected candidates without enabling monitoring
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MonitoringRunInput" }
       responses:
         "200":
           description: Started event mapping run

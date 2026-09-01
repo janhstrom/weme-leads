@@ -31,6 +31,7 @@ import {
 } from "@workspace/api-zod";
 import { enrichCandidateFromCrm } from "../lib/candidate-crm";
 import { normalizeCandidateDomain } from "../lib/candidate-matching";
+import { refreshCandidatePriority } from "./candidates";
 import { toSignalResponse } from "./signalpilot";
 
 const router: IRouter = Router();
@@ -802,13 +803,16 @@ export async function runMonitoringScan(trigger: "manual" | "scheduled", candida
   return completed;
 }
 
-export async function runEventMappingScan() {
+export async function runEventMappingScan(candidateIds?: number[]) {
   await expireStaleRunLocks();
   const [activeRun] = await db.select().from(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.status, "running")).orderBy(desc(leadMonitoringRunsTable.startedAt));
   if (activeRun) throw new MonitoringRunInProgressError("En annen offentlig kildekjøring pågår allerede.");
 
+  const candidateFilter = candidateIds === undefined
+    ? eq(leadCandidatesTable.relevanceStatus, "possible")
+    : inArray(leadCandidatesTable.id, candidateIds);
   const candidates = await db.select().from(leadCandidatesTable)
-    .where(eq(leadCandidatesTable.relevanceStatus, "possible"))
+    .where(candidateFilter)
     .orderBy(desc(leadCandidatesTable.priorityScore));
   const [run] = await db.insert(leadMonitoringRunsTable).values({
     status: "running",
@@ -827,6 +831,7 @@ export async function runEventMappingScan() {
   const processCandidate = async (candidate: Candidate) => {
     try {
       const result = await collectEventMappingSignals(candidate, run.id);
+      await refreshCandidatePriority(candidate.id);
       processedCount += 1;
       signalsCreated += result.signalsCreated;
       sourceErrorCount += result.sourceErrorCount;
@@ -945,12 +950,17 @@ router.get("/event-mapping/runs/latest", async (_req, res): Promise<void> => {
   res.json(GetLatestEventMappingRunResponse.parse(monitoringRunResponse(run)));
 });
 
-router.post("/event-mapping/runs", async (_req, res): Promise<void> => {
+router.post("/event-mapping/runs", async (req, res): Promise<void> => {
+  const body = StartMonitoringRunBody.safeParse(req.body ?? {});
+  if (!body.success) {
+    res.status(400).json({ error: "Kandidat-ID-ene for kartleggingen er ugyldige." });
+    return;
+  }
   if (activeEventMappingJob) {
     res.status(409).json({ error: "En kartlegging av nylige hendelser pågår allerede." });
     return;
   }
-  const job = runEventMappingScan();
+  const job = runEventMappingScan(body.data.candidateIds);
   activeEventMappingJob = job;
   void job.catch(() => undefined).finally(() => {
     activeEventMappingJob = null;
