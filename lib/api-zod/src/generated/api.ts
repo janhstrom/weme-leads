@@ -129,8 +129,16 @@ export const GetLatestMonitoringRunResponse = zod.object({
 
 
 /**
- * @summary Start a manual monitoring run for all monitored candidates
+ * @summary Start a manual monitoring run for monitored candidates
  */
+
+
+
+
+export const StartMonitoringRunBody = zod.object({
+  "candidateIds": zod.array(zod.number().min(1)).min(1).optional()
+})
+
 export const StartMonitoringRunResponse = zod.object({
   "id": zod.number(),
   "status": zod.enum(['running', 'completed', 'completed_with_errors', 'failed']),

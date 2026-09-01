@@ -51,6 +51,7 @@ import type {
   ListCandidatesParams,
   ListSignalsParams,
   MonitoringRun,
+  MonitoringRunInput,
   NotFoundResponse,
   SearchCrmContactsParams,
   Signal,
@@ -472,16 +473,16 @@ export const getStartMonitoringRunUrl = () => {
 }
 
 /**
- * @summary Start a manual monitoring run for all monitored candidates
+ * @summary Start a manual monitoring run for monitored candidates
  */
-export const startMonitoringRun = async ( options?: Parameters<typeof customFetch>[1]): Promise<MonitoringRun> => {
+export const startMonitoringRun = async (monitoringRunInput?: MonitoringRunInput, options?: Parameters<typeof customFetch>[1]): Promise<MonitoringRun> => {
 
   return customFetch<MonitoringRun>(getStartMonitoringRunUrl(),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(monitoringRunInput)
   }
 );}
 
@@ -490,8 +491,8 @@ export const startMonitoringRun = async ( options?: Parameters<typeof customFetc
 
 
 export const getStartMonitoringRunMutationOptions = <TError = ErrorType<ErrorResponse | BadRequestResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startMonitoringRun>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof startMonitoringRun>>, TError,void, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startMonitoringRun>>, TError,{data?: BodyType<MonitoringRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startMonitoringRun>>, TError,{data?: BodyType<MonitoringRunInput>}, TContext> => {
 
 const mutationKey = ['startMonitoringRun'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -503,10 +504,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startMonitoringRun>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startMonitoringRun>>, {data?: BodyType<MonitoringRunInput>}> = (props) => {
+          const {data} = props ?? {};
 
-
-          return  startMonitoringRun(requestOptions)
+          return  startMonitoringRun(data,requestOptions)
         }
 
 
@@ -517,18 +518,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type StartMonitoringRunMutationResult = NonNullable<Awaited<ReturnType<typeof startMonitoringRun>>>
-
+    export type StartMonitoringRunMutationBody = BodyType<MonitoringRunInput> | undefined
     export type StartMonitoringRunMutationError = ErrorType<ErrorResponse | BadRequestResponse>
 
     /**
- * @summary Start a manual monitoring run for all monitored candidates
+ * @summary Start a manual monitoring run for monitored candidates
  */
 export const useStartMonitoringRun = <TError = ErrorType<ErrorResponse | BadRequestResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startMonitoringRun>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startMonitoringRun>>, TError,{data?: BodyType<MonitoringRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof startMonitoringRun>>,
         TError,
-        void,
+        {data?: BodyType<MonitoringRunInput>},
         TContext
       > => {
       return useMutation(getStartMonitoringRunMutationOptions(options));

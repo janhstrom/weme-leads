@@ -25,6 +25,7 @@ import {
   ListCandidateSourcesParams,
   ListCandidateSourcesResponse,
   ListMonitoringActionsResponse,
+  StartMonitoringRunBody,
   StartEventMappingRunResponse,
   StartMonitoringRunResponse,
 } from "@workspace/api-zod";
@@ -724,12 +725,18 @@ async function expireStaleRunLocks() {
 
 export class MonitoringRunInProgressError extends Error {}
 
-export async function runMonitoringScan(trigger: "manual" | "scheduled") {
+export async function runMonitoringScan(trigger: "manual" | "scheduled", candidateIds?: number[]) {
   await expireStaleRunLocks();
   const [activeRun] = await db.select().from(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.status, "running")).orderBy(desc(leadMonitoringRunsTable.startedAt));
   if (activeRun) throw new MonitoringRunInProgressError("En overvåkningskjøring pågår allerede.");
 
-  const candidates = await db.select().from(leadCandidatesTable).where(eq(leadCandidatesTable.monitoringStatus, "monitoring")).orderBy(desc(leadCandidatesTable.priorityScore));
+  const candidateFilter = candidateIds === undefined
+    ? eq(leadCandidatesTable.monitoringStatus, "monitoring")
+    : and(
+      eq(leadCandidatesTable.monitoringStatus, "monitoring"),
+      inArray(leadCandidatesTable.id, candidateIds),
+    );
+  const candidates = await db.select().from(leadCandidatesTable).where(candidateFilter).orderBy(desc(leadCandidatesTable.priorityScore));
   const [run] = await db.insert(leadMonitoringRunsTable).values({
     status: "running",
     trigger,
@@ -894,12 +901,17 @@ router.get("/monitoring/runs/latest", async (_req, res): Promise<void> => {
   res.json(GetLatestMonitoringRunResponse.parse(monitoringRunResponse(run)));
 });
 
-router.post("/monitoring/runs", async (_req, res): Promise<void> => {
+router.post("/monitoring/runs", async (req, res): Promise<void> => {
+  const body = StartMonitoringRunBody.safeParse(req.body ?? {});
+  if (!body.success) {
+    res.status(400).json({ error: "Kandidat-ID-ene for kjøringen er ugyldige." });
+    return;
+  }
   if (activeMonitoringJob) {
     res.status(409).json({ error: "En overvåkningskjøring pågår allerede." });
     return;
   }
-  const job = runMonitoringScan("manual");
+  const job = runMonitoringScan("manual", body.data.candidateIds);
   activeMonitoringJob = job;
   void job.catch(() => undefined).finally(() => {
     activeMonitoringJob = null;

@@ -3,7 +3,7 @@ import { createServer, type Server } from "node:http";
 import { after, before } from "node:test";
 import test from "node:test";
 import { db, leadCandidateSourcesTable, leadCandidatesTable, leadMonitoringRunsTable, signalpilotSignalsTable } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import app from "../app";
 import { classifyEventMappingOutcome, discoverMappingSources, findOfficialFeedLink, getOfficialPageLinks, historicalSnapshotDomain, isMissingStandardFeed, parseOfficialHtmlEvents } from "./monitoring";
 
@@ -18,7 +18,6 @@ let baseUrl: string;
 let candidateId: number;
 let monitoringRunId: number | null = null;
 let originalFetch: typeof fetch;
-let existingMonitoringCandidateIds: number[] = [];
 
 async function request(path: string, init?: RequestInit): Promise<{ response: Response; body: any }> {
   const response = await originalFetch(`${baseUrl}${path}`, {
@@ -29,17 +28,6 @@ async function request(path: string, init?: RequestInit): Promise<{ response: Re
 }
 
 before(async () => {
-  const existingMonitoringCandidates = await db
-    .select({ id: leadCandidatesTable.id })
-    .from(leadCandidatesTable)
-    .where(eq(leadCandidatesTable.monitoringStatus, "monitoring"));
-  existingMonitoringCandidateIds = existingMonitoringCandidates.map((candidate) => candidate.id);
-  if (existingMonitoringCandidateIds.length > 0) {
-    await db.update(leadCandidatesTable)
-      .set({ monitoringStatus: "not_monitoring" })
-      .where(inArray(leadCandidatesTable.id, existingMonitoringCandidateIds));
-  }
-
   const [candidate] = await db.insert(leadCandidatesTable).values({
     companyName: companyName,
     normalizedName: companyName.toLowerCase(),
@@ -78,11 +66,6 @@ after(async () => {
   await db.delete(leadCandidatesTable).where(eq(leadCandidatesTable.id, candidateId));
   if (monitoringRunId !== null) {
     await db.delete(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.id, monitoringRunId));
-  }
-  if (existingMonitoringCandidateIds.length > 0) {
-    await db.update(leadCandidatesTable)
-      .set({ monitoringStatus: "monitoring" })
-      .where(inArray(leadCandidatesTable.id, existingMonitoringCandidateIds));
   }
 });
 
@@ -139,7 +122,10 @@ test("lagrer en ekte API-kjøring og returnerer oppdaterte køtall", async () =>
   );
 
   const result = await withControlledSources(async () => {
-    const started = await request("/monitoring/runs", { method: "POST" });
+    const started = await request("/monitoring/runs", {
+      method: "POST",
+      body: JSON.stringify({ candidateIds: [candidateId] }),
+    });
     assert.equal(started.response.status, 200);
     assert.equal(started.body.kind, "monitoring");
     assert.equal(started.body.trigger, "manual");

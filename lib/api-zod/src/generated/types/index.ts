@@ -75,6 +75,7 @@ export * from './listCandidatesRelevanceStatus';
 export * from './listCandidatesView';
 export * from './listSignalsParams';
 export * from './monitoringRun';
+export * from './monitoringRunInput';
 export * from './monitoringRunKind';
 export * from './monitoringRunStatus';
 export * from './monitoringRunTrigger';

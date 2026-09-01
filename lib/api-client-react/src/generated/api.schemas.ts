@@ -712,6 +712,14 @@ export interface MonitoringRun {
   completedAt: string | null;
 }
 
+export interface MonitoringRunInput {
+  /**
+     * @minItems 1
+     * @items.minimum 1
+     */
+  candidateIds?: number[];
+}
+
 export type EventMappingItemOutcome = typeof EventMappingItemOutcome[keyof typeof EventMappingItemOutcome];
 
 
