@@ -11,5 +11,5 @@ export interface EvidenceInput {
   url: string;
   sourceType: string;
   publishedAt: Date;
-  excerpt: string;
+  excerpt?: string;
 }

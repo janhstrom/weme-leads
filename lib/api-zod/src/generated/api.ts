@@ -419,7 +419,7 @@ export const AddSignalEvidenceBody = zod.object({
   "url": zod.string(),
   "sourceType": zod.string(),
   "publishedAt": zod.coerce.date(),
-  "excerpt": zod.string()
+  "excerpt": zod.string().optional()
 })
 
 export const AddSignalEvidenceResponse = zod.object({
@@ -493,7 +493,7 @@ export const ImportSignalBatchBody = zod.object({
   "url": zod.string(),
   "sourceType": zod.string(),
   "publishedAt": zod.coerce.date(),
-  "excerpt": zod.string()
+  "excerpt": zod.string().optional()
 })),
   "contacts": zod.array(zod.object({
   "id": zod.number(),
@@ -1076,7 +1076,7 @@ export const AddCandidateEvidenceBody = zod.object({
   "url": zod.string(),
   "sourceType": zod.string(),
   "publishedAt": zod.coerce.date(),
-  "excerpt": zod.string()
+  "excerpt": zod.string().optional()
 })
 
 export const addCandidateEvidenceResponseCrmEnrichmentOneContactCountMin = 0;

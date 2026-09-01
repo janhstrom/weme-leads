@@ -670,7 +670,7 @@ components:
         taskId: { type: ["number", "null"] }
     EvidenceInput:
       type: object
-      required: [title, url, sourceType, publishedAt, excerpt]
+      required: [title, url, sourceType, publishedAt]
       properties:
         title: { type: string }
         url: { type: string }

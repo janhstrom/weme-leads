@@ -521,6 +521,7 @@ router.post("/signals/:id/evidence", async (req, res): Promise<void> => {
   try {
     const evidence = await verifyPublicEvidence({
       ...body.data,
+      excerpt: body.data.excerpt ?? "",
       publishedAt: body.data.publishedAt.toISOString().slice(0, 10),
     });
     const [updated] = await db
@@ -550,6 +551,7 @@ router.post("/signals/import", async (req, res): Promise<void> => {
         candidate.evidence.map((item) =>
           verifyPublicEvidence({
             ...item,
+            excerpt: item.excerpt ?? "",
             publishedAt: item.publishedAt.toISOString().slice(0, 10),
           }),
         ),

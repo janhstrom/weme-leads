@@ -88,7 +88,7 @@ export interface EvidenceInput {
   url: string;
   sourceType: string;
   publishedAt: string;
-  excerpt: string;
+  excerpt?: string;
 }
 
 export type SignalImportInputStrength = typeof SignalImportInputStrength[keyof typeof SignalImportInputStrength];

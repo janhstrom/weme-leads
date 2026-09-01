@@ -78,7 +78,7 @@ export default function CandidateDetailPage() {
         setForm({ title: "", url: "", sourceType: "Selskapsnyhet", publishedAt: "", excerpt: "" });
         setDuplicateEvidenceUrl(null);
         setEvidenceError(null);
-        toast({ title: "Kilde kontrollert", description: "Den konkrete URL-en er lagret. Relevansen må fortsatt vurderes manuelt." });
+        toast({ title: "Kilde kontrollert", description: "URL-en er lagret, og systemet har vurdert relevansen på nytt." });
       },
       onError: (error) => {
         if (isDuplicateEvidenceError(error)) {
@@ -179,7 +179,7 @@ export default function CandidateDetailPage() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Eye className="h-4 w-4 text-primary" /> Automatisk relevans</CardTitle><CardDescription>{candidate.relevanceSource === "manual" ? "Systemets kildegrunnlag er bevart, men statusen under er manuelt overstyrt." : "Systemforslaget kombinerer snapshots, sikre CRM-treff og dokumenterte endringer."}</CardDescription></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Eye className="h-4 w-4 text-primary" /> Automatisk relevans</CardTitle><CardDescription>{candidate.relevanceSource === "manual" ? "Systemets kildegrunnlag er bevart, men statusen under er manuelt overstyrt." : "Systemforslaget kombinerer snapshots, sikre CRM-treff, verifiserte offentlige kilder og dokumenterte endringer."}</CardDescription></CardHeader>
               <CardContent className="space-y-3">
                  <div className="flex flex-wrap items-center gap-2"><RelevanceBadge status={candidate.relevanceStatus} /><Badge variant="outline">{confidenceLabel(candidate.relevanceConfidence)} sikkerhet</Badge>{candidate.lastAnalyzedAt ? <span className="text-xs text-muted-foreground">Sist beregnet {format(new Date(candidate.lastAnalyzedAt), "d. MMM yyyy HH:mm", { locale: nb })}</span> : null}</div>
                 <p className="text-sm">{candidate.relevanceReason ?? "Ingen automatisk begrunnelse er lagret ennå."}</p>
@@ -220,17 +220,17 @@ export default function CandidateDetailPage() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Link2 className="h-4 w-4 text-primary" /> Offentlig dokumentasjon</CardTitle><CardDescription>En kandidat blir ikke et aktivt signal før en konkret offentlig kilde er registrert og vurdert.</CardDescription></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Link2 className="h-4 w-4 text-primary" /> Offentlig dokumentasjon</CardTitle><CardDescription>Kilden kontrolleres ved lagring, og systemet vurderer relevansen automatisk etterpå.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
-                {candidate.evidence.map((evidence) => <a key={evidence.url} href={evidence.url} target="_blank" rel="noreferrer" className="block rounded-md border p-3 hover:border-primary"><div className="flex items-center justify-between gap-2"><span className="font-medium">{evidence.title}</span><Badge variant="outline" className="text-[10px]">URL kontrollert</Badge></div><p className="mt-2 text-sm text-muted-foreground italic">«{evidence.excerpt}»</p><p className="mt-2 text-xs text-muted-foreground">{evidence.sourceType} · {format(new Date(evidence.publishedAt), "d. MMM yyyy", { locale: nb })}</p></a>)}
+                {candidate.evidence.map((evidence) => <a key={evidence.url} href={evidence.url} target="_blank" rel="noreferrer" className="block rounded-md border p-3 hover:border-primary"><div className="flex items-center justify-between gap-2"><span className="font-medium">{evidence.title}</span><Badge variant="outline" className="text-[10px]">URL kontrollert</Badge></div>{evidence.excerpt ? <p className="mt-2 text-sm text-muted-foreground italic">«{evidence.excerpt}»</p> : null}<p className="mt-2 text-xs text-muted-foreground">{evidence.sourceType} · {format(new Date(evidence.publishedAt), "d. MMM yyyy", { locale: nb })}</p></a>)}
                 {duplicateEvidenceUrl ? <div role="alert" className="flex items-start gap-3 rounded-md border border-accent bg-accent/20 p-3 text-sm"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground" /><div className="min-w-0 flex-1"><p className="font-medium">Denne kilden er allerede registrert</p><p className="mt-1 text-muted-foreground">Vi sendte ikke inn kilden på nytt. Åpne den eksisterende kilden nedenfor, eller behold skjemaet hvis du vil rette opplysningene.</p><a href={duplicateEvidenceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 font-medium text-primary hover:underline">Åpne eksisterende kilde <ExternalLink className="h-3 w-3" /></a></div><Button aria-label="Lukk duplikatmelding" size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => setDuplicateEvidenceUrl(null)}><X className="h-4 w-4" /></Button></div> : null}
                  {evidenceError ? <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{evidenceError}</div> : null}
                 <div className="grid gap-3 rounded-md border border-primary/20 bg-primary/5 p-4">
-                   <p className="text-xs text-muted-foreground">Krav: tittel minst 5 tegn, offentlig HTTPS-URL, publiseringsdato, kildetype og sitat minst 20 tegn.</p>
+                    <p className="text-xs text-muted-foreground">Krav: tittel minst 5 tegn, offentlig HTTPS-URL, publiseringsdato og kildetype. Sitat er valgfritt.</p>
                    <label className="grid gap-1 text-sm font-medium">Kildetittel <Input placeholder="Kildetittel" required minLength={5} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label>
                    <label className="grid gap-1 text-sm font-medium">HTTPS-URL <Input type="url" placeholder="https://…" required value={form.url} onChange={(event) => setForm({ ...form, url: event.target.value })} /></label>
                    <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium">Kildetype <Input placeholder="Kildetype" required minLength={1} value={form.sourceType} onChange={(event) => setForm({ ...form, sourceType: event.target.value })} /></label><label className="grid gap-1 text-sm font-medium">Publiseringsdato <Input aria-label="Publiseringsdato" type="date" required value={form.publishedAt} onChange={(event) => setForm({ ...form, publishedAt: event.target.value })} /></label></div>
-                   <label className="grid gap-1 text-sm font-medium">Sitat <Textarea placeholder="Kort, relevant sitat fra kilden" required minLength={20} value={form.excerpt} onChange={(event) => setForm({ ...form, excerpt: event.target.value })} /></label>
+                    <label className="grid gap-1 text-sm font-medium">Sitat <span className="font-normal text-muted-foreground">(valgfritt)</span><Textarea placeholder="Kort, relevant sitat fra kilden (valgfritt)" value={form.excerpt} onChange={(event) => setForm({ ...form, excerpt: event.target.value })} /></label>
                   <Button onClick={submitEvidence} disabled={evidenceMutation.isPending}>Kontroller og legg til kilde</Button>
                 </div>
               </CardContent>

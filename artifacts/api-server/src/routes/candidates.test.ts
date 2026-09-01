@@ -249,7 +249,6 @@ test("lagrer gyldig offentlig kandidatkilde med 201", async () => {
         url: `  ${evidenceUrl}  `,
         sourceType: "Selskapsnyhet",
         publishedAt: "2026-08-20",
-        excerpt: "Vipps MobilePay beskriver en ny offentlig løsning for kundene sine.",
       }),
     }),
   );
@@ -258,6 +257,11 @@ test("lagrer gyldig offentlig kandidatkilde med 201", async () => {
   assert.equal(result.body.evidence.length, 1);
   assert.equal(result.body.evidence[0].url, evidenceUrl);
   assert.equal(result.body.evidence[0].title, "Vipps MobilePay lanserer ny løsning");
+  assert.equal(result.body.evidence[0].excerpt, "");
+  assert.equal(result.body.relevanceStatus, "relevant");
+  assert.equal(result.body.relevanceConfidence, "high");
+  assert.equal(result.body.lastAnalyzedAt !== null, true);
+  assert.ok(result.body.priorityReasons.includes("Offentlig dokumentasjon: 1 verifisert kilde"));
 });
 
 test("bruker GET når kildeserveren avviser HEAD", async () => {

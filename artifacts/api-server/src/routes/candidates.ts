@@ -89,7 +89,7 @@ function inferRelevance(priorityScore: number, priorityReasons: string[]) {
   };
 }
 
-function calculatePriority(candidate: CandidateRecord, snapshots: CandidateSnapshotRecord[]) {
+function calculatePriority(candidate: CandidateRecord, snapshots: CandidateSnapshotRecord[], evidence: CandidateEvidenceRecord[] = []) {
   const reasons: string[] = [];
   let score = 0;
   const employeeSnapshots = snapshots
@@ -120,6 +120,20 @@ function calculatePriority(candidate: CandidateRecord, snapshots: CandidateSnaps
   if (relevantRoles.length > 0) {
     score += Math.min(25, 10 + relevantRoles.length * 5);
     reasons.push(`Sales Navigator: ${relevantRoles.length} relevant${relevantRoles.length === 1 ? " rolle" : "e roller"} observert`);
+  }
+
+  const verifiedEvidence = evidence.filter((item) => item.verificationStatus === "url_verified");
+  if (verifiedEvidence.length > 0) {
+    score += Math.min(20, 15 + Math.max(0, verifiedEvidence.length - 1) * 5);
+    reasons.push(`Offentlig dokumentasjon: ${verifiedEvidence.length} verifisert${verifiedEvidence.length === 1 ? " kilde" : "e kilder"}`);
+  }
+  const latestEvidence = verifiedEvidence.reduce<string | null>(
+    (latest, item) => (!latest || item.publishedAt > latest ? item.publishedAt : latest),
+    null,
+  );
+  if (latestEvidence && (Date.now() - Date.parse(latestEvidence)) / DAY <= 90) {
+    score += 5;
+    reasons.push("Aktualitet: offentlig dokumentasjon publisert siste 90 dager");
   }
 
   const latestSnapshot = snapshots.reduce<Date | null>((latest, snapshot) => {
@@ -253,8 +267,11 @@ async function toCandidateResponse(candidate: CandidateRecord) {
 async function refreshCandidatePriority(candidateId: number) {
   const [candidate] = await db.select().from(leadCandidatesTable).where(eq(leadCandidatesTable.id, candidateId));
   if (!candidate) return;
-  const snapshots = await db.select().from(leadCandidateSnapshotsTable).where(eq(leadCandidateSnapshotsTable.candidateId, candidateId));
-  const priority = calculatePriority(candidate, snapshots);
+  const [snapshots, evidence] = await Promise.all([
+    db.select().from(leadCandidateSnapshotsTable).where(eq(leadCandidateSnapshotsTable.candidateId, candidateId)),
+    db.select().from(leadCandidateEvidenceTable).where(eq(leadCandidateEvidenceTable.candidateId, candidateId)),
+  ]);
+  const priority = calculatePriority(candidate, snapshots, evidence);
   const systemRelevance = inferRelevance(priority.score, priority.reasons);
   await db
     .update(leadCandidatesTable)
@@ -264,6 +281,7 @@ async function refreshCandidatePriority(candidateId: number) {
       ...(candidate.relevanceSource === "system"
         ? systemRelevance
         : { relevanceConfidence: systemRelevance.relevanceConfidence }),
+      lastAnalyzedAt: new Date(),
       updatedAt: new Date(),
     })
     .where(eq(leadCandidatesTable.id, candidateId));
@@ -371,7 +389,6 @@ async function verifyPublicEvidence(input: { title: string; url: string; sourceT
   if (parsed.protocol !== "https:") throw new EvidenceVerificationError("Kilden må bruke HTTPS.");
   if (input.title.length < 5) throw new EvidenceVerificationError("Kildetittel må være minst 5 tegn.");
   if (input.sourceType.length === 0) throw new EvidenceVerificationError("Kildetype må fylles ut.");
-  if (input.excerpt.length < 20) throw new EvidenceVerificationError("Sitatet må være minst 20 tegn.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.publishedAt)) {
     throw new EvidenceVerificationError("Publiseringsdato må være på formatet YYYY-MM-DD.");
   }
@@ -729,7 +746,7 @@ router.post("/candidates/:id/evidence", async (req, res): Promise<void> => {
     url: body.data.url.trim(),
     sourceType: body.data.sourceType.trim(),
     publishedAt: dateOnly(body.data.publishedAt),
-    excerpt: body.data.excerpt.trim(),
+    excerpt: body.data.excerpt?.trim() ?? "",
   };
   const [existingEvidence] = await db
     .select({ id: leadCandidateEvidenceTable.id })
@@ -762,6 +779,7 @@ router.post("/candidates/:id/evidence", async (req, res): Promise<void> => {
     }
     throw error;
   }
+  await refreshCandidatePriority(candidate.id);
   const [updated] = await db.select().from(leadCandidatesTable).where(eq(leadCandidatesTable.id, candidate.id));
   res.status(201).json(AddCandidateEvidenceResponse.parse(await toCandidateResponse(updated)));
 });
