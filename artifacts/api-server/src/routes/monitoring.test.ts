@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import { after, before } from "node:test";
 import test from "node:test";
-import { db, leadCandidateSourcesTable, leadCandidatesTable, leadMonitoringRunsTable, signalpilotSignalsTable } from "@workspace/db";
+import { db, leadCandidateSourcesTable, leadCandidatesTable, leadMonitoringRunItemsTable, leadMonitoringRunsTable, signalpilotSignalsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import app from "../app";
 import { classifyEventMappingOutcome, discoverMappingSources, findOfficialFeedLink, getOfficialPageLinks, historicalSnapshotDomain, isMissingStandardFeed, parseOfficialHtmlEvents } from "./monitoring";
 
 const testRun = `monitoring-api-${Date.now()}`;
 const companyName = `Ekte API overvåkning ${testRun}`;
+const fullRunCompanyName = `Ekte API fullkjøring ${testRun}`;
 const feedUrl = `https://monitoring-test.example/${testRun}/feed.xml`;
 const articleUrl = `https://monitoring-test.example/${testRun}/digital-endring`;
 const publishedAt = new Date().toISOString().slice(0, 10);
@@ -16,7 +17,9 @@ const publishedAt = new Date().toISOString().slice(0, 10);
 let server: Server;
 let baseUrl: string;
 let candidateId: number;
+let fullRunCandidateId: number;
 let monitoringRunId: number | null = null;
+let fullMonitoringRunId: number | null = null;
 let originalFetch: typeof fetch;
 
 async function request(path: string, init?: RequestInit): Promise<{ response: Response; body: any }> {
@@ -42,6 +45,20 @@ before(async () => {
   }).returning({ id: leadCandidatesTable.id });
   candidateId = candidate!.id;
 
+  const [fullRunCandidate] = await db.insert(leadCandidatesTable).values({
+    companyName: fullRunCompanyName,
+    normalizedName: fullRunCompanyName.toLowerCase(),
+    domain: "full-monitoring-test.example",
+    matchStatus: "exact",
+    relevanceStatus: "relevant",
+    relevanceReason: "Kontrollert kandidat for full API-integrasjonstest",
+    relevanceSource: "system",
+    monitoringStatus: "monitoring",
+    priorityScore: 20,
+    priorityReasons: ["API-fullintegrasjonstest"],
+  }).returning({ id: leadCandidatesTable.id });
+  fullRunCandidateId = fullRunCandidate!.id;
+
   await db.insert(leadCandidateSourcesTable).values({
     candidateId,
     sourceType: "rss",
@@ -62,17 +79,28 @@ after(async () => {
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
   }
-  await db.delete(signalpilotSignalsTable).where(eq(signalpilotSignalsTable.candidateId, candidateId));
-  await db.delete(leadCandidatesTable).where(eq(leadCandidatesTable.id, candidateId));
   if (monitoringRunId !== null) {
     await db.delete(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.id, monitoringRunId));
   }
+  if (fullMonitoringRunId !== null) {
+    await db.delete(leadMonitoringRunsTable).where(eq(leadMonitoringRunsTable.id, fullMonitoringRunId));
+  }
+  await db.delete(signalpilotSignalsTable).where(eq(signalpilotSignalsTable.candidateId, candidateId));
+  await db.delete(signalpilotSignalsTable).where(eq(signalpilotSignalsTable.candidateId, fullRunCandidateId));
+  await db.delete(leadCandidatesTable).where(eq(leadCandidatesTable.id, candidateId));
+  await db.delete(leadCandidatesTable).where(eq(leadCandidatesTable.id, fullRunCandidateId));
 });
 
 async function withControlledSources<T>(action: () => Promise<T>) {
   originalFetch = globalThis.fetch;
   globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (url.includes("/agent/contacts")) {
+      return Promise.resolve(new Response("[]", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }));
+    }
     if (url === feedUrl) {
       return Promise.resolve(new Response(`
         <rss version="2.0">
@@ -153,6 +181,56 @@ test("lagrer en ekte API-kjøring og returnerer oppdaterte køtall", async () =>
   assert.ok(createdAction);
   assert.equal(createdAction.summary, "Selskapet lanserer en ny digital arbeidsplattform.");
   assert.equal(createdAction.evidence[0].url, articleUrl);
+});
+
+test("omfatter alle overvåkede kandidater når fullkjøringen ikke avgrenses", async () => {
+  const candidateStatusesBefore = await db.select({
+    id: leadCandidatesTable.id,
+    monitoringStatus: leadCandidatesTable.monitoringStatus,
+  }).from(leadCandidatesTable).where(eq(leadCandidatesTable.monitoringStatus, "monitoring"));
+  assert.ok(candidateStatusesBefore.length >= 2);
+  assert.ok(candidateStatusesBefore.some((candidate) => candidate.id === candidateId));
+  assert.ok(candidateStatusesBefore.some((candidate) => candidate.id === fullRunCandidateId));
+  const expectedCandidateIds = candidateStatusesBefore.map((candidate) => candidate.id);
+
+  const result = await withControlledSources(async () => {
+    const started = await request("/monitoring/runs", { method: "POST" });
+    assert.equal(started.response.status, 200);
+    assert.equal(started.body.kind, "monitoring");
+    assert.equal(started.body.trigger, "manual");
+    assert.equal(typeof started.body.id, "number");
+    const runId = started.body.id as number;
+    fullMonitoringRunId = runId;
+
+    const latest = await waitForCompletedMonitoringRun();
+    const items = await db.select({
+      candidateId: leadMonitoringRunItemsTable.candidateId,
+      status: leadMonitoringRunItemsTable.status,
+    }).from(leadMonitoringRunItemsTable).where(eq(leadMonitoringRunItemsTable.runId, runId));
+    return { latest, items };
+  });
+
+  assert.equal(result.latest.body.id, fullMonitoringRunId);
+  assert.equal(result.latest.body.status, "completed");
+  assert.equal(result.latest.body.requestedCount, expectedCandidateIds.length);
+  assert.equal(result.latest.body.processedCount, expectedCandidateIds.length);
+  assert.deepEqual(
+    result.items.map((item) => item.candidateId).sort((left, right) => left - right),
+    expectedCandidateIds.sort((left, right) => left - right),
+  );
+  assert.deepEqual(
+    result.items.map((item) => item.status).sort(),
+    Array.from({ length: expectedCandidateIds.length }, () => "processed"),
+  );
+
+  const candidateStatusesAfter = await db.select({
+    id: leadCandidatesTable.id,
+    monitoringStatus: leadCandidatesTable.monitoringStatus,
+  }).from(leadCandidatesTable).where(eq(leadCandidatesTable.monitoringStatus, "monitoring"));
+  assert.deepEqual(
+    candidateStatusesAfter.sort((left, right) => left.id - right.id),
+    candidateStatusesBefore.sort((left, right) => left.id - right.id),
+  );
 });
 
 test("finner bare en HTTPS RSS- eller Atom-feed fra kandidatens eget domene", () => {
