@@ -29,6 +29,7 @@ import { Button } from "@workspace/weme-earth-tones-system/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/weme-earth-tones-system/components/ui/card";
 import { Checkbox } from "@workspace/weme-earth-tones-system/components/ui/checkbox";
 import { Input } from "@workspace/weme-earth-tones-system/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@workspace/weme-earth-tones-system/components/ui/popover";
 import { Skeleton } from "@workspace/weme-earth-tones-system/components/ui/skeleton";
 import { useToast } from "@workspace/weme-earth-tones-system/hooks/use-toast";
 import { ArrowDownAZ, ArrowUpDown, CheckCheck, ChevronRight, CircleAlert, CircleCheck, DatabaseZap, FileUp, ListChecks, ListFilter, Radio, Search, Sparkles, UsersRound } from "lucide-react";
@@ -430,15 +431,17 @@ export default function CandidatesPage() {
                 </div>
                 <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs text-muted-foreground">Viser {visibleCandidates.length} selskaper etter søk, utvalg og prioriteringsfilter.</p>
-                  <details className="group relative">
-                    <summary className="flex cursor-pointer list-none items-center justify-center rounded-md border border-input px-3 py-2 text-sm font-medium transition-colors hover:bg-muted [&::-webkit-details-marker]:hidden">
-                      Flere verktøy
-                    </summary>
-                    <div className="mt-2 flex flex-col gap-2 rounded-md border border-border bg-card p-2 shadow-sm sm:absolute sm:right-0 sm:z-10 sm:w-max sm:flex-row">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button size="sm" variant="outline">Flere verktøy</Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" side="top" sideOffset={8} className="w-auto p-2">
+                      <div className="flex flex-col gap-2 sm:flex-row">
                       <Button size="sm" variant="outline" onClick={() => batchMutation.mutate({ data: { scope: workScope } })} disabled={batchMutation.isPending}><ListChecks className="mr-2 h-4 w-4" /> {batchMutation.isPending ? "Oppretter…" : "Opprett gjennomgangsliste"}</Button>
                       <Button size="sm" variant="outline" onClick={handleCrmEnrichment} disabled={!visibleCandidates.length || crmEnrichmentMutation.isPending}><DatabaseZap className="mr-2 h-4 w-4" /> {crmEnrichmentMutation.isPending ? `Oppdaterer CRM (${visibleCandidates.length})…` : `Oppdater CRM (${visibleCandidates.length})`}</Button>
-                    </div>
-                  </details>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             </CardContent>

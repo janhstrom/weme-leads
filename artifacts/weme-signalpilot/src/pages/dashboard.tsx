@@ -77,7 +77,7 @@ export default function DashboardPage() {
                 </CardTitle>
                 <button
                   type="button"
-                  onClick={() => runMutation.mutate({})}
+                  onClick={() => runMutation.mutate()}
                   disabled={runMutation.isPending || latestRun?.status === "running"}
                   className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
